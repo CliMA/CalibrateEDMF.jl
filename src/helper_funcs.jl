@@ -123,7 +123,7 @@ space using PCA.
 
 Inputs:
  - u                :: Values of parameters to be used in simulations.
- - u_names          :: SCAMPy names for parameters `u`.
+ - u_names          :: SCM names for parameters `u`.
  - RM               :: Vector of `ReferenceModel`s
  - RS               :: reference statistics for simulation
 Outputs:
@@ -143,7 +143,7 @@ function run_SCM(
     sim_dirs = String[]
 
     for (i, m) in enumerate(RM)
-        # create temporary directory to store SCAMPy data in
+        # create temporary directory to store SCM data in
         tmpdir = mktempdir(pwd())
 
         # run TurbulenceConvection.jl. Get output directory for simulation data
@@ -186,9 +186,9 @@ Inputs:
  - m            :: Reference model
  - tmpdir       :: Directory to store simulation results in
  - u            :: Values of parameters to be used in simulations.
- - u_names      :: SCAMPy names for parameters `u`.
+ - u_names      :: SCM names for parameters `u`.
 Outputs:
- - output_dirs  :: list of directories containing output data from the SCAMPy runs.
+ - output_dirs  :: list of directories containing output data from the SCM runs.
 """
 function run_SCM_handler(
     m::ReferenceModel,
@@ -387,11 +387,10 @@ end
 
 
 """
-    normalize_profile(profile_vec, var_name, var_vec)
+    normalize_profile(profile_vec, n_vars, var_vec)
 
-Perform normalization of profiles contained in profile_vec
-using the standard deviation associated with each variable in
-var_name. Variances for each variable are contained
+Perform normalization of n_vars profiles contained in profile_vec
+using the standard deviation associated with each variable, contained
 in var_vec.
 """
 function normalize_profile(profile_vec, n_vars, var_vec)
@@ -521,4 +520,57 @@ function compute_errors(g_arr, y)
     diffs = [g - y for g in g_arr]
     errors = map(x->dot(x,x), diffs)
     return errors
+end
+
+
+"""
+    cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=nothing)
+
+Returns a block-diagonal covariance matrix constructed from covariances
+within cov_list given by the indices. If isempty(indices), use all 
+covariances to construct block-diagonal matrix.
+"""
+function cov_from_cov_list(cov_list::Array{Array{FT,2},1};
+         indices=[]) where {FT<:AbstractFloat}
+    size_ = isempty(indices) ? sum([length(cov[1,:]) for cov in cov_list]) :
+        sum([length(cov[1,:]) for (i, cov) in enumerate(cov_list) if i in indices])
+
+    cov_ = zeros(size_, size_)
+    vars_num = 1
+    for (index, small_cov) in enumerate(cov_list)
+        if index in indices
+            vars = length(small_cov[1,:])
+            cov_[vars_num:vars_num+vars-1, vars_num:vars_num+vars-1] = small_cov
+            vars_num = vars_num+vars
+        end
+    end
+    return cov_
+end
+
+"""
+    vec_from_vec_list(vec_list::Array{Array{FT,1},1}; indices=[], return_mapping=false)
+
+Returns a vector constructed from vectors within vec_list given by the
+indices. If isempty(indices), use all vectors to construct returned vector.
+If return_mapping, function returns the positions of all the elements used
+to construct the returned vector.
+"""
+function vec_from_vec_list(vec_list::Array{Array{FT,1},1};
+         indices=[], return_mapping=false) where {FT<:AbstractFloat}
+    vector_ = zeros(0)
+    elmt_num = []
+    chosen_elmt_num = []
+    for (index, small_vec) in enumerate(vec_list)
+        index < 2 ? append!(elmt_num, 1:length(small_vec)) :
+                    append!(elmt_num, elmt_num[end]+1:elmt_num[end]+length(small_vec))
+        if index in indices
+            append!(vector_, small_vec)
+            append!(chosen_elmt_num, elmt_num[end] - length(small_vec) + 1 : elmt_num[end])
+        end
+    end
+    if return_mapping
+        return vector_, chosen_elmt_num
+    else
+        return vector_
+    end
 end
