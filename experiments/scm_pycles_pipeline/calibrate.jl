@@ -1,12 +1,12 @@
-# This is an example on training the SCAMPy implementation of the EDMF
-# scheme with data generated using PyCLES.
+# This is an example on training the TurbulenceConvection.jl implementation
+# of the EDMF scheme with data generated using PyCLES.
 #
 # The example seeks to find the optimal values of the entrainment and
 # detrainment parameters of the EDMF scheme to replicate the LES profiles
 # of the BOMEX experiment.
 #
-# This example is fully parallelized and can be run in the cluster with
-# the included script.
+# This example is fully parallelized and can be run in the Caltech Central
+# cluster with the included script.
 
 # Import modules to all processes
 @everywhere using Pkg
@@ -19,7 +19,7 @@
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
-include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
+# include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
 using JLD2
 
 
@@ -190,7 +190,7 @@ function run_calibrate(return_ekobj=false)
             )
 
             # make ekp plots
-            make_ekp_plots(outdir_path, priors.names)
+            # make_ekp_plots(outdir_path, priors.names)
         end
 
         
