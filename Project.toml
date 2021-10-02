@@ -16,5 +16,6 @@ Thermodynamics = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
 TurbulenceConvection = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
 
 [compat]
+Interpolations = "0.13"
 JSON = "0.21"
 Distributions = "0.25"
