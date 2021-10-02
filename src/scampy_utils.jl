@@ -1,10 +1,11 @@
 """Interaction and postprocessing utils for CliMA/SCAMPy."""
+
+using Base
 using NCDatasets
 using Statistics
 using Interpolations
 using LinearAlgebra
 using Glob
-using JLD
 using JSON
 using Random
 # EKP modules
@@ -80,7 +81,7 @@ function run_SCAMPy(
 
             g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
             if !isnothing(norm_var_list)
-                g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[i])
+                g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[i])
             end
             append!(g_scm, g_scm_flow)
             if !isnothing(P_pca_list)
@@ -95,7 +96,7 @@ function run_SCAMPy(
                 tf_j = !isnothing(tf) ? tf[i][j] : nothing
                 g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_j, tf = tf_j)
                 if !isnothing(norm_var_list)
-                    g_scm_flow = normalize_profile(g_scm_flow, y_names_, norm_var_list[config_num])
+                    g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[config_num])
                 end
                 append!(g_scm, g_scm_flow)
                 if !isnothing(P_pca_list)
@@ -187,12 +188,13 @@ function run_SCAMPy_handler(
 
         # run SCAMPy with modified parameters
         main_path = joinpath(scampy_dir, "main.py")
-        run(`python $main_path $namelist_path $paramlist_path`)
+        Base.run(`python $main_path $namelist_path $paramlist_path`)
 
         push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid_end"))
     end  # end `simnames` loop
     return output_dirs
 end
+
 
 """
     precondition_ensemble!(params::Array{FT, 2}, priors, 
