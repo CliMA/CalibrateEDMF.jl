@@ -9,6 +9,7 @@ Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Thermodynamics = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
@@ -16,3 +17,5 @@ TurbulenceConvection = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
 
 [compat]
 Interpolations = "0.13"
+JSON = "0.21"
+Distributions = "0.25"
