@@ -21,7 +21,8 @@ include(joinpath(@__DIR__, "../src/helper_funcs.jl"))
         scm_root = scm_root,
         scm_name = sim_name,
         t_start = t_start,
-        t_end = t_end)
+        t_end = t_end,
+    )
 
     @test les_dir(ref_model) == joinpath(les_root, "Output.$sim_name.$les_suffix")
     @test scm_dir(ref_model) == joinpath(scm_root, "Output.$sim_name.00000")
@@ -31,13 +32,9 @@ end
 
 @testset "les_handlers" begin
     scm_names = ["total_flux_qt", "total_flux_h", "u_mean"]
-    @test get_les_names(scm_names, "GABLS") == ["resolved_z_flux_qt",
-                                    "resolved_z_flux_theta",
-                                    "u_translational_mean"]
+    @test get_les_names(scm_names, "GABLS") == ["resolved_z_flux_qt", "resolved_z_flux_theta", "u_translational_mean"]
 
-    @test get_les_names(scm_names, "foo") == ["resolved_z_flux_qt",
-                                    "resolved_z_flux_thetali",
-                                    "u_translational_mean"]
+    @test get_les_names(scm_names, "foo") == ["resolved_z_flux_qt", "resolved_z_flux_thetali", "u_translational_mean"]
 end
 
 
@@ -47,7 +44,5 @@ end
     foo_vec2 = [foo .+ 1.0, foo .+ 2.0]
 
     @test compute_errors(foo_vec, foo) ≈ [0, 0]
-    @test compute_errors(foo_vec2, foo) != [sqrt(5), 2*sqrt(5)]
+    @test compute_errors(foo_vec2, foo) != [sqrt(5), 2 * sqrt(5)]
 end
-
-
