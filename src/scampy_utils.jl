@@ -10,6 +10,7 @@ using JSON
 using Random
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 
 """
@@ -26,10 +27,9 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
         P_pca_list = nothing,
     ) where {FT<:AbstractFloat}
 
-Run call_SCAMPy.sh using a set of parameters u and return
-the value of outputs defined in y_names, possibly after
-normalization and projection onto lower dimensional space
-using PCA.
+Run SCAMPy simulations `scm_names` using a set of parameters `u_names` with
+values `u` and returns the value of outputs defined in y_names, possibly after
+normalization and projection onto lower dimensional space using PCA.
 
 Inputs:
  - u                :: Values of parameters to be used in simulations.
@@ -55,71 +55,48 @@ function run_SCAMPy(
     scampy_dir::String,
     scm_data_root::String,
     scm_names::Array{String, 1},
-    ti::Union{Array{FT, 1}, Array{Array{FT, 1}, 1}},
+    ti::Union{Array{Array{FT, 1}, 1}, Array{FT, 1}},
     tf::Union{Array{FT, 1}, Array{Array{FT, 1}, 1}, Nothing} = nothing;
     norm_var_list = nothing,
     P_pca_list = nothing,
 ) where {FT <: AbstractFloat}
 
-    # Check parameter dimensionality
-    @assert length(u_names) == length(u)
-
-    # run SCAMPy and get simulation dirs
+    # run SCAMPy, get simulation dirs and build outputs
     sim_dirs = run_SCAMPy_handler(u, u_names, scampy_dir, scm_names, scm_data_root)
+    g_scm, g_scm_pca = get_scm_outputs(sim_dirs, y_names, ti, tf, norm_var_list, P_pca_list)
 
-    # Check consistent time interval dims
-    @assert length(ti) == length(sim_dirs)
-
-    g_scm = zeros(0)
-    g_scm_pca = zeros(0)
-
-    if typeof(ti) == Array{FT, 1} # 1 interval per simulation
-        for (i, sim_dir) in enumerate(sim_dirs)
-            ti_ = ti[i]
-            tf_ = !isnothing(tf) ? tf[i] : nothing
-            y_names_ = typeof(y_names) == Array{Array{String, 1}, 1} ? y_names[i] : y_names
-
-            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
-            if !isnothing(norm_var_list)
-                g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[i])
-            end
-            append!(g_scm, g_scm_flow)
-            if !isnothing(P_pca_list)
-                append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
-            end
-        end
-    elseif typeof(ti) == Array{Array{FT, 1}, 1} # multiple intervals per simulation
-        config_num = 1
-        for (i, sim_dir) in enumerate(sim_dirs)
-            y_names_ = typeof(y_names) == Array{Array{String, 1}, 1} ? y_names[i] : y_names
-            for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals per sim
-                tf_j = !isnothing(tf) ? tf[i][j] : nothing
-                g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_j, tf = tf_j)
-                if !isnothing(norm_var_list)
-                    g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[config_num])
-                end
-                append!(g_scm, g_scm_flow)
-                if !isnothing(P_pca_list)
-                    append!(g_scm_pca, P_pca_list[config_num]' * g_scm_flow)
-                end
-                config_num += 1
-            end
-        end
-    end
-    # penalize nan-values in output
-    for i in eachindex(g_scm)
-        g_scm[i] = isnan(g_scm[i]) ? 1.0e5 : g_scm[i]
-    end
     if !isnothing(P_pca_list)
-        for i in eachindex(g_scm_pca)
-            g_scm_pca[i] = isnan(g_scm_pca[i]) ? 1.0e5 : g_scm_pca[i]
-        end
         println("LENGTH OF G_SCM_ARR : ", length(g_scm))
         println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
-        return sim_dirs, g_scm, g_scm_pca
+        return sim_dirs, penalize_nan(g_scm), penalize_nan(g_scm_pca)
     else
-        return sim_dirs, g_scm
+        return sim_dirs, penalize_nan(g_scm)
     end
+end
+
+"""Unravels list of ReferenceModels and call run_SCAMPy."""
+function run_SCAMPy(
+    u::Array{FT, 1},
+    u_names::Array{String, 1},
+    ref_models::Vector{ReferenceModel},
+    scampy_dir::String,
+    norm_var_list = nothing,
+    P_pca_list = nothing,
+) where {FT <: AbstractFloat}
+
+    [@assert ref_model.scm_root == ref_models[1].scm_root for ref_model in ref_models]
+    return run_SCAMPy(
+        u,
+        u_names,
+        [ref_model.y_names for ref_model in ref_models],
+        scampy_dir,
+        ref_models[1].scm_root,
+        [ref_model.scm_name for ref_model in ref_models],
+        [ref_model.t_start for ref_model in ref_models],
+        [ref_model.t_end for ref_model in ref_models],
+        norm_var_list = norm_var_list,
+        P_pca_list = norm_var_list,
+    )
 end
 
 
@@ -132,8 +109,8 @@ end
         scm_data_root::String,
     ) where {FT<:AbstractFloat}
 
-Run a list of cases using a set of parameters `u_names` with values `u`,
-and return a list of directories pointing to where data is stored for 
+Runs a list of cases using a set of parameters `u_names` with values `u`,
+and returns a list of directories pointing to where data is stored for 
 each simulation run.
 
 Inputs:
@@ -152,6 +129,9 @@ function run_SCAMPy_handler(
     scm_names::Array{String, 1},
     scm_data_root::String,
 ) where {FT <: AbstractFloat}
+    # Check parameter dimensionality
+    @assert length(u_names) == length(u)
+
     # create temporary directory to store SCAMPy data in
     tmpdir = mktempdir(pwd())
 
@@ -193,6 +173,92 @@ function run_SCAMPy_handler(
         push!(output_dirs, joinpath(tmpdir, "Output.$simname.$uuid_end"))
     end  # end `simnames` loop
     return output_dirs
+end
+
+"""
+    function get_scm_outputs(
+        sim_dirs::Array{String, 1},
+        y_names::Union{Array{String, 1}, Array{Array{String, 1}, 1}},
+        t_start::Array{FT, 1},
+        t_end::Union{Array{FT, 1}, Nothing},
+        norm_var_list,
+        P_pca_list,
+    ) where {FT <: AbstractFloat}
+
+Concatenates output mean fields between t_start and t_end from SCAMPy
+simulations stored in sim_dirs. If PCA matrices are passed, also returns
+the projection of the output mean on a lower dimensional encoding.
+
+Inputs:
+ - sim_dirs         :: Vector of simulation output directories.
+ - y_names          :: Name of outputs requested for each flow configuration.
+ - t_start          :: Vector of starting times for observation intervals. 
+                        If `tf=nothing`, snapshots at `ti` are returned.
+ - t_end            :: Vector of ending times for observation intervals.
+ - norm_var_list    :: Pooled variance vectors. If given, use to normalize output.
+ - P_pca_list       :: Vector of projection matrices `P_pca` for each flow configuration.
+Outputs:
+ 
+ - g_scm            :: Vector of model evaluations concatenated for all flow configurations.
+ - g_scm_pca        :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+"""
+function get_scm_outputs(
+    sim_dirs::Array{String, 1},
+    y_names::Union{Array{String, 1}, Array{Array{String, 1}, 1}},
+    t_start::Array{FT, 1},
+    t_end::Union{Array{FT, 1}, Nothing},
+    norm_var_list,
+    P_pca_list,
+) where {FT <: AbstractFloat}
+
+    g_scm = zeros(0)
+    g_scm_pca = zeros(0)
+    for (i, sim_dir) in enumerate(sim_dirs)
+        ti_ = t_start[i]
+        tf_ = !isnothing(t_end) ? t_end[i] : nothing
+        y_names_ = typeof(y_names) == Array{Array{String, 1}, 1} ? y_names[i] : y_names
+
+        g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_, tf = tf_)
+        if !isnothing(norm_var_list)
+            g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[i])
+        end
+        append!(g_scm, g_scm_flow)
+        if !isnothing(P_pca_list)
+            append!(g_scm_pca, P_pca_list[i]' * g_scm_flow)
+        end
+    end
+    return g_scm, g_scm_pca
+end
+
+function get_scm_outputs(
+    sim_dirs::Array{String, 1},
+    y_names::Union{Array{String, 1}, Array{Array{String, 1}, 1}},
+    t_start::Array{Array{FT, 1}, 1},
+    t_end::Union{Array{Array{FT, 1}, 1}, Nothing},
+    norm_var_list,
+    P_pca_list,
+) where {FT <: AbstractFloat}
+
+    g_scm = zeros(0)
+    g_scm_pca = zeros(0)
+
+    config_num = 1
+    for (i, sim_dir) in enumerate(sim_dirs)
+        y_names_ = typeof(y_names) == Array{Array{String, 1}, 1} ? y_names[i] : y_names
+        for (j, ti_j) in enumerate(ti[i]) # Loop on time intervals per sim
+            tf_j = !isnothing(tf) ? tf[i][j] : nothing
+            g_scm_flow = get_profile(sim_dir, y_names_, ti = ti_j, tf = tf_j)
+            if !isnothing(norm_var_list)
+                g_scm_flow = normalize_profile(g_scm_flow, length(y_names_), norm_var_list[config_num])
+            end
+            append!(g_scm, g_scm_flow)
+            if !isnothing(P_pca_list)
+                append!(g_scm_pca, P_pca_list[config_num]' * g_scm_flow)
+            end
+            config_num += 1
+        end
+    end
+    return g_scm, g_scm_pca
 end
 
 
