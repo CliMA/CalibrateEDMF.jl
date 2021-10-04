@@ -527,6 +527,16 @@ end
 
 
 """
+    penalize_nan(arr::Array{Float64, 1}; penalization::Float64 = 1.0e5)
+
+Substitutes all NaN entries in `arr` by a penalization factor.
+"""
+function penalize_nan(arr::Array{Float64, 1}; penalization::Float64 = 1.0e5)
+    return map(elem -> isnan(elem) ? penalization : elem, arr)
+end
+
+
+"""
     cov_from_cov_list(cov_list::Array{Array{FT,2},1}; indices=nothing)
 
 Returns a block-diagonal covariance matrix constructed from covariances
