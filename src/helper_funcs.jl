@@ -146,9 +146,10 @@ function run_SCM(
     g_scm_pca = zeros(0)
     sim_dirs = String[]
 
+    mkpath(joinpath(pwd(), "tmp"))
     for (i, m) in enumerate(RM)
         # create temporary directory to store SCM data in
-        tmpdir = mktempdir(pwd())
+        tmpdir = mktempdir(joinpath(pwd(), "tmp"))
 
         # run TurbulenceConvection.jl. Get output directory for simulation data
         sim_dir = run_SCM_handler(m, tmpdir, u, u_names)
