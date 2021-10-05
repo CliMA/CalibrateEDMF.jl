@@ -19,7 +19,7 @@
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
 @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
-# include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
+# include(joinpath(@__DIR__, "../../src/viz/ekp_plots.jl"))
 using JLD2
 
 
@@ -133,7 +133,7 @@ function run_calibrate(return_ekobj = false)
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
         params = [c[:] for c in eachcol(params_cons_i)]
         @everywhere params = $params
-        array_of_tuples = pmap(g_, params) # Outer dim is params iterator
+        array_of_tuples = pmap(g_, params; retry_delays = zeros(5)) # Outer dim is params iterator
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(array_of_tuples, l), 3) # Outer dim is G̃, G 
         println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
         for j in 1:N_ens
