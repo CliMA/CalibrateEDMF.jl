@@ -81,8 +81,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         for m in RM
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model_type, m, z_scm = get_profile(scm_dir(m), ["z_half"]), normalize)
-
+            y_, y_var_, pool_var = get_obs(model_type, m, z_scm = get_height(scm_dir(m)), normalize)
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_)
@@ -281,7 +280,7 @@ function get_obs(
 
     if !isnothing(z_scm)
         y_ = zeros(0)
-        z_les = get_profile(sim_dir, ["z_half"])
+        z_les = get_height(sim_dir)
         num_outputs = Integer(length(y_highres) / length(z_les))
         for i in 1:num_outputs
             y_itp =
@@ -338,59 +337,67 @@ end
 
 
 function get_profile(sim_dir::String, var_name::Vector{String}; ti::Real = 0.0, tf = nothing)
-    if length(var_name) == 1 && occursin("z_half", var_name[1])
-        prof_vec = nc_fetch(sim_dir, "profiles", var_name[1])
-    else
-        t = nc_fetch(sim_dir, "timeseries", "t")
-        dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
-        # Check that times are contained in simulation output
-        ti_diff, ti_index = findmin(broadcast(abs, t .- ti))
-        if !isnothing(tf)
-            tf_diff, tf_index = findmin(broadcast(abs, t .- tf))
+
+    t = nc_fetch(sim_dir, "timeseries", "t")
+    dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
+    # Check that times are contained in simulation output
+    ti_diff, ti_index = findmin(broadcast(abs, t .- ti))
+    if !isnothing(tf)
+        tf_diff, tf_index = findmin(broadcast(abs, t .- tf))
+    end
+    prof_vec = zeros(0)
+    # If simulation does not contain values for ti or tf, return high value
+    if ti_diff > dt
+        println("ti_diff > dt ", "ti_diff = ", ti_diff, "dt = ", dt, "ti = ", ti, "t[1] = ", t[1], "t[end] = ", t[end])
+        for i in 1:length(var_name)
+            var_ = get_height(sim_dir)
+            append!(prof_vec, 1.0e5 * ones(length(var_[:])))
         end
-        prof_vec = zeros(0)
-        # If simulation does not contain values for ti or tf, return high value
-        if ti_diff > dt
-            println(
-                "ti_diff > dt ",
-                "ti_diff = ",
-                ti_diff,
-                "dt = ",
-                dt,
-                "ti = ",
-                ti,
-                "t[1] = ",
-                t[1],
-                "t[end] = ",
-                t[end],
-            )
-            for i in 1:length(var_name)
-                var_ = nc_fetch(sim_dir, "profiles", "z_half")
-                append!(prof_vec, 1.0e5 * ones(length(var_[:])))
+    else
+        for i in 1:length(var_name)
+            if occursin("horizontal_vel", var_name[i])
+                u_ = nc_fetch(sim_dir, "profiles", "u_mean")
+                v_ = nc_fetch(sim_dir, "profiles", "v_mean")
+                var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
+            else
+                var_ = nc_fetch(sim_dir, "profiles", var_name[i])
+                # LES vertical fluxes are per volume, not mass
+                if occursin("resolved_z_flux", var_name[i])
+                    rho_half = nc_fetch(sim_dir, "reference", "rho0_half")
+                    var_ = var_ .* rho_half
+                end
             end
-        else
-            for i in 1:length(var_name)
-                if occursin("horizontal_vel", var_name[i])
-                    u_ = nc_fetch(sim_dir, "profiles", "u_mean")
-                    v_ = nc_fetch(sim_dir, "profiles", "v_mean")
-                    var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
-                else
-                    var_ = nc_fetch(sim_dir, "profiles", var_name[i])
-                    # LES vertical fluxes are per volume, not mass
-                    if occursin("resolved_z_flux", var_name[i])
-                        rho_half = nc_fetch(sim_dir, "reference", "rho0_half")
-                        var_ = var_ .* rho_half
-                    end
-                end
-                if !isnothing(tf)
-                    append!(prof_vec, mean(var_[:, ti_index:tf_index], dims = 2))
-                else
-                    append!(prof_vec, var_[:, ti_index])
-                end
+            if !isnothing(tf)
+                append!(prof_vec, mean(var_[:, ti_index:tf_index], dims = 2))
+            else
+                append!(prof_vec, var_[:, ti_index])
             end
         end
     end
     return prof_vec
+end
+
+
+"""
+    get_height(sim_dir::String; get_faces::Bool = false)
+
+Returns the vertical cell centers or faces of the given configuration.
+
+Inputs:
+ - sim_dir :: Name of simulation directory.
+ - get_faces :: If true, returns the coordinates of cell faces. Otherwise,
+    returns the coordinates of cell centers.
+Output:
+ - z: Vertical level coordinates.
+"""
+function get_height(sim_dir::String; get_faces::Bool = false)
+    z = nothing # Julia scoping
+    try
+        z = get_faces ? nc_fetch(sim_dir, "profiles", "zf") : nc_fetch(sim_dir, "profiles", "zc")
+    catch e
+        z = get_faces ? nc_fetch(sim_dir, "profiles", "z") : nc_fetch(sim_dir, "profiles", "z_half")
+    end
+    return z
 end
 
 
@@ -417,7 +424,7 @@ end
                      var_name::Array{String,1};
                      ti::Float64=0.0,
                      tf=0.0,
-                     getFullHeights=false,
+                     get_faces=false,
                      z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
                      normalize=false)
 
@@ -434,7 +441,7 @@ function get_time_covariance(
     m::ReferenceModel,
     sim_dir::String,
     var_names::Vector{String};
-    getFullHeights = false,
+    get_faces = false,
     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
 )
 
@@ -459,7 +466,7 @@ function get_time_covariance(
         ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i])
         # Interpolate in space
         if !isnothing(z_scm)
-            z_les = getFullHeights ? get_profile(sim_dir, ["z"]) : get_profile(sim_dir, ["z_half"])
+            z_les = get_height(sim_dir, get_faces = get_faces)
             # Create interpolant
             ts_var_i_itp = interpolate((z_les, 1:(tf_index - ti_index + 1)), ts_var_i, (Gridded(Linear()), NoInterp()))
             # Interpolate
