@@ -95,7 +95,7 @@ function run_calibrate(return_ekobj = false)
     #########
 
     # Compute data covariance
-    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize)
+    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize, tikhonov_noise = 1e-3)
     d = length(ref_stats.y) # Length of data array
 
     #########
