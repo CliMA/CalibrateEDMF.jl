@@ -10,7 +10,7 @@
 
 # Import modules to all processes
 @everywhere using Pkg
-@everywhere Pkg.activate("../..")
+@everywhere Pkg.activate("../../..")
 @everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
@@ -18,8 +18,8 @@
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-@everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
-# include(joinpath(@__DIR__, "../../src/viz/ekp_plots.jl"))
+@everywhere include(joinpath(@__DIR__, "../../../src/helper_funcs.jl"))
+# include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
 
 

@@ -158,6 +158,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
     end
+
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
 end
 
 pca_length(RS::ReferenceStatistics) = length(RS.y)
@@ -650,3 +652,70 @@ function vec_from_vec_list(
         return vector_
     end
 end
+
+"""
+    deserialize_prior(prior_dict::Dict{String, Any})
+
+Generates a prior ParameterDistribution from arguments stored
+in a dictionary.
+"""
+function deserialize_prior(prior_dict::Dict{String, Any})
+    return ParameterDistribution(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
+end
+
+"""
+    serialize_struct(s::T) where {T}
+
+Serializes the given structure as a dictionary to
+allow storage in JLD2 format.
+"""
+function serialize_struct(s::T) where {T}
+    keys = propertynames(s)
+    vals = getproperty.(Ref(s), keys)
+    return Dict(zip(string.(keys), vals))
+end
+
+"""
+    deserialize_struct(dict::Dict{String}, ::Type{T})
+
+Deserializes the given dictionary and constructs a struct
+of the given type with the dictionary values.
+"""
+deserialize_struct(dict::Dict{String}, ::Type{T}) where {T} = T(map(fn -> dict["$fn"], fieldnames(T))...)
+
+"""
+    generate_scm_input(u::Vector{Float64},
+        u_names::Vector{String},
+        RM::Vector{ReferenceModel},
+        RS::ReferenceStatistics,)
+
+Generates all data necessary to initialize a SCM evaluation
+at the given parameter vector `u`.
+"""
+function generate_scm_input(
+    u::Vector{Float64},
+    u_names::Vector{String},
+    RM::Vector{ReferenceModel},
+    RS::ReferenceStatistics,
+    outdir_path::String = pwd(),
+)
+    # Generate version
+    version = rand(11111:99999)
+    ref_models = map(x -> serialize_struct(x), RM)
+    ref_stats = serialize_struct(RS)
+    jldsave(scm_init_path(outdir_path, version); u, u_names, ref_models, ref_stats, version)
+    return version
+end
+
+"""
+    jld2_path(root::String, identifier::Union{String, Int}, prefix::String)
+
+Generates a JLD2 path, given a root path, an identifier and a prefix.
+"""
+function jld2_path(root::String, identifier::Union{String, Int}, prefix::String)
+    return joinpath(root, "$(prefix)$(identifier).jld2")
+end
+
+scm_init_path(root, version; prefix = "scm_initializer_") = jld2_path(root, version, prefix)
+scm_output_path(root, version; prefix = "scm_output_") = jld2_path(root, version, prefix)
+ekobj_path(root, iter; prefix = "ekobj_iter_") = jld2_path(root, iter, prefix)
