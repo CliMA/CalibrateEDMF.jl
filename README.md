@@ -1,6 +1,5 @@
-## CalibrateEDMF.jl: A Package to calibrate turbulence and convection parameterizations
-
-Last updated : September 2021
+## CalibrateEDMF.jl
+A package to calibrate turbulence and convection parameterizations.
 
 # Installation
 
