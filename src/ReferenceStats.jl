@@ -8,7 +8,7 @@ using Random
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using ..ReferenceModels
-include(joinpath(@__DIR__, "helper_funcs.jl"))
+include("helper_funcs.jl")
 
 export ReferenceStatistics
 export pca_length, full_length

@@ -5,7 +5,7 @@ using LinearAlgebra
 using Glob
 using JSON
 using Random
-using ..ReferenceModels
+using CalibrateEDMF.ReferenceModels
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
