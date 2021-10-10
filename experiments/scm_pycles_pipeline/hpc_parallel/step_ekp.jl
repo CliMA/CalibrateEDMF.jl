@@ -5,11 +5,16 @@ using ArgParse
 using Distributions
 using StatsBase
 using LinearAlgebra
+using CalibrateEDMF
+using CalibrateEDMF.ReferenceModels
+using CalibrateEDMF.ReferenceStats
+using CalibrateEDMF.TurbulenceConvectionUtils
+const src_dir = dirname(pathof(CalibrateEDMF))
+include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
-include(joinpath(@__DIR__, "../../../src/helper_funcs.jl"))
 using JLD2
 using Base
 

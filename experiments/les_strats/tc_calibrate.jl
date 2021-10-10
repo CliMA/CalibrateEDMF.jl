@@ -5,12 +5,17 @@
 @everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
+@everywhere using CalibrateEDMF
+@everywhere using CalibrateEDMF.ReferenceModels
+@everywhere using CalibrateEDMF.ReferenceStats
+@everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 # Import EKP modules
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
 @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-@everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
-@everywhere include(joinpath(@__DIR__, "../../src/scampy_utils.jl"))
+@everywhere const src_dir = dirname(pathof(CalibrateEDMF))
+@everywhere include(joinpath(src_dir, "helper_funcs.jl"))
+@everywhere include(joinpath(src_dir, "scampy_utils.jl"))
 using Base
 using JLD2
 using NPZ
