@@ -14,6 +14,9 @@
 @everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
+@everywhere using CalibrateEDMF.ReferenceModels
+@everywhere using CalibrateEDMF.ReferenceStats
+@everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 # Import EKP modules
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations

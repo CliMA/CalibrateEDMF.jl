@@ -5,6 +5,10 @@ using ArgParse
 using Distributions
 using StatsBase
 using LinearAlgebra
+using CalibrateEDMF.ReferenceModels
+using CalibrateEDMF.ReferenceStats
+using CalibrateEDMF.TurbulenceConvectionUtils
+
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
