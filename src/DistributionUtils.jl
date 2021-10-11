@@ -51,7 +51,7 @@ end
 Generates a prior ParameterDistribution from arguments stored
 in a dictionary.
 """
-function deserialize_prior(prior_dict::Dict{String, Any})
+function deserialize_prior(prior_dict::Dict{String, T}) where {T}
     return ParameterDistribution(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
 end
 

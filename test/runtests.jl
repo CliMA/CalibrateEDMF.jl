@@ -5,6 +5,8 @@ using CalibrateEDMF
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 
+
+include(joinpath("DistributionUtils", "runtests.jl"))
 include(joinpath("ReferenceModels", "runtests.jl"))
 
 @testset "les_handlers" begin
