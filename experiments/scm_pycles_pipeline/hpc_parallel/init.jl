@@ -1,4 +1,4 @@
-# Initializes a SCM calibration process.
+"""Initializes a SCM calibration process."""
 
 using Distributions
 using StatsBase
@@ -87,11 +87,7 @@ function init_calibration(N_ens::Int, N_iter::Int, job_id::String)
     versions = map(param -> generate_scm_input(param, get_name(priors), ref_models, ref_stats, outdir_path), params)
 
     # Store version identifiers for this ensemble in a common file
-    open(joinpath(outdir_path, "versions_1.txt"), "w") do io
-        for version in versions
-            write(io, "$(version)\n")
-        end
-    end
+    write_versions(versions, 1, outdir_path = outdir_path)
 end
 
 s = ArgParseSettings()
@@ -99,13 +95,9 @@ s = ArgParseSettings()
     "--n_ens"
     help = "Number of ensemble members."
     arg_type = Int
-end
-@add_arg_table s begin
     "--n_it"
     help = "Number of algorithm iterations."
     arg_type = Int
-end
-@add_arg_table s begin
     "--job_id"
     help = "Job identifier"
     arg_type = String

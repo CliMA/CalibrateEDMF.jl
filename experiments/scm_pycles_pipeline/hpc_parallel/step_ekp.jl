@@ -49,12 +49,9 @@ function ek_update(iteration_::Int64, outdir_path::String)
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
     versions = map(param -> generate_scm_input(param, priors.names, ref_models, ref_stats, outdir_path), params)
+
     # Store version identifiers for this ensemble in a common file
-    open(joinpath(outdir_path, "versions_$(iteration_+1).txt"), "w") do io
-        for version in versions
-            write(io, "$(version)\n")
-        end
-    end
+    write_versions(versions, iteration_ + 1, outdir_path = outdir_path)
     return
 end
 
@@ -65,12 +62,11 @@ s = ArgParseSettings()
     "--iteration"
     help = "Calibration iteration number"
     arg_type = Int
-end
-@add_arg_table s begin
     "--job_dir"
     help = "Job output directory"
     arg_type = String
     default = "output"
 end
 parsed_args = parse_args(ARGS, s)
+
 ek_update(parsed_args["iteration"], parsed_args["job_dir"])
