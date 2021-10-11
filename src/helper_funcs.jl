@@ -418,3 +418,17 @@ end
 scm_init_path(root, version; prefix = "scm_initializer_") = jld2_path(root, version, prefix)
 scm_output_path(root, version; prefix = "scm_output_") = jld2_path(root, version, prefix)
 ekobj_path(root, iter; prefix = "ekobj_iter_") = jld2_path(root, iter, prefix)
+
+
+"""
+    write_versions(versions::Vector{Int}, iteration::Int; outdir_path::String = pwd())
+
+Writes versions associated with an EnsembleKalmanProcess iteration to a text file.
+"""
+function write_versions(versions::Vector{Int}, iteration::Int; outdir_path::String = pwd())
+    open(joinpath(outdir_path, "versions_$(iteration).txt"), "w") do io
+        for version in versions
+            write(io, "$(version)\n")
+        end
+    end
+end

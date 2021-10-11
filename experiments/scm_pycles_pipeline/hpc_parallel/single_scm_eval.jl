@@ -21,8 +21,6 @@ s = ArgParseSettings()
     "--version"
     help = "Calibration process number"
     arg_type = Int
-end
-@add_arg_table s begin
     "--job_dir"
     help = "Job output directory"
     arg_type = String
