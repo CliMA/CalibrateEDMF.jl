@@ -5,13 +5,16 @@ using Interpolations
 using LinearAlgebra
 using Glob
 using Random
+using JLD2
 # EKP modules
+using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using ..ReferenceModels
 include("helper_funcs.jl")
 
 export ReferenceStatistics
 export pca_length, full_length
+export generate_ekp
 
 
 """
@@ -125,5 +128,41 @@ end
 pca_length(RS::ReferenceStatistics) = length(RS.y)
 full_length(RS::ReferenceStatistics) = length(RS.y_full)
 
+"""
+    generate_ekp(
+        u::Array{Float64, 2},
+        ref_stats::ReferenceStatistics,
+        algo;
+        outdir_path::String = pwd(),
+        to_file::Bool = true,
+    )
+
+Generates, and possible writes to file, an EnsembleKalmanProcess
+from a parameter ensemble and reference statistics.
+
+Inputs:
+ - u :: An ensemble of parameter vectors.
+ - ref_stats :: ReferenceStatistics defining the inverse problem.
+ - algo :: Type of EnsembleKalmanProcess algorithm used to evolve the ensemble.
+ - outdir_path :: Output path.
+ - to_file :: Whether to write the serialized prior to a JLD2 file.
+
+Output:
+ - The generated EnsembleKalmanProcess.
+"""
+function generate_ekp(
+    u::Array{Float64, 2},
+    ref_stats::ReferenceStatistics,
+    algo;
+    outdir_path::String = pwd(),
+    to_file::Bool = true,
+)
+    ekp_obj = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
+    if to_file
+        ekp = serialize_struct(ekp_obj)
+        jldsave(ekobj_path(outdir_path, 1); ekp)
+    end
+    return ekp_obj
+end
 
 end # module

@@ -1,3 +1,5 @@
+"""Generic utils."""
+
 using NCDatasets
 using Statistics
 using Interpolations
@@ -382,16 +384,6 @@ function vec_from_vec_list(
     else
         return vector_
     end
-end
-
-"""
-    deserialize_prior(prior_dict::Dict{String, Any})
-
-Generates a prior ParameterDistribution from arguments stored
-in a dictionary.
-"""
-function deserialize_prior(prior_dict::Dict{String, Any})
-    return ParameterDistribution(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
 end
 
 """

@@ -1,5 +1,5 @@
-# Evaluates a set of SCM configurations for a single parameter vector.
-#
+"""Evaluates a set of SCM configurations for a single parameter vector."""
+
 using ArgParse
 using Distributions
 using CalibrateEDMF
