@@ -9,24 +9,13 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
+include(joinpath(src_dir, "dist_utils.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using JLD2
 
-""" Define parameters and their priors"""
-function construct_priors(params::Dict{String, Vector{Constraint}}, outdir_path::String = pwd())
-    u_names = collect(keys(params))
-    constraints = collect(values(params))
-    n_param = length(u_names)
-
-    # All vars are approximately uniform in unconstrained space
-    distributions = repeat([Parameterized(Normal(0.0, 1.0))], n_param)
-    priors = ParameterDistribution(distributions, constraints, u_names)
-    jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names)
-    return priors
-end
 
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
@@ -53,20 +42,6 @@ function construct_reference_models()::Vector{ReferenceModel}
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
     return ref_models
-end
-
-"""
-    generate_ekobj(u::Array{Float64, 2},
-               ref_stats::ReferenceStatistics,
-               algo)
-
-Generates an EnsembleKalmanProcess from a parameter
-vector, ReferenceStatistics and an algorithm.
-"""
-function generate_ekobj(u::Array{Float64, 2}, ref_stats::ReferenceStatistics, outdir_path::String, algo)
-    ekp = serialize_struct(EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo))
-    jldsave(ekobj_path(outdir_path, 1); ekp)
-    return
 end
 
 
@@ -103,10 +78,10 @@ function init_calibration(N_ens::Int, N_iter::Int, job_id::String)
     open("$(job_id).txt", "w") do io
         write(io, "$(outdir_path)\n")
     end
-    priors = construct_priors(params, outdir_path)
+    priors = construct_priors(params, outdir_path = outdir_path)
     # parameters are sampled in unconstrained space
     initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
-    generate_ekobj(initial_params, ref_stats, outdir_path, algo)
+    generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
     params_cons_i = transform_unconstrained_to_constrained(priors, initial_params)
     params = [c[:] for c in eachcol(params_cons_i)]
     versions = map(param -> generate_scm_input(param, get_name(priors), ref_models, ref_stats, outdir_path), params)
