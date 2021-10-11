@@ -1,9 +1,13 @@
 """Parameter and probability distribution utils."""
 
+module DistributionUtils
+
 using Distributions
 using JLD2
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
+export construct_priors, deserialize_prior
+export logmean_and_logstd, mean_and_std_from_ln, logmean_and_logstd_from_mode_std
 
 """
     construct_priors(
@@ -89,3 +93,5 @@ end
 
 log_transform(a::AbstractArray) = log.(a)
 exp_transform(a::AbstractArray) = exp.(a)
+
+end # module

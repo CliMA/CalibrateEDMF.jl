@@ -6,12 +6,12 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
+using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
-include(joinpath(src_dir, "dist_utils.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
