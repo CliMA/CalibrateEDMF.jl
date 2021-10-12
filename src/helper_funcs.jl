@@ -41,19 +41,19 @@ function get_obs(
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where {FT <: Real}
-    les_names = get_les_names(m.y_names, les_dir(m))
+    les_names = get_les_names(m.y_names, m.les_dir)
 
     # True observables from SCM or LES depending on `obs_type` flag
     y_names, sim_dir = if obs_type == :scm
-        m.y_names, scm_dir(m)
+        m.y_names, m.scm_dir
     elseif obs_type == :les
-        les_names, les_dir(m)
+        les_names, m.les_dir
     else
         error("Unknown observation type $obs_type")
     end
 
     # For now, we always use LES to construct covariance matrix
-    y_tvar, pool_var = get_time_covariance(m, les_dir(m), les_names, z_scm = z_scm)
+    y_tvar, pool_var = get_time_covariance(m, m.les_dir, les_names, z_scm = z_scm)
 
     norm_vec = if normalize
         pool_var

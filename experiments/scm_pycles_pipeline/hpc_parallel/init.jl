@@ -19,24 +19,21 @@ using JLD2
 
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
-    les_root = "/groups/esm/zhaoyi/pycles_clima"
-    scm_root = "/groups/esm/hervik/calibration/static_input"  # path to folder with `Output.<scm_name>.00000` files
-
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
         # Define variables considered in the loss function
         y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        # Reference data specification
-        les_root = les_root,
-        les_name = "Bomex",
-        les_suffix = "aug09",
-        # Simulation case specification
-        scm_root = scm_root,
+        # Reference path specification
+        les_dir = "/groups/esm/zhaoyi/pycles_clima/Output.Bomex.aug09",
+        # Simulation path specification
+        scm_dir = "/groups/esm/hervik/calibration/static_input/Output.Bomex.00000",
+        # Simulation casename specification
         scm_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 24hrs
     )
+
     # Make vector of reference models
     ref_models::Vector{ReferenceModel} = [ref_bomex]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))

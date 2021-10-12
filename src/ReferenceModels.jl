@@ -14,22 +14,14 @@ reference models.
 """
 Base.@kwdef struct ReferenceModel
     "Vector of reference variable names"
+    # Field names for cost function
     y_names::Vector{String}
-
-    "Root directory for reference LES data"
-    les_root::String
-    "Name of LES reference simulation file"
-    les_name::String
-    "Suffix of LES reference simulation file"
-    les_suffix::String
-
-    "Root directory for SCM data (used for interpolation)"
-    scm_root::String
-    "Name of SCM reference simulation file"
+    # Relative path to LES reference simulation file
+    les_dir::String
+    # Relative path to LES reference simulation file
+    scm_dir::String
+    # Name of case
     scm_name::String
-    "Suffix of SCM reference simulation file"
-    scm_suffix::String = "00000"
-
     # TODO: Make t_start and t_end vectors for multiple time intervals per reference model.
     "Start time for computing statistics over"
     t_start::Real
@@ -37,8 +29,8 @@ Base.@kwdef struct ReferenceModel
     t_end::Real
 end
 
-les_dir(m::ReferenceModel) = data_directory(m.les_root, m.les_name, m.les_suffix)
-scm_dir(m::ReferenceModel) = data_directory(m.scm_root, m.scm_name, m.scm_suffix)
+les_dir(m::ReferenceModel) = m.les_dir
+scm_dir(m::ReferenceModel) = m.scm_dir
 data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
 
 namelist_directory(root::String, m::ReferenceModel) = namelist_directory(root, m.scm_name)
