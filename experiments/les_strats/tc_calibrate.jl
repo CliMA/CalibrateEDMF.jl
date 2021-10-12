@@ -81,11 +81,9 @@ function construct_reference_models()::Vector{ReferenceModel}
             # Define variables considered in the loss function
             y_names = vars,
             # Reference data specification
-            les_root = les_root,
-            les_name = sim_name,
-            les_suffix = les_suffix,
+            les_dir = data_directory("/groups/esm/ilopezgo", sim_name, les_suffix),
             # Simulation case specification
-            scm_root = scm_root,
+            scm_dir = data_directory("./tc_inputs", sim_name, "00000"),
             scm_name = sim_name,
             t_start = t_start,
             t_end = t_end,
