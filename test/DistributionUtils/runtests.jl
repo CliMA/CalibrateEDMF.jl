@@ -29,3 +29,15 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
     @test priors1.names == priors3.names
     @test priors1.constraints == priors3.constraints
 end
+
+@testset "Transformations" begin
+    μ_log = 1.0
+    σ_log = 0.5
+    μ, σ = mean_and_std_from_ln(μ_log, σ_log)
+    μ_log2, σ_log2 = logmean_and_logstd(μ, σ)
+
+    # Test recovery
+    @test σ_log ≈ σ_log2
+    @test μ_log ≈ μ_log2
+
+end

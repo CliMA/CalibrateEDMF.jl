@@ -7,7 +7,8 @@ using JLD2
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 export construct_priors, deserialize_prior
-export logmean_and_logstd, mean_and_std_from_ln, logmean_and_logstd_from_mode_std
+export logmean_and_logstd, mean_and_std_from_ln
+
 
 """
     construct_priors(
@@ -67,17 +68,6 @@ function logmean_and_logstd(μ, σ)
     return μ_log, σ_log
 end
 
-"""
-    logmean_and_logstd_from_mode_std(μ, σ)
-
-Returns the lognormal parameters μ and σ from the mode and the std σ of the 
-lognormal distribution.
-"""
-function logmean_and_logstd_from_mode_std(mode, σ)
-    σ_log = sqrt(log(mode) * (log(σ^2) - 1.0) / (2.0 - log(σ^2) * 3.0 / 2.0))
-    μ_log = log(mode) * (1.0 - log(σ^2) / 2.0) / (2.0 - log(σ^2) * 3.0 / 2.0)
-    return μ_log, σ_log
-end
 
 """
     mean_and_std_from_ln(μ, σ)
