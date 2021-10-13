@@ -16,9 +16,9 @@ Base.@kwdef struct ReferenceModel
     "Vector of reference variable names"
     # Field names for cost function
     y_names::Vector{String}
-    # Relative path to LES reference simulation file
+    # Directory of les simulation
     les_dir::String
-    # Relative path to LES reference simulation file
+    # Directory of scm simulation
     scm_dir::String
     # Name of case
     scm_name::String

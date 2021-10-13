@@ -58,8 +58,6 @@ end
 
 """Define reference simulations for loss function."""
 function construct_reference_models()::Vector{ReferenceModel}
-    les_root = "/groups/esm/ilopezgo"
-    scm_root = "./tc_inputs"  # path to folder with `Output.<scm_name>.00000` files
     sim_names = ["DYCOMS_RF01", "GABLS", "Bomex"]
     les_suffixes = ["may20", "iles128wCov", "may18"]
     # Define variables per flow configuration

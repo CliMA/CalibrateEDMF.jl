@@ -104,7 +104,7 @@ function run_SCM_handler(
 ) where {FT <: AbstractFloat}
 
     # fetch default namelist
-    inputdir = m.scm_dir
+    inputdir = scm_dir(m)
     namelist = JSON.parsefile(namelist_directory(inputdir, m))
 
     # update parameter values
