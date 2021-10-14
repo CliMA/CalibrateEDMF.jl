@@ -19,6 +19,8 @@ using JLD2
 
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
+
+    ### Calibrate on field campaigns
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
         # Define variables considered in the loss function
@@ -28,7 +30,7 @@ function construct_reference_models()::Vector{ReferenceModel}
         # Simulation path specification
         scm_dir = "/groups/esm/hervik/calibration/static_input/Output.Bomex.00000",
         # Simulation casename specification
-        scm_name = "Bomex",
+        case_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 24hrs
@@ -36,7 +38,41 @@ function construct_reference_models()::Vector{ReferenceModel}
 
     # Make vector of reference models
     ref_models::Vector{ReferenceModel} = [ref_bomex]
-    @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
+
+    #### Calibrate on LES Library
+    # # available LES library simulations stored in LES_library dict
+    # cfsite_numbers = [17] # for all cfsites us LES_library["cfsite_numbers"]
+    # forcing_models = ["HadGEM2-A"]
+    # months = [7]
+    # experiments = ["amip"]
+
+    # ref_models = [
+    #     ReferenceModel(
+    #         # Define variables considered in the loss function
+    #         y_names = ["thetal_mean", "ql_mean", "qt_mean"],
+    #         # Reference path specification
+    #         les_dir = get_cfsite_les_dir(
+    #             cfsite_number,
+    #             forcing_model = forcing_model,
+    #             month = month,
+    #             experiment = experiment,
+    #         ),
+    #         # Simulation path specification
+    #         scm_dir = string(
+    #             "/groups/esm/cchristo/calibration/static_input/scm/Output.LES_driven_SCM.",
+    #             generate_uuid(cfsite_number, forcing_model = forcing_model, month = month, experiment = experiment),
+    #         ),
+    #         # Simulation casename specification
+    #         case_name = "LES_driven_SCM",
+    #         # Define observation window (s)
+    #         t_start = 4.0 * 3600,  # 4hrs
+    #         t_end = 24.0 * 3600,  # 24hrs
+    #     )
+    #     for
+    #     (cfsite_number, forcing_model, month, experiment) in zip(cfsite_numbers, forcing_models, months, experiments)
+    # ]
+
+    @assert all(isdir.([les_dir.(ref_models)...]))
 
     return ref_models
 end
@@ -53,16 +89,23 @@ function init_calibration(N_ens::Int, N_iter::Int, job_id::String)
     # Flags for saving output data
     save_eki_data = true  # eki output
     save_ensemble_data = false  # .nc-files from each ensemble run
+    # Flag for overwritting SCM input file
+    overwrite_scm_file = false
+
     algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
     Δt = 1.0 # Artificial time stepper of the EKI.
 
     # Define the parameters that we want to learn
     params = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.05, 0.5)],
-        "detrainment_factor" => [bounded(0.05, 0.5)],
+        "entrainment_factor" => [bounded(0.1, 0.5)],
+        "detrainment_factor" => [bounded(0.1, 0.5)],
     )
     ref_models = construct_reference_models()
+
+    # Create input scm stats and namelist file if files don't already exist
+    run_SCM(ref_models, overwrite = overwrite_scm_file)
+
     ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize, tikhonov_noise = 1e-3)
 
     algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"

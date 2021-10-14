@@ -25,3 +25,7 @@ end
     @test compute_errors(foo_vec, foo) ≈ [0, 0]
     @test compute_errors(foo_vec2, foo) != [sqrt(5), 2 * sqrt(5)]
 end
+
+@testset "general_utils" begin
+    @test generate_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") == "1_model1_01_experiment1"
+end

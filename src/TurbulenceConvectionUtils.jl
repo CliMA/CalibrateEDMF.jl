@@ -84,17 +84,16 @@ end
         u_names::Array{String, 1},
     ) where {FT<:AbstractFloat}
 
-Run a list of cases using a set of parameters `u_names` with values `u`,
-and return a list of directories pointing to where data is stored for 
-each simulation run.
+Run a case using a set of parameters `u_names` with values `u`,
+and return directory pointing to where data is stored for simulation run.
 
 Inputs:
  - m            :: Reference model
- - tmpdir       :: Directory to store simulation results in
+ - tmpdir       :: Temporary directory to store simulation results in
  - u            :: Values of parameters to be used in simulations.
  - u_names      :: SCM names for parameters `u`.
 Outputs:
- - output_dirs  :: list of directories containing output data from the SCM runs.
+ - output_dirs  :: directory containing output data from the SCM run.
 """
 function run_SCM_handler(
     m::ReferenceModel,
@@ -117,18 +116,71 @@ function run_SCM_handler(
     namelist["meta"]["uuid"] = uuid
     # set output dir to `tmpdir`
     namelist["output"]["output_root"] = tmpdir
-    # write updated namelist to `tmpdir`
-    namelist_path = namelist_directory(tmpdir, m)
-    open(namelist_path, "w") do io
-        JSON.print(io, namelist, 4)
-    end
 
     # run TurbulenceConvection.jl with modified parameters
     main(namelist)
 
-    return data_directory(tmpdir, m.scm_name, uuid)
+    return data_directory(tmpdir, m.case_name, uuid)
 end
 
+
+"""
+    run_SCM(
+        RM::Vector{ReferenceModel};
+        overwrite::Bool,
+    ) where FT<:Real
+
+Run the single-column model (SCM) for each reference model object
+using default parameters.
+
+Inputs:
+ - RM               :: Vector of `ReferenceModel`s
+ - overwrite       :: if true, overwrite existing simulation files
+Outputs:
+ - Nothing
+"""
+function run_SCM(RM::Vector{ReferenceModel}; overwrite::Bool = false) where {FT <: Real}
+
+    for ref_model in RM
+        output_dir = scm_dir(ref_model)
+        if ~isdir(output_dir) | overwrite
+            run_SCM_handler(ref_model, dirname(output_dir))
+        end
+    end
+end
+
+"""
+    run_SCM_handler(
+        m::ReferenceModel,
+        output_dir::String;
+    ) where {FT<:AbstractFloat}
+
+Run a case with default SCM parameters and return data
+directory pointing to where data is stored for simulation run.
+
+Inputs:
+ - m            :: Reference model
+ - output_dir       :: Directory to store simulation results in
+Outputs:
+ - output_dirs  :: directory containing output data from the SCM run.
+"""
+function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: AbstractFloat}
+
+    namelist = NameList.default_namelist(m.case_name)
+    # calling NameList.default_namelist writes namelist to cwd
+    rm("namelist_" * namelist["meta"]["casename"] * ".in")
+    namelist["meta"]["uuid"] = uuid(m)
+    # set output dir to `output_dir`
+    namelist["output"]["output_root"] = output_dir
+    # if `LES_driven_SCM` case, provide input LES stats file
+    if m.case_name == "LES_driven_SCM"
+        namelist["meta"]["lesfile"] = get_stats_path(les_dir(m))
+    end
+    # run TurbulenceConvection.jl
+    main(namelist)
+
+    return data_directory(output_dir, m.case_name, namelist["meta"]["uuid"])
+end
 
 """
     generate_scm_input(u::Vector{Float64},
