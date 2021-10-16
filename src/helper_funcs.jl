@@ -14,7 +14,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 using TurbulenceConvection
 tc_dir = dirname(dirname(pathof(TurbulenceConvection)));
 include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
-
+include(joinpath(tc_dir, "integration_tests", "utils", "generate_namelist.jl"))
 
 """
     get_obs(
@@ -41,19 +41,19 @@ function get_obs(
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where {FT <: Real}
-    les_names = get_les_names(m.y_names, m.les_dir)
+    les_names = get_les_names(m.y_names, les_dir(m))
 
     # True observables from SCM or LES depending on `obs_type` flag
     y_names, sim_dir = if obs_type == :scm
-        m.y_names, m.scm_dir
+        m.y_names, scm_dir(m)
     elseif obs_type == :les
-        les_names, m.les_dir
+        les_names, les_dir(m)
     else
         error("Unknown observation type $obs_type")
     end
 
     # For now, we always use LES to construct covariance matrix
-    y_tvar, pool_var = get_time_covariance(m, m.les_dir, les_names, z_scm = z_scm)
+    y_tvar, pool_var = get_time_covariance(m, les_dir(m), les_names, z_scm = z_scm)
 
     norm_vec = if normalize
         pool_var
@@ -298,16 +298,21 @@ end
 
 
 function nc_fetch(dir, nc_group, var_name)
-    find_prev_to_name(x) = occursin("Output", x)
-    split_dir = split(dir, ".")
-    sim_name = split_dir[findall(find_prev_to_name, split_dir)[1] + 1]
-    ds = NCDataset(string(dir, "/stats/Stats.", sim_name, ".nc"))
+    ds = NCDataset(get_stats_path(dir))
     ds_group = ds.group[nc_group]
     ds_var = deepcopy(Array(ds_group[var_name]))
     close(ds)
     return Array(ds_var)
 end
 
+"""
+    get_stats_path(dir)
+
+Given directory to standard LES or SCM output, fetch path to stats file.
+"""
+function get_stats_path(dir)
+    return joinpath(dir, "stats", readdir(string(dir, "/stats"))[1])
+end
 
 """
     compute_errors(g_arr, y)
@@ -432,3 +437,69 @@ function write_versions(versions::Vector{Int}, iteration::Int; outdir_path::Stri
         end
     end
 end
+
+"""
+    get_cfsite_les_dir(
+        cfsite_number::Integer;
+        forcing_model::String = "HadGEM2-A",
+        month::Integer = 7,
+        experiment::String = "amip",)
+
+Given information about an LES run from `Shen et al. 2021`,
+fetch LES directory on central cluster.
+
+    Inputs:
+    - cfsite_number  :: cfsite number
+    - forcing_model :: {"HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1", "IPSL-CM6A-LR"} - name of climate model used for forcing
+    - month :: {1, 4, 7, 10} - month of simulation
+    - experiment :: {"amip", "amip4K"} - experiment from which LES was forced
+
+   Outputs:
+    - les_dir - path to les simulation containing stats folder
+
+"""
+
+function get_cfsite_les_dir(
+    cfsite_number::Integer;
+    forcing_model::String = "HadGEM2-A",
+    month::Integer = 7,
+    experiment::String = "amip",
+)
+    cfsite_number = string(cfsite_number)
+    month = string(month, pad = 2)
+    root_dir = "/central/groups/esm/zhaoyi/GCMForcedLES/cfsite/$month/$forcing_model/$experiment/"
+    rel_dir = join(["Output.cfsite$cfsite_number", forcing_model, experiment, "2004-2008.07.4x"], "_")
+    return joinpath(root_dir, rel_dir)
+end
+
+"""
+    generate_uuid(
+        cfsite_number::Integer;
+        forcing_model::String,
+        month::Integer,
+        experiment::String,)
+Generate unique and self-describing uuid given information about an LES simulation from `Shen et al. 2021`.
+"""
+function generate_uuid(
+    cfsite_number::Integer;
+    forcing_model::String = "HadGEM2-A",
+    month::Integer = 7,
+    experiment::String = "amip",
+)
+    cfsite_number = string(cfsite_number)
+    month = string(month, pad = 2)
+    return join([cfsite_number, forcing_model, month, experiment], '_')
+end
+
+"""
+    LES_library
+Enumerate available LES simulations described in `Shen et al. 2021`.
+The following cfsites are available across listed models, months,
+and experiments. Although some additional simulations are available.
+"""
+LES_library = Dict(
+    "cfsite_numbers" => collect(2:23),
+    "forcing_models" => ["HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1"],
+    "months" => [1, 4, 7, 10],
+    "experiments" => ["amip", "amip4K"],
+)

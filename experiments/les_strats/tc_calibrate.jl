@@ -58,8 +58,7 @@ end
 
 """Define reference simulations for loss function."""
 function construct_reference_models()::Vector{ReferenceModel}
-    les_root = "/groups/esm/ilopezgo"
-    scm_root = "./tc_inputs"  # path to folder with `Output.<scm_name>.00000` files
+
     sim_names = ["DYCOMS_RF01", "GABLS", "Bomex"]
     les_suffixes = ["may20", "iles128wCov", "may18"]
     # Define variables per flow configuration
@@ -84,12 +83,13 @@ function construct_reference_models()::Vector{ReferenceModel}
             les_dir = data_directory("/groups/esm/ilopezgo", sim_name, les_suffix),
             # Simulation case specification
             scm_dir = data_directory("./tc_inputs", sim_name, "00000"),
-            scm_name = sim_name,
+            case_name = sim_name,
             t_start = t_start,
             t_end = t_end,
         ) for (sim_name, les_suffix, vars, t_start, t_end) in zip(sim_names, les_suffixes, y_names, ti, tf)
     ]
-    @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
+    @assert all(isdir.([les_dir.(ref_models)...]))
+
     return ref_models
 end
 
