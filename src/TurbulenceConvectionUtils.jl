@@ -75,6 +75,31 @@ function run_SCM(
     return sim_dirs, g_scm, g_scm_pca
 end
 
+"""
+    run_SCM(
+        RM::Vector{ReferenceModel};
+        overwrite::Bool,
+    ) where FT<:Real
+
+Run the single-column model (SCM) for each reference model object
+using default parameters.
+
+Inputs:
+ - RM               :: Vector of `ReferenceModel`s
+ - overwrite       :: if true, overwrite existing simulation files
+Outputs:
+ - Nothing
+"""
+function run_SCM(RM::Vector{ReferenceModel}; overwrite::Bool = false) where {FT <: Real}
+
+    for ref_model in RM
+        output_dir = scm_dir(ref_model)
+        if ~isdir(output_dir) | overwrite
+            run_SCM_handler(ref_model, dirname(output_dir))
+        end
+    end
+end
+
 
 """
     run_SCM_handler(
@@ -123,32 +148,6 @@ function run_SCM_handler(
     return data_directory(tmpdir, m.case_name, uuid)
 end
 
-
-"""
-    run_SCM(
-        RM::Vector{ReferenceModel};
-        overwrite::Bool,
-    ) where FT<:Real
-
-Run the single-column model (SCM) for each reference model object
-using default parameters.
-
-Inputs:
- - RM               :: Vector of `ReferenceModel`s
- - overwrite       :: if true, overwrite existing simulation files
-Outputs:
- - Nothing
-"""
-function run_SCM(RM::Vector{ReferenceModel}; overwrite::Bool = false) where {FT <: Real}
-
-    for ref_model in RM
-        output_dir = scm_dir(ref_model)
-        if ~isdir(output_dir) | overwrite
-            run_SCM_handler(ref_model, dirname(output_dir))
-        end
-    end
-end
-
 """
     run_SCM_handler(
         m::ReferenceModel,
@@ -167,7 +166,7 @@ Outputs:
 function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: AbstractFloat}
 
     namelist = NameList.default_namelist(m.case_name)
-    # calling NameList.default_namelist writes namelist to cwd
+    # calling NameList.default_namelist writes namelist to pwd
     rm("namelist_" * namelist["meta"]["casename"] * ".in")
     namelist["meta"]["uuid"] = uuid(m)
     # set output dir to `output_dir`

@@ -3,7 +3,7 @@ module ReferenceModels
 export ReferenceModel
 export les_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
-
+export construct_reference_models
 
 """
     struct ReferenceModel
@@ -28,6 +28,15 @@ Base.@kwdef struct ReferenceModel
     "End time for computing statistics over"
     t_end::Real
 end
+function ReferenceModel(
+    case_name::String;
+    scm_parent_dir::String = "scm_init",
+    scm_suffix::String = "00000",
+    kwargs...,
+) where {FT <: Real}
+    scm_dir = data_directory(scm_parent_dir, case_name, scm_suffix)
+    return ReferenceModel(; case_name = case_name, scm_dir = scm_dir, kwargs...)
+end
 
 les_dir(m::ReferenceModel) = m.les_dir
 scm_dir(m::ReferenceModel) = m.scm_dir
@@ -39,5 +48,44 @@ namelist_directory(root::S, casename::S) where {S <: AbstractString} = joinpath(
 
 num_vars(m::ReferenceModel) = length(m.y_names)
 
+"""
+    construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::Vector{ReferenceModel}
+
+Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lists.
+
+Inputs:
+ - kwarg_ld     :: Dictionary of keyword argument lists
+Outputs:
+ - ref_models :: Vector where the i-th ReferenceModel is constructed from the i-th element
+    of every keyword argument list of the dictionary.
+"""
+function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::Vector{ReferenceModel}
+    num_ref_models = length(collect(values(kwarg_ld))[1])
+    ref_models = Vector{ReferenceModel}()
+    for ref_model_id in range(1, stop = num_ref_models)
+        ref_model_kwargs = Dict()
+        for (key, value) in pairs(kwarg_ld)
+            ref_model_kwargs[key] = value[ref_model_id]
+        end
+        push!(ref_models, ReferenceModel(; ref_model_kwargs...))
+    end
+    return ref_models
+end
+
+function construct_reference_models(
+    case_names::Vector{String},
+    kwarg_ld::Dict{Symbol, Vector{T} where T},
+)::Vector{ReferenceModel}
+    num_ref_models = length(collect(values(kwarg_ld))[1])
+    ref_models = Vector{ReferenceModel}()
+    for ref_model_id in range(1, stop = num_ref_models)
+        ref_model_kwargs = Dict()
+        for (key, value) in pairs(kwarg_ld)
+            ref_model_kwargs[key] = value[ref_model_id]
+        end
+        push!(ref_models, ReferenceModel(case_names[ref_model_id]; ref_model_kwargs...))
+    end
+    return ref_models
+end
 
 end # module
