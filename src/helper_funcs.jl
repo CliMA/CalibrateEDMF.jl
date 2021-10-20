@@ -458,7 +458,6 @@ fetch LES directory on central cluster.
     - les_dir - path to les simulation containing stats folder
 
 """
-
 function get_cfsite_les_dir(
     cfsite_number::Integer;
     forcing_model::String = "HadGEM2-A",
