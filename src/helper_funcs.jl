@@ -130,14 +130,15 @@ function get_profile(sim_dir::String, var_name::Vector{String}; ti::Real = 0.0, 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
     # Check that times are contained in simulation output
-    ti_diff, ti_index = findmin(broadcast(abs, t .- ti))
+    Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
     if !isnothing(tf)
-        tf_diff, tf_index = findmin(broadcast(abs, t .- tf))
+        Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
     end
     prof_vec = zeros(0)
     # If simulation does not contain values for ti or tf, return high value
-    if ti_diff > dt
-        println("ti_diff > dt ", "ti_diff = ", ti_diff, "dt = ", dt, "ti = ", ti, "t[1] = ", t[1], "t[end] = ", t[end])
+    if Δt_start > dt
+        println("Note: Δt_start > dt. Δt_start = $Δt_start, dt = $dt. Defaulting to penalized profiles.")
+        println("Requested t_start = $ti. First time available = $(t[1]). Last time available = $(t[end])")
         for i in 1:length(var_name)
             var_ = get_height(sim_dir)
             append!(prof_vec, 1.0e5 * ones(length(var_[:])))

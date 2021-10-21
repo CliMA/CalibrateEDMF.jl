@@ -22,4 +22,4 @@ s = ArgParseSettings()
 end
 parsed_args = parse_args(ARGS, s)
 
-init_calibration(parsed_args["n_ens"], parsed_args["n_it"], parsed_args["job_id"], get_config())
+init_calibration(parsed_args["n_ens"], parsed_args["n_it"], get_config(); job_id = parsed_args["job_id"])

@@ -12,6 +12,7 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export run_SCM, run_SCM_handler
 export generate_scm_input, get_gcm_les_uuid
+export save_full_ensemble_data
 
 """
     run_SCM(
@@ -123,8 +124,8 @@ Outputs:
 function run_SCM_handler(
     m::ReferenceModel,
     tmpdir::String,
-    u::Array{FT, 1},
-    u_names::Array{String, 1},
+    u::Vector{FT},
+    u_names::Vector{String},
 ) where {FT <: AbstractFloat}
 
     # fetch default namelist
@@ -143,8 +144,12 @@ function run_SCM_handler(
     namelist["output"]["output_root"] = tmpdir
 
     # run TurbulenceConvection.jl with modified parameters
-    main(namelist)
-
+    try
+        main(namelist)
+    catch
+        println("TurbulenceConvection.jl simulation failed with parameters:")
+        [println("$param_name = $param_value") for (param_name, param_value) in zip(u_names, u)]
+    end
     return data_directory(tmpdir, m.case_name, uuid)
 end
 
@@ -176,8 +181,11 @@ function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: Abs
         namelist["meta"]["lesfile"] = get_stats_path(les_dir(m))
     end
     # run TurbulenceConvection.jl
-    main(namelist)
-
+    try
+        main(namelist)
+    catch
+        println("Default TurbulenceConvection.jl simulation failed. Verify default setup.")
+    end
     return data_directory(output_dir, m.case_name, namelist["meta"]["uuid"])
 end
 
@@ -222,6 +230,28 @@ function get_gcm_les_uuid(
     cfsite_number = string(cfsite_number)
     month = string(month, pad = 2)
     return join([cfsite_number, forcing_model, month, experiment], '_')
+end
+
+""" Save full EDMF data from every ensemble"""
+function save_full_ensemble_data(save_path, sim_dirs_arr, scm_names)
+    # get a simulation directory `.../Output.SimName.UUID`, and corresponding parameter name
+    for (ens_i, sim_dirs) in enumerate(sim_dirs_arr)  # each ensemble returns a list of simulation directories
+        ens_i_path = joinpath(save_path, "ens_$ens_i")
+        mkpath(ens_i_path)
+        for (scm_name, sim_dir) in zip(scm_names, sim_dirs)
+            # Copy simulation data to output directory
+            dirname = splitpath(sim_dir)[end]
+            @assert dirname[1:7] == "Output."  # sanity check
+            # Stats file
+            tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
+            save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
+            cp(tmp_data_path, save_data_path)
+            # namefile
+            tmp_namefile_path = namelist_directory(sim_dir, scm_name)
+            save_namefile_path = namelist_directory(ens_i_path, scm_name)
+            cp(tmp_namefile_path, save_namefile_path)
+        end
+    end
 end
 
 

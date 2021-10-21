@@ -11,14 +11,12 @@
 # Import modules to all processes
 @everywhere using Pkg
 @everywhere Pkg.activate("../../..")
-@everywhere using Distributions
-@everywhere using StatsBase
-@everywhere using LinearAlgebra
 @everywhere using CalibrateEDMF
 @everywhere using CalibrateEDMF.ReferenceModels
 @everywhere using CalibrateEDMF.ReferenceStats
 @everywhere using CalibrateEDMF.LESUtils
 @everywhere using CalibrateEDMF.TurbulenceConvectionUtils
+@everywhere using CalibrateEDMF.Pipeline
 @everywhere const src_dir = dirname(pathof(CalibrateEDMF))
 @everywhere include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
@@ -28,145 +26,29 @@
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
 
+# Include calibration config file to define problem
+include("config.jl")
 
-""" Define parameters and their priors"""
-function construct_priors()
-    # Define the parameters that we want to learn
-    params = Dict(
-        # entrainment parameters
-        "entrainment_factor" => [bounded(0.1, 0.5)],
-        "detrainment_factor" => [bounded(0.3, 0.8)],
-    )
-    param_names = collect(keys(params))
-    constraints = collect(values(params))
-    n_param = length(param_names)
+function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
 
-    # All vars are approximately uniform in unconstrained space
-    prior_dist = repeat([Parameterized(Normal(0.0, 1.78))], n_param)
-    priors = ParameterDistribution(prior_dist, constraints, param_names)
-    return priors
-end
+    config = get_config()
+    perform_PCA = config["regularization"]["perform_PCA"]
+    algo = config["process"]["algorithm"]
+    Δt = config["process"]["Δt"]
+    save_eki_data = config["output"]["save_eki_data"]
+    save_ensemble_data = config["output"]["save_ensemble_data"]
 
-""" Define reference simulations for loss function"""
-function construct_reference_models()::Vector{ReferenceModel}
-
-    ### Calibrate on field campaigns
-    # Calibrate using reference data and options described by the ReferenceModel struct.
-    ref_bomex = ReferenceModel(
-        # Define variables considered in the loss function
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        # Reference path specification
-        les_dir = "/groups/esm/zhaoyi/pycles_clima/Output.Bomex.aug09",
-        # Simulation path specification
-        scm_dir = "/groups/esm/hervik/calibration/static_input/Output.Bomex.00000",
-        # Simulation casename specification
-        case_name = "Bomex",
-        # Define observation window (s)
-        t_start = 4.0 * 3600,  # 4hrs
-        t_end = 24.0 * 3600,  # 24hrs
-    )
-
-    # Make vector of reference models
-    ref_models::Vector{ReferenceModel} = [ref_bomex]
-
-    # #### Calibrate on LES Library
-    # # available LES library simulations stored in LES_library dict
-    # cfsite_numbers = [17] # for all cfsites us LES_library["cfsite_numbers"]
-    # forcing_models = ["HadGEM2-A"]
-    # months = [7]
-    # experiments = ["amip"]
-
-    # ref_models = [
-    #     ReferenceModel(
-    #         # Define variables considered in the loss function
-    #         y_names = ["thetal_mean", "ql_mean", "qt_mean"],
-    #         # Reference path specification
-    #         les_dir = get_cfsite_les_dir(
-    #             cfsite_number,
-    #             forcing_model = forcing_model,
-    #             month = month,
-    #             experiment = experiment,
-    #         ),
-    #         # Simulation path specification
-    #         scm_dir = string(
-    #             "/groups/esm/cchristo/calibration/static_input/scm/Output.LES_driven_SCM.",
-    #             get_gcm_les_uuid(cfsite_number, forcing_model = forcing_model, month = month, experiment = experiment),
-    #         ),
-    #         # Simulation casename specification
-    #         case_name = "LES_driven_SCM",
-    #         # Define observation window (s)
-    #         t_start = 4.0 * 3600,  # 4hrs
-    #         t_end = 24.0 * 3600,  # 24hrs
-    #     )
-    #     for
-    #     (cfsite_number, forcing_model, month, experiment) in zip(cfsite_numbers, forcing_models, months, experiments)
-    # ]
-
-    @assert all(isdir.([les_dir.(ref_models)...]))
-
-    return ref_models
-end
-
-function run_calibrate(return_ekobj = false)
-    #########
-    #########  Define the parameters and their priors
-    #########
-    priors = construct_priors()
-
-
-    #########
-    #########  Define simulation parameters and data directories
-    #########
-    ref_models = construct_reference_models()
-
-    outdir_root = pwd()
-    # Define preconditioning and regularization of inverse problem
-    perform_PCA = false # Performs PCA on data
-    normalize = true  # whether to normalize data by pooled variance
-    # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    model_type::Symbol = :les  # :les or :scm
-    # Flags for saving output data
-    save_eki_data = true  # eki output
-    save_ensemble_data = false  # .nc-files from each ensemble run
-    # Flag for overwritting SCM input file
-    overwrite_scm_file = false
-
-    # Create input scm stats and namelist file if files don't already exist
-    run_SCM(ref_models, overwrite = overwrite_scm_file)
-
-    #########
-    #########  Retrieve true LES samples from PyCLES data and transform
-    #########
-
-    # Compute data covariance
-    ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize, tikhonov_noise = 1e-3)
-    d = length(ref_stats.y) # Length of data array
-
-    #########
-    #########  Calibrate: Ensemble Kalman Inversion
-    #########
-
-    algo = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
-    N_ens = 20 # number of ensemble members
-    N_iter = 10 # number of EKP iterations.
-    Δt = 1.0 # Artificial time stepper of the EKI.
-    println("NUMBER OF ENSEMBLE MEMBERS: $N_ens")
-    println("NUMBER OF ITERATIONS: $N_iter")
-
-    # parameters are sampled in unconstrained space
-    initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
-    ekobj = EnsembleKalmanProcess(initial_params, ref_stats.y, ref_stats.Γ, algo)
+    init_dict = init_calibration(N_ens, N_iter, config, mode = "pmap")
+    ekobj = init_dict["ekobj"]
+    priors = init_dict["priors"]
+    ref_models = init_dict["ref_models"]
+    ref_stats = init_dict["ref_stats"]
+    d = init_dict["d"]
+    n_param = init_dict["n_param"]
+    outdir_path = init_dict["outdir_path"]
 
     # Define caller function
     @everywhere g_(x::Vector{FT}) where {FT <: Real} = run_SCM(x, $priors.names, $ref_models, $ref_stats)
-
-    # Create output dir
-    algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
-    n_param = length(priors.names)
-    outdir_path =
-        joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)")
-    println("Name of outdir path for this EKP is: $outdir_path")
-    mkpath(outdir_path)
 
     # EKP iterations
     g_ens = zeros(N_ens, d)
@@ -212,11 +94,10 @@ function run_calibrate(return_ekobj = false)
                 g_big_arr[k, :, :] = hcat(g_big_list[k]...)'
             end
         end
-
         if save_eki_data
-            # Save EKP information to JLD2 file
+            # Save calibration process information to JLD2 file
             save(
-                joinpath(outdir_path, "ekp.jld2"),
+                joinpath(outdir_path, "calibration_results_iter_$i.jld2"),
                 "ekp_u",
                 transform_unconstrained_to_constrained(priors, get_u(ekobj)),
                 "ekp_g",
@@ -246,10 +127,10 @@ function run_calibrate(return_ekobj = false)
                 "phi_params",
                 phi_params_arr,
             )
-
-            # make ekp plots
-            # make_ekp_plots(outdir_path, priors.names)
         end
+
+        # make ekp plots
+        # make_ekp_plots(outdir_path, priors.names)
 
 
         if save_ensemble_data
@@ -264,28 +145,5 @@ function run_calibrate(return_ekobj = false)
 
     if return_ekobj
         return ekobj, outdir_path
-    end
-end
-
-
-""" Save full EDMF data from every ensemble"""
-function save_full_ensemble_data(save_path, sim_dirs_arr, scm_names)
-    # get a simulation directory `.../Output.SimName.UUID`, and corresponding parameter name
-    for (ens_i, sim_dirs) in enumerate(sim_dirs_arr)  # each ensemble returns a list of simulation directories
-        ens_i_path = joinpath(save_path, "ens_$ens_i")
-        mkpath(ens_i_path)
-        for (scm_name, sim_dir) in zip(scm_names, sim_dirs)
-            # Copy simulation data to output directory
-            dirname = splitpath(sim_dir)[end]
-            @assert dirname[1:7] == "Output."  # sanity check
-            # Stats file
-            tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
-            save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
-            cp(tmp_data_path, save_data_path)
-            # namefile
-            tmp_namefile_path = namelist_directory(sim_dir, scm_name)
-            save_namefile_path = namelist_directory(ens_i_path, scm_name)
-            cp(tmp_namefile_path, save_namefile_path)
-        end
     end
 end

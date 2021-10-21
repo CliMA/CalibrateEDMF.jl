@@ -18,15 +18,24 @@ export init_calibration
 """
     init_calibration(N_ens::Int, N_iter::Int, job_id::String, config::Dict{Any, Any})
 
-Initializes a calibration process given a configuration.
+Initializes a calibration process given a configuration, and a pipeline mode.
 
     Inputs:
     - N_ens :: Number of ensemble members.
     - N_iter :: Number of iterations.
     - job_id :: Unique job identifier for sbatch communication.
     - config :: User-defined configuration dictionary.
+    - mode :: Whether the calibration process is parallelized through HPC resources
+      or using Julia's pmap.
 """
-function init_calibration(N_ens::Int, N_iter::Int, job_id::String, config::Dict{Any, Any})
+function init_calibration(
+    N_ens::Int,
+    N_iter::Int,
+    config::Dict{Any, Any};
+    mode::String = "hpc",
+    job_id::String = "12345",
+)
+    @assert mode in ["hpc", "pmap"]
 
     reference_type = config["reference"]["reference_type"]
     perform_PCA = config["regularization"]["perform_PCA"]
@@ -67,19 +76,33 @@ function init_calibration(N_ens::Int, N_iter::Int, job_id::String, config::Dict{
         joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(reference_type)")
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
-    open("$(job_id).txt", "w") do io
-        write(io, "$(outdir_path)\n")
-    end
+
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = config["prior"]["unconstrained_σ"])
     # parameters are sampled in unconstrained space
     initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
-    generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
-    params_cons_i = transform_unconstrained_to_constrained(priors, initial_params)
-    params = [c[:] for c in eachcol(params_cons_i)]
-    versions = map(param -> generate_scm_input(param, get_name(priors), ref_models, ref_stats, outdir_path), params)
+    ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
 
-    # Store version identifiers for this ensemble in a common file
-    write_versions(versions, 1, outdir_path = outdir_path)
+    if mode == "hpc"
+        open("$(job_id).txt", "w") do io
+            write(io, "$(outdir_path)\n")
+        end
+        params_cons_i = transform_unconstrained_to_constrained(priors, initial_params)
+        params = [c[:] for c in eachcol(params_cons_i)]
+        versions = map(param -> generate_scm_input(param, get_name(priors), ref_models, ref_stats, outdir_path), params)
+        # Store version identifiers for this ensemble in a common file
+        write_versions(versions, 1, outdir_path = outdir_path)
+
+    elseif mode == "pmap"
+        return Dict(
+            "ekobj" => ekobj,
+            "priors" => priors,
+            "ref_stats" => ref_stats,
+            "ref_models" => ref_models,
+            "d" => d,
+            "n_param" => n_param,
+            "outdir_path" => outdir_path,
+        )
+    end
 end
 
 
