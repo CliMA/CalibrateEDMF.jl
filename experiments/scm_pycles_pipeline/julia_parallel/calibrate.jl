@@ -17,6 +17,7 @@
 @everywhere using CalibrateEDMF
 @everywhere using CalibrateEDMF.ReferenceModels
 @everywhere using CalibrateEDMF.ReferenceStats
+@everywhere using CalibrateEDMF.LESUtils
 @everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 @everywhere const src_dir = dirname(pathof(CalibrateEDMF))
 @everywhere include(joinpath(src_dir, "helper_funcs.jl"))
@@ -89,7 +90,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     #         # Simulation path specification
     #         scm_dir = string(
     #             "/groups/esm/cchristo/calibration/static_input/scm/Output.LES_driven_SCM.",
-    #             generate_uuid(cfsite_number, forcing_model = forcing_model, month = month, experiment = experiment),
+    #             get_gcm_les_uuid(cfsite_number, forcing_model = forcing_model, month = month, experiment = experiment),
     #         ),
     #         # Simulation casename specification
     #         case_name = "LES_driven_SCM",

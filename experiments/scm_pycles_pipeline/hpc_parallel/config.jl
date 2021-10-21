@@ -7,6 +7,7 @@ using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
+using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
@@ -84,7 +85,7 @@ function get_reference_config(::LesDrivenScm)
     cfsite_number = 17
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     config["les_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...)]
-    config["scm_suffix"] = [generate_uuid(cfsite_number; les_kwargs...)]
+    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...)]
     config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [24.0 * 3600]
