@@ -11,7 +11,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export run_SCM, run_SCM_handler
-export generate_scm_input
+export generate_scm_input, get_gcm_les_uuid
 
 """
     run_SCM(
@@ -203,6 +203,25 @@ function generate_scm_input(
     ref_stats = serialize_struct(RS)
     jldsave(scm_init_path(outdir_path, version); u, u_names, ref_models, ref_stats, version)
     return version
+end
+
+"""
+    get_gcm_les_uuid(
+        cfsite_number::Integer;
+        forcing_model::String,
+        month::Integer,
+        experiment::String,)
+Generate unique and self-describing uuid given information about a GCM-driven LES simulation from `Shen et al. 2021`.
+"""
+function get_gcm_les_uuid(
+    cfsite_number::Integer;
+    forcing_model::String = "HadGEM2-A",
+    month::Integer = 7,
+    experiment::String = "amip",
+)
+    cfsite_number = string(cfsite_number)
+    month = string(month, pad = 2)
+    return join([cfsite_number, forcing_model, month, experiment], '_')
 end
 
 
