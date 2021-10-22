@@ -1,5 +1,8 @@
-"""Parameter and probability distribution utils."""
+"""
+    DistributionUtils
 
+Parameter and probability distribution utils.
+"""
 module DistributionUtils
 
 using Distributions
