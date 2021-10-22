@@ -40,7 +40,6 @@ ref_stats = scm_args["ref_stats"]
 # Preconditioning in unconstrained space
 u_unconstrained = precondition(
     transform_constrained_to_unconstrained(priors, scm_args["u"]),
-    u_names,
     priors,
     map(x -> deserialize_struct(x, ReferenceModel), ref_models),
     deserialize_struct(ref_stats, ReferenceStatistics),

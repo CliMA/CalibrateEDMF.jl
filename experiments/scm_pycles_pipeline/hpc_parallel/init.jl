@@ -5,7 +5,7 @@ using CalibrateEDMF
 using CalibrateEDMF.Pipeline
 
 # Include calibration config file to define problem
-include("config.jl")
+include(joinpath(dirname(pwd()), "config.jl"))
 
 s = ArgParseSettings()
 @add_arg_table s begin

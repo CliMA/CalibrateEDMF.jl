@@ -6,12 +6,15 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "ekp_call"   # job name
 
+config=${1?Error: no config file given}
+
 # Job identifier
 job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
-# Size of the ensemble
-n=5
-# Number of EK iterations
-n_it=4
+# Get size of the ensemble from config, trim comments and whitespace
+n=$(grep N_ens ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
+# Number of calibration iterations, trim comments and whitespace
+n_it=$(grep N_iter ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
+echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
 module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1

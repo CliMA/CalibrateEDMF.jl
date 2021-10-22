@@ -269,7 +269,6 @@ end
 """
     precondition(
         param::Vector{FT},
-        param_names::Vector{String},
         priors,
         ref_models::Vector{ReferenceModel},
         ref_stats::ReferenceStatistics,
@@ -281,7 +280,6 @@ the same prior.
 Inputs:
  - params      :: A parameter vector that may possibly result in unstable
     forward model evaluations.
- - param_names :: Name of each parameter in the parameter vector.
  - priors      :: Priors from which the parameters were drawn.
  - ref_models  :: Vector of ReferenceModels to check stability for.
  - ref_stats   :: ReferenceStatistics of the ReferenceModels.
@@ -292,12 +290,11 @@ Outputs:
 """
 function precondition(
     params::Vector{FT},
-    param_names::Vector{String},
     priors,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
 ) where {FT <: Real}
-
+    param_names = priors.names
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) = run_SCM(u, param_names, ref_models, ref_stats, error_check = true)
 
