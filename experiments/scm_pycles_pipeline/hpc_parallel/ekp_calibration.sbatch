@@ -30,7 +30,8 @@ for it in $(seq 1 1 $n_it)
 do
 # Parallel runs of forward model
 if [ "$it" = "1" ]; then
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_init_ens --array=1-$n single_scm_eval.sbatch $it $job_id)
+    id_precond=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_init_ens --array=1-$n precondition_prior.sbatch $it $job_id)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_precond --array=1-$n single_scm_eval.sbatch $it $job_id)
 else
     id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ek_upd --array=1-$n single_scm_eval.sbatch $it $job_id)
 fi
