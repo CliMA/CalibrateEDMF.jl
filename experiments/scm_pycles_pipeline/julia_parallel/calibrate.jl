@@ -33,8 +33,11 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
 
     config = get_config()
     perform_PCA = config["regularization"]["perform_PCA"]
+    apply_preconditioning = config["regularization"]["precondition"]
+
     algo = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
+
     save_eki_data = config["output"]["save_eki_data"]
     save_ensemble_data = config["output"]["save_ensemble_data"]
 
@@ -47,9 +50,14 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
     n_param = init_dict["n_param"]
     outdir_path = init_dict["outdir_path"]
 
+    if apply_preconditioning
+        @everywhere precondition_param(x::Vector{FT}) where {FT <: Real} =
+            precondition(x, $priors.names, $priors, $ref_models, $ref_stats)
+        precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
+        ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
+    end
     # Define caller function
     @everywhere g_(x::Vector{FT}) where {FT <: Real} = run_SCM(x, $priors.names, $ref_models, $ref_stats)
-
     # EKP iterations
     g_ens = zeros(N_ens, d)
     norm_err_list = []
@@ -132,11 +140,10 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
         # make ekp plots
         # make_ekp_plots(outdir_path, priors.names)
 
-
         if save_ensemble_data
             eki_iter_path = joinpath(outdir_path, "EKI_iter_$i")
             mkpath(eki_iter_path)
-            save_full_ensemble_data(eki_iter_path, sim_dirs_arr, scm_names)
+            save_full_ensemble_data(eki_iter_path, sim_dirs_arr, ref_models)
         end
     end
     # EKP results: Has the ensemble collapsed toward the truth?

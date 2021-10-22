@@ -51,6 +51,7 @@ function get_regularization_config()
     config["perform_PCA"] = true # Performs PCA on data
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_noise"] = 1.0e-2 # Tikhonov regularization
+    config["precondition"] = true # Application of prior preconditioning
     return config
 end
 
