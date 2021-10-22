@@ -1,4 +1,8 @@
-status = ["ci"]
+status = [
+  "ci 1.6.0 - ubuntu-latest",
+  "ci 1.6.0 - windows-latest",
+  "ci 1.6.0 - macOS-latest",
+]
 delete_merged_branches = true
 timeout_sec = 10800
 block_labels = [ "do-not-merge-yet" ]
