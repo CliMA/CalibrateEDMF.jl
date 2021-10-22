@@ -52,7 +52,7 @@ end
         month::Integer = 7,
         experiment::String = "amip",)
 
-Given information about an LES run from `Shen et al. 2021`,
+Given information about an LES run from [Shen2021](@cite),
 fetch LES directory on central cluster.
 
     Inputs:

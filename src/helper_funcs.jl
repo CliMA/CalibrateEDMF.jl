@@ -1,4 +1,4 @@
-"""Generic utils."""
+#= Generic utils. =#
 
 using NCDatasets
 using Statistics
