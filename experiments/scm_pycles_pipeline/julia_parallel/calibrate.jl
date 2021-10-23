@@ -1,12 +1,10 @@
 # This is an example on training the TurbulenceConvection.jl implementation
-# of the EDMF scheme with data generated using PyCLES.
-#
-# The example seeks to find the optimal values of the entrainment and
-# detrainment parameters of the EDMF scheme to replicate the LES profiles
-# of the BOMEX experiment.
+# of the EDMF scheme with data generated using PyCLES or TurbulenceConvection.jl
+# (perfect model setting).
 #
 # This example is fully parallelized and can be run in the Caltech Central
-# cluster with the included script.
+# cluster with the included script. Parallelization of the calibration
+# process is carried out by Julia's pmap() function.
 
 # Import modules to all processes
 @everywhere using Pkg
@@ -27,16 +25,18 @@
 using JLD2
 
 # Include calibration config file to define problem
-include("config.jl")
+include(joinpath(dirname(pwd()), "config.jl"))
 
-function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
+function run_calibrate(config; return_ekobj = false)
 
-    config = get_config()
-    perform_PCA = config["regularization"]["perform_PCA"]
-    apply_preconditioning = config["regularization"]["precondition"]
-
+    N_iter = config["process"]["N_iter"]
+    N_ens = config["process"]["N_ens"]
     algo = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
+
+    perform_PCA = config["regularization"]["perform_PCA"]
+    # For now this is not used, pmap does not work within if scopes
+    apply_preconditioning = config["regularization"]["precondition"]
 
     save_eki_data = config["output"]["save_eki_data"]
     save_ensemble_data = config["output"]["save_ensemble_data"]
@@ -50,12 +50,11 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
     n_param = init_dict["n_param"]
     outdir_path = init_dict["outdir_path"]
 
-    if apply_preconditioning
-        @everywhere precondition_param(x::Vector{FT}) where {FT <: Real} =
-            precondition(x, $priors.names, $priors, $ref_models, $ref_stats)
-        precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
-        ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
-    end
+    # Precondition prior
+    @everywhere precondition_param(x::Vector{FT}) where {FT <: Real} = precondition(x, $priors, $ref_models, $ref_stats)
+    precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
+    ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
+
     # Define caller function
     @everywhere g_(x::Vector{FT}) where {FT <: Real} = run_SCM(x, $priors.names, $ref_models, $ref_stats)
     # EKP iterations
@@ -65,17 +64,11 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
     for i in 1:N_iter
         # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
-        params = [c[:] for c in eachcol(params_cons_i)]
-        @everywhere params = $params
-        array_of_tuples = pmap(g_, params; retry_delays = zeros(5)) # Outer dim is params iterator
-        (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(array_of_tuples, l), 3) # Outer dim is G̃, G 
+        g_output_list = pmap(g_, [c[:] for c in eachcol(params_cons_i)]; retry_delays = zeros(5)) # Outer dim is params iterator
+        (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(g_output_list, l), 3) # Outer dim is G̃, G 
         println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
         for j in 1:N_ens
-            if perform_PCA
-                g_ens[j, :] = g_ens_arr_pca[j]
-            else
-                g_ens[j, :] = g_ens_arr[j]
-            end
+            g_ens[j, :] = perform_PCA ? g_ens_arr_pca[j] : g_ens_arr[j]
         end
 
         # Get normalized error
@@ -154,3 +147,6 @@ function run_calibrate(N_ens::Int, N_iter::Int, return_ekobj = false)
         return ekobj, outdir_path
     end
 end
+
+### RUN SIMULATION ###
+run_calibrate(get_config())
