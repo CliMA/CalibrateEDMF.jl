@@ -144,7 +144,16 @@ function run_SCM_handler(
 
     # update parameter values
     for (pName, pVal) in zip(u_names, u)
-        namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+        if pName ∈ [
+            "entr_lognormal_var", "detr_lognormal_var", 
+            "sde_entr_mu", "sde_detr_mu",
+            "sde_entr_theta", "sde_detr_theta", 
+            "sde_entr_std", "sde_detr_std",
+        ]
+            namelist["turbulence"]["EDMF_PrognosticTKE"]["stochastic"][pName] = pVal
+        else
+            namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+        end
     end
 
     # set random uuid
