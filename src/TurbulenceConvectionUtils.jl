@@ -304,7 +304,7 @@ function precondition(
         println("Unstable parameter vector found:")
         [println("$param_name = $param") for (param_name, param) in zip(param_names, params)]
         println("Sampling new parameter vector from prior...")
-        new_params = precondition(construct_initial_ensemble(priors, 1), param_names, priors, ref_models, ref_stats)
+        new_params = precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats)
     else
         new_params = params
         println("\nPreconditioning finished.")
