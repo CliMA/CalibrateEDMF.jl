@@ -72,7 +72,7 @@ function get_reference_config(::Bomex)
     config["scm_suffix"] = ["000000"]
     config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
-    config["t_end"] = [24.0 * 3600]
+    config["t_end"] = [6.0 * 3600]
     return config
 end
 
