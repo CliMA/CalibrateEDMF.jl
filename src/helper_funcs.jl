@@ -53,14 +53,8 @@ function get_obs(
         error("Unknown observation type $obs_type")
     end
 
-    # For now, we always use LES to construct covariance matrix
-    y_tvar, pool_var = get_time_covariance(m, les_dir(m), les_names, z_scm = z_scm)
-
-    norm_vec = if normalize
-        pool_var
-    else
-        ones(size(pool_var))
-    end
+    y_tvar, pool_var = get_time_covariance(m, sim_dir, y_names, z_scm = z_scm)
+    norm_vec = normalize ? pool_var : ones(size(pool_var))
 
     # Get true observables
     y_highres = get_profile(m, sim_dir, y_names)
@@ -210,31 +204,27 @@ end
 
 
 """
-    get_time_covariance(sim_dir::String,
-                     var_name::Array{String,1};
-                     ti::Float64=0.0,
-                     tf=0.0,
-                     get_faces=false,
-                     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-                     normalize=false)
+    get_time_covariance(
+        m::ReferenceModel,
+        sim_dir::String,
+        var_names::Vector{String};
+        z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
+    )
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
 Inputs:
+ - m :: The ReferenceModel to extract the covariance from.
  - sim_dir :: Name of simulation directory.
- - var_name :: List of variable names to be included.
- - ti, tf :: Initial and final times defining averaging interval.
- - z_scm :: If given, interpolates covariance matrix to this locations.
- - normalize :: Boolean specifying variable normalization.
+ - var_names :: List of variable names to be included.
+ - z_scm :: If given, interpolates covariance matrix to these locations.
 """
 function get_time_covariance(
     m::ReferenceModel,
     sim_dir::String,
     var_names::Vector{String};
-    get_faces = false,
     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
 )
-
     t = nc_fetch(sim_dir, "timeseries", "t")
     # Find closest interval in data
     ti_index = argmin(broadcast(abs, t .- m.t_start))
@@ -256,9 +246,12 @@ function get_time_covariance(
         ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i])
         # Interpolate in space
         if !isnothing(z_scm)
-            z_les = get_height(sim_dir, get_faces = get_faces)
+            z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, "profiles", var_names[i]))
             # Create interpolant
-            ts_var_i_itp = interpolate((z_les, 1:(tf_index - ti_index + 1)), ts_var_i, (Gridded(Linear()), NoInterp()))
+            ts_var_i_itp = extrapolate(
+                interpolate((z_ref, 1:(tf_index - ti_index + 1)), ts_var_i, (Gridded(Linear()), NoInterp())),
+                Line(),
+            )
             # Interpolate
             ts_var_i = ts_var_i_itp(z_scm, 1:(tf_index - ti_index + 1))
         end
@@ -275,6 +268,22 @@ function nc_fetch(dir, nc_group, var_name)
     ds_var = deepcopy(Array(ds_group[var_name]))
     close(ds)
     return Array(ds_var)
+end
+
+"""Returns whether the given variables is defined in faces, or not."""
+function is_face_variable(dir, nc_group, var_name)
+    ds = NCDataset(get_stats_path(dir))
+    ds_group = ds.group[nc_group]
+    var_dims = dimnames(ds_group[var_name])
+    close(ds)
+    if ("zc" in var_dims) | ("z_half" in var_dims)
+        return false
+    elseif ("zf" in var_dims) | ("z" in var_dims)
+        return true
+    else
+        println("Variable $var_name does not contain a vertical dimension.")
+        return false
+    end
 end
 
 """
