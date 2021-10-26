@@ -57,22 +57,10 @@ function get_obs(
     norm_vec = normalize ? pool_var : ones(size(pool_var))
 
     # Get true observables
-    y_highres = get_profile(m, sim_dir, y_names)
+    y_ = get_profile(m, sim_dir, y_names, z_scm = z_scm)
     # normalize
-    y_highres = normalize_profile(y_highres, num_vars(m), norm_vec)
+    y_ = normalize_profile(y_, num_vars(m), norm_vec)
 
-    if !isnothing(z_scm)
-        y_ = zeros(0)
-        z_les = get_height(sim_dir)
-        num_outputs = Integer(length(y_highres) / length(z_les))
-        for i in 1:num_outputs
-            y_itp =
-                interpolate((z_les,), y_highres[(1 + length(z_les) * (i - 1)):(i * length(z_les))], Gridded(Linear()))
-            append!(y_, y_itp(z_scm))
-        end
-    else
-        y_ = y_highres
-    end
     return y_, y_tvar, norm_vec
 end
 
@@ -109,58 +97,200 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
 end
 
 
-function get_profile(m::ReferenceModel, sim_dir::String)
-    get_profile(m, sim_dir, m.y_names)
+function get_profile(m::ReferenceModel, sim_dir::String; z_scm::Union{Vector{Float64}, Nothing} = nothing)
+    get_profile(m, sim_dir, m.y_names, z_scm = z_scm)
 end
 
 
-function get_profile(m::ReferenceModel, sim_dir::String, y_names::Vector{String})
-    get_profile(sim_dir, y_names, ti = m.t_start, tf = m.t_end)
+function get_profile(
+    m::ReferenceModel,
+    sim_dir::String,
+    y_names::Vector{String};
+    z_scm::Union{Vector{Float64}, Nothing} = nothing,
+)
+    get_profile(sim_dir, y_names, ti = m.t_start, tf = m.t_end, z_scm = z_scm)
 end
 
+"""
+    get_profile(
+        sim_dir::String,
+        var_names::Vector{String};
+        ti::Real = 0.0,
+        tf = nothing,
+        z_scm::Union{Vector{Float64}, Nothing} = nothing,
+    )
 
-function get_profile(sim_dir::String, var_name::Vector{String}; ti::Real = 0.0, tf = nothing)
+Get profiles for variables var_names, interpolated to
+z_scm (if given), and concatenated into a single output vector.
+
+Inputs:
+ - sim_dir  :: Simulation output directory.
+ - var_names   :: Names of variables to be retrieved.
+ - z_scm :: If given, interpolate LES observations to given levels.
+Outputs:
+ - y :: Output vector used in the inverse problem, which concatenates the
+   requested profiles. 
+"""
+function get_profile(
+    sim_dir::String,
+    var_names::Vector{String};
+    ti::Real = 0.0,
+    tf::Union{Real, Nothing} = nothing,
+    z_scm::Union{Vector{Float64}, Nothing} = nothing,
+)
 
     t = nc_fetch(sim_dir, "timeseries", "t")
     dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
+    y = zeros(0)
+
     # Check that times are contained in simulation output
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
+    # If simulation does not contain values for ti or tf, return high value (penalization)
+    if Δt_start > dt
+        println("Note: Δt_start > dt, which means that simulation stopped before reaching the requested t_start.")
+        println("Requested t_start = $ti s. However, the last time available is $(t[end]) s.")
+        println("Defaulting to penalized profiles...")
+        for i in 1:length(var_names)
+            var_ = get_height(sim_dir)
+            append!(y, 1.0e5 * ones(length(var_[:])))
+        end
+        return y
+    end
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
-    end
-    prof_vec = zeros(0)
-    # If simulation does not contain values for ti or tf, return high value
-    if Δt_start > dt
-        println("Note: Δt_start > dt. Δt_start = $Δt_start, dt = $dt. Defaulting to penalized profiles.")
-        println("Requested t_start = $ti. First time available = $(t[1]). Last time available = $(t[end])")
-        for i in 1:length(var_name)
-            var_ = get_height(sim_dir)
-            append!(prof_vec, 1.0e5 * ones(length(var_[:])))
-        end
-    else
-        for i in 1:length(var_name)
-            if occursin("horizontal_vel", var_name[i])
-                u_ = nc_fetch(sim_dir, "profiles", "u_mean")
-                v_ = nc_fetch(sim_dir, "profiles", "v_mean")
-                var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
-            else
-                var_ = nc_fetch(sim_dir, "profiles", var_name[i])
-                # LES vertical fluxes are per volume, not mass
-                if occursin("resolved_z_flux", var_name[i])
-                    rho_half = nc_fetch(sim_dir, "reference", "rho0_half")
-                    var_ = var_ .* rho_half
-                end
+        if Δt_end > dt
+            println("Note: Δt_end > dt, which means that simulation stopped before reaching the requested t_end.")
+            println("Requested t_end = $tf s. However, the last time available is $(t[end]) s.")
+            println("Defaulting to penalized profiles...")
+            for i in 1:length(var_names)
+                var_ = get_height(sim_dir)
+                append!(y, 1.0e5 * ones(length(var_[:])))
             end
-            if !isnothing(tf)
-                append!(prof_vec, mean(var_[:, ti_index:tf_index], dims = 2))
-            else
-                append!(prof_vec, var_[:, ti_index])
-            end
+            return y
         end
     end
-    return prof_vec
+
+    # Return time average for non-degenerate cases
+    for var_name in var_names
+        var_ = fetch_interpolate_transform(var_name, sim_dir, z_scm)
+        var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
+        append!(y, var_mean)
+    end
+    return y
 end
 
+"""
+    vertical_interpolation(
+        var_name::String,
+        sim_dir::String,
+        z_scm::Vector{FT};
+        group::String = "profiles",
+    ) where {FT <: AbstractFloat}
+
+Returns the netcdf variable var_name interpolated to heights z_scm.
+
+Inputs:
+ - var_name :: Name of variable in the netcdf dataset.
+ - sim_dir :: Name of simulation directory.
+ - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - group :: netcdf group of the variable.
+Output:
+ - The interpolated vector.
+"""
+function vertical_interpolation(
+    var_name::String,
+    sim_dir::String,
+    z_scm::Vector{FT};
+    group::String = "profiles",
+) where {FT <: AbstractFloat}
+    z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, group, var_name))
+    var_ = nc_fetch(sim_dir, group, var_name)
+    if length(size(var_)) == 2
+        # Create interpolant
+        nodes = (z_ref, 1:size(var_, 2))
+        var_itp = extrapolate(interpolate(nodes, var_, (Gridded(Linear()), NoInterp())), Line())
+        # Return interpolated vector
+        return var_itp(z_scm, 1:size(var_, 2))
+    elseif length(size(var_)) == 1
+        # Create interpolant
+        nodes = (z_ref,)
+        var_itp = LinearInterpolation(nodes, var_; extrapolation_bc = Line())
+        # Return interpolated vector
+        return var_itp(z_scm)
+    end
+end
+
+"""
+    nc_fetch_interpolate(
+        var_name::String,
+        sim_dir::String,
+        z_scm::Union{Vector{Float64}, Nothing};
+        group::String = "profiles",
+    )
+
+Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
+
+Inputs:
+ - var_name :: Name of variable in the netcdf dataset.
+ - sim_dir :: Name of simulation directory.
+ - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - group :: netcdf group of the variable.
+Output:
+ - The interpolated vector.
+"""
+function nc_fetch_interpolate(
+    var_name::String,
+    sim_dir::String,
+    z_scm::Union{Vector{Float64}, Nothing};
+    group::String = "profiles",
+)
+    if !isnothing(z_scm)
+        return vertical_interpolation(var_name, sim_dir, z_scm, group = group)
+    else
+        return nc_fetch(sim_dir, group, var_name)
+    end
+end
+
+"""
+    fetch_interpolate_transform(
+        var_name::String,
+        sim_dir::String,
+        z_scm::Union{Vector{Float64}, Nothing};
+        group::String = "profiles",
+    )
+
+Returns the netcdf variable var_name, possibly interpolated to heights z_scm. If the
+variable needs to be transformed to be equivalent to an SCM variable, applies the
+transformation as well.
+
+Inputs:
+ - var_name :: Name of variable in the netcdf dataset.
+ - sim_dir :: Name of simulation directory.
+ - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - group :: netcdf group of the variable.
+Output:
+ - The interpolated and transformed vector.
+"""
+function fetch_interpolate_transform(
+    var_name::String,
+    sim_dir::String,
+    z_scm::Union{Vector{Float64}, Nothing};
+    group::String = "profiles",
+)
+    # PyCLES vertical fluxes are per volume, not mass
+    if occursin("resolved_z_flux", var_name)
+        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm, group = group)
+        rho_half = nc_fetch_interpolate("rho0_half", sim_dir, z_scm, group = "reference")
+        var_ = var_ .* rho_half
+    elseif occursin("horizontal_vel", var_name)
+        u_ = nc_fetch_interpolate("u_mean", sim_dir, z_scm, group = group)
+        v_ = nc_fetch_interpolate("v_mean", sim_dir, z_scm, group = group)
+        var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
+    else
+        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm, group = group)
+    end
+    return var_
+end
 
 """
     get_height(sim_dir::String; get_faces::Bool = false)
@@ -189,17 +319,17 @@ end
     normalize_profile(profile_vec, n_vars, var_vec)
 
 Perform normalization of n_vars profiles contained in profile_vec
-using the standard deviation associated with each variable, contained
+using the variance associated with each variable, contained
 in var_vec.
 """
 function normalize_profile(profile_vec, n_vars, var_vec)
-    prof_vec = deepcopy(profile_vec)
+    y = deepcopy(profile_vec)
     dim_variable = Integer(length(profile_vec) / n_vars)
     for i in 1:n_vars
-        prof_vec[(dim_variable * (i - 1) + 1):(dim_variable * i)] =
-            prof_vec[(dim_variable * (i - 1) + 1):(dim_variable * i)] ./ sqrt(var_vec[i])
+        y[(dim_variable * (i - 1) + 1):(dim_variable * i)] =
+            y[(dim_variable * (i - 1) + 1):(dim_variable * i)] ./ sqrt(var_vec[i])
     end
-    return prof_vec
+    return y
 end
 
 
@@ -233,28 +363,12 @@ function get_time_covariance(
     num_outputs = length(var_names)
     pool_var = zeros(num_outputs)
 
-    for i in 1:num_outputs
-        var_ = nc_fetch(sim_dir, "profiles", var_names[i])
-        # LES vertical fluxes are per volume, not mass
-        if occursin("resolved_z_flux", var_names[i])
-            rho_half = nc_fetch(sim_dir, "reference", "rho0_half")
-            var_ = var_ .* rho_half
-        end
+    for (i, var_name) in enumerate(var_names)
+        var_ = fetch_interpolate_transform(var_name, sim_dir, z_scm)
         # Store pooled variance
         pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2))  # vertically averaged time-variance of variable
-        # normalize timeseries
+        # Normalize timeseries
         ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i])
-        # Interpolate in space
-        if !isnothing(z_scm)
-            z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, "profiles", var_names[i]))
-            # Create interpolant
-            ts_var_i_itp = extrapolate(
-                interpolate((z_ref, 1:(tf_index - ti_index + 1)), ts_var_i, (Gridded(Linear()), NoInterp())),
-                Line(),
-            )
-            # Interpolate
-            ts_var_i = ts_var_i_itp(z_scm, 1:(tf_index - ti_index + 1))
-        end
         ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # dims: (Nz*num_outputs, Nt)
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
@@ -313,7 +427,7 @@ end
 
 Substitutes all NaN entries in `arr` by a penalization factor.
 """
-function penalize_nan(arr::Array{Float64, 1}; penalization::Float64 = 1.0e5)
+function penalize_nan(arr::Array{FT, 1}; penalization::FT = 1.0e5) where {FT <: AbstractFloat}
     return map(elem -> isnan(elem) ? penalization : elem, arr)
 end
 
@@ -342,7 +456,7 @@ function cov_from_cov_list(cov_list::Array{Array{FT, 2}, 1}; indices = []) where
 end
 
 """
-    vec_from_vec_list(vec_list::Array{Array{FT,1},1}; indices=[], return_mapping=false)
+    vec_from_vec_list(vec_list::Vector{Vector{FT}}; indices=[], return_mapping=false)
 
 Returns a vector constructed from vectors within vec_list given by the
 indices. If isempty(indices), use all vectors to construct returned vector.
@@ -350,7 +464,7 @@ If return_mapping, function returns the positions of all the elements used
 to construct the returned vector.
 """
 function vec_from_vec_list(
-    vec_list::Array{Array{FT, 1}, 1};
+    vec_list::Vector{Vector{FT}};
     indices = [],
     return_mapping = false,
 ) where {FT <: AbstractFloat}

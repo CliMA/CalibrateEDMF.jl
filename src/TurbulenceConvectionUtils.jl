@@ -9,6 +9,7 @@ using ..ReferenceStats
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export run_SCM, run_SCM_handler
@@ -63,7 +64,7 @@ function run_SCM(
         model_error = model_error || sim_error
         push!(sim_dirs, sim_dir)
 
-        g_scm_flow = get_profile(m, sim_dir)
+        g_scm_flow = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
         # normalize
         g_scm_flow = normalize_profile(g_scm_flow, length(m.y_names), RS.norm_vec[i])
         append!(g_scm, g_scm_flow)
