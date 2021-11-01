@@ -37,10 +37,10 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = pwd()
+    config["outdir_root"] = mktempdir()
     config["save_eki_data"] = true  # eki output
     config["save_ensemble_data"] = false  # .nc-files from each ensemble run
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
+    config["overwrite_scm_file"] = true # Flag for overwritting SCM input file
     return config
 end
 
@@ -66,11 +66,13 @@ function get_reference_config(::Bomex)
     config = Dict()
     config["case_name"] = ["Bomex"]
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["reference_type"] = :scm
+    config["y_reference_type"] = SCM()
+    config["Σ_reference_type"] = SCM()
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
-    config["les_dir"] = ["scm_init/Output.Bomex.000000"]
+    ref_root_dir = mktempdir()
+    config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.000000")]
     config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
+    config["scm_parent_dir"] = [ref_root_dir]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     return config

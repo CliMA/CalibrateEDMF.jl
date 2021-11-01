@@ -408,7 +408,16 @@ end
 Given directory to standard LES or SCM output, fetch path to stats file.
 """
 function get_stats_path(dir)
-    return joinpath(dir, "stats", readdir(string(dir, "/stats"))[1])
+    stats = joinpath(dir, "stats")
+    path = readdir(stats, join = true)
+    if length(path) == 1
+        pth = path[1]
+    elseif length(path) == 0
+        throw(SystemError("No stats file found in directory '$stats'."))
+    else
+        throw(SystemError("No unique stats file found in directory `$stats`."))
+    end
+    return pth
 end
 
 """

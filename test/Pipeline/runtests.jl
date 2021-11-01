@@ -15,11 +15,10 @@ include("config.jl")
 @testset "Pipeline" begin
     config = get_config()
     init_calibration(config["process"]["N_ens"], config["process"]["N_iter"], config; mode = "hpc")
-    res_dir_list = glob("results_*_scm")
+    res_dir_list = glob("results_*_SCM", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
     # Check for output
-    @test isdir("scm_init")
-    @test isdir("scm_init/Output.Bomex.000000")
+    @test all(isdir.(config["reference"]["scm_parent_dir"]))
     @test length(res_dir_list) == 1
     @test isdir(res_dir)
     @test isfile(joinpath(res_dir, "prior.jld2"))
@@ -31,6 +30,8 @@ include("config.jl")
         @test isfile(joinpath(res_dir, "scm_initializer_$(version_list[i]).jld2"))
     end
 
+    # Re-use previous simulation
+    config["output"]["overwrite_scm_file"] = false
     res_dict = init_calibration(config["process"]["N_ens"], config["process"]["N_iter"], config; mode = "pmap")
 
     @test typeof(res_dict["ekobj"]) == EnsembleKalmanProcess{Float64, Int64, Inversion}
