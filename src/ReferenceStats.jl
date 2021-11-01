@@ -10,6 +10,7 @@ using JLD2
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using ..ReferenceModels
+using ..ModelTypes
 include("helper_funcs.jl")
 
 export ReferenceStatistics
@@ -18,7 +19,7 @@ export generate_ekp
 
 
 """
-    struct ReferenceStatistics
+    struct ReferenceStatistics{FT <: Real}
     
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
@@ -30,10 +31,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     Γ::Array{FT, 2}  # Γy
     "Vector (length: nSim) of normalizing factors (length: n_vars)"
     norm_vec::Vector{Array{FT, 1}}  # pool_var_list
-
     "Vector (length: nSim) of PCA projection matrices with leading eigenvectors as columns"
     pca_vec::Vector{Union{Array{FT, 2}, UniformScaling}}  # P_pca_list
-
     "Full reference data vector, length: nSim * n_vars * n_zLevels"
     y_full::Vector{FT}  # yt_big
     "Full covariance matrix, dims: (y,y)"
@@ -42,21 +41,21 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     """
         ReferenceStatistics(
             RM::Vector{ReferenceModel},
-            model_type::Symbol,
             perform_PCA::Bool,
             normalize::Bool,
             FT::DataType = Float64;
             variance_loss::Float64 = 0.1,
             tikhonov_noise::Float64 = 0.0,
             tikhonov_mode::String = "absolute",
-            Γ_scaling::Float64 = 1.0,
+            dim_scaling::Bool = false,
+            y_type::ModelType = LES(),
+            Σ_type::ModelType = LES(),
         )
 
     Constructs the ReferenceStatistics defining the inverse problem.
 
     Inputs:
      - RM               :: Vector of `ReferenceModel`s
-     - model_type       :: Type of the reference model, either :les or :scm.
      - perform_PCA      :: Boolean specifying whether to perform PCA.
      - normalize        :: Boolean specifying whether to normalize the data.
      - variance_loss    :: Fraction of variance loss when performing PCA.
@@ -64,20 +63,22 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
      - tikhonov_mode    :: If "relative", tikhonov_noise is scaled by the minimum
         eigenvalue in the covariance matrix considered.
      - dim_scaling      :: Whether to scale covariance blocks by their size.
+     - y_type           :: Type of reference mean data. Either LES() or SCM()
+     - Σ_type           :: Type of reference covariance data. Either LES() or SCM()
     Outputs:
      - A ReferenceStatistics struct.
     """
     function ReferenceStatistics(
         RM::Vector{ReferenceModel},
-        model_type::Symbol,
         perform_PCA::Bool,
-        normalize::Bool,
-        FT::DataType = Float64;
-        variance_loss::Float64 = 0.1,
-        tikhonov_noise::Float64 = 0.0,
+        normalize::Bool;
+        variance_loss::FT = 0.1,
+        tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-    )
+        y_type::ModelType = LES(),
+        Σ_type::ModelType = LES(),
+    ) where {FT <: Real}
         # Init arrays
         y = FT[]  # yt
         Γ_vec = Array{FT, 2}[]  # yt_var_list
@@ -88,7 +89,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         for m in RM
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model_type, m, z_scm = get_height(scm_dir(m)), normalize)
+            z_scm = get_height(scm_dir(m))
+            y_, y_var_, pool_var = get_obs(m, y_type, Σ_type, normalize, z_scm = z_scm)
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)

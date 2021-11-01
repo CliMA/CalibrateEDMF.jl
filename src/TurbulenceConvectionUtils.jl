@@ -190,7 +190,7 @@ function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: Abs
     namelist["output"]["output_root"] = output_dir
     # if `LES_driven_SCM` case, provide input LES stats file
     if m.case_name == "LES_driven_SCM"
-        namelist["meta"]["lesfile"] = get_stats_path(les_dir(m))
+        namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
     end
     # run TurbulenceConvection.jl
     try

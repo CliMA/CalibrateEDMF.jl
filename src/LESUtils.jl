@@ -1,4 +1,5 @@
 module LESUtils
+import CalibrateEDMF.ReferenceModels: ReferenceModel
 
 export get_les_names, get_cfsite_les_dir
 
@@ -16,32 +17,20 @@ LES_library = Dict(
     "experiments" => ["amip", "amip4K"],
 )
 
-function get_les_names(scm_y_names::Array{String, 1}, sim_dir::String)
+get_les_names(m::ReferenceModel)::Vector{String} = get_les_names(m.y_names, m.case_name)
+function get_les_names(scm_y_names::Vector{String}, case_name::String)::Vector{String}
     y_names = deepcopy(scm_y_names)
-    if "thetal_mean" in y_names
-        if occursin("GABLS", sim_dir) || occursin("Soares", sim_dir)
-            y_names[findall(x -> x == "thetal_mean", y_names)] .= "theta_mean"
-        else
-            y_names[findall(x -> x == "thetal_mean", y_names)] .= "thetali_mean"
-        end
+    if (case_name == "GABLS") || (case_name == "Soares")
+        y_names[y_names .== "thetal_mean"] .= "theta_mean"
+        y_names[y_names .== "total_flux_h"] .= "resolved_z_flux_theta"
+    else
+        y_names[y_names .== "thetal_mean"] .= "thetali_mean"
+        y_names[y_names .== "total_flux_h"] .= "resolved_z_flux_thetali"
     end
-    if "total_flux_qt" in y_names
-        y_names[findall(x -> x == "total_flux_qt", y_names)] .= "resolved_z_flux_qt"
-    end
-    if "total_flux_h" in y_names && (occursin("GABLS", sim_dir) || occursin("Soares", sim_dir))
-        y_names[findall(x -> x == "total_flux_h", y_names)] .= "resolved_z_flux_theta"
-    elseif "total_flux_h" in y_names
-        y_names[findall(x -> x == "total_flux_h", y_names)] .= "resolved_z_flux_thetali"
-    end
-    if "u_mean" in y_names
-        y_names[findall(x -> x == "u_mean", y_names)] .= "u_translational_mean"
-    end
-    if "v_mean" in y_names
-        y_names[findall(x -> x == "v_mean", y_names)] .= "v_translational_mean"
-    end
-    if "tke_mean" in y_names
-        y_names[findall(x -> x == "tke_mean", y_names)] .= "tke_nd_mean"
-    end
+    y_names[y_names .== "total_flux_qt"] .= "resolved_z_flux_qt"
+    y_names[y_names .== "u_mean"] .= "u_translational_mean"
+    y_names[y_names .== "v_mean"] .= "v_translational_mean"
+    y_names[y_names .== "tke_mean"] .= "tke_nd_mean"
     return y_names
 end
 
