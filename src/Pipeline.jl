@@ -37,7 +37,8 @@ function init_calibration(
 )
     @assert mode in ["hpc", "pmap"]
 
-    reference_type = config["reference"]["reference_type"]
+    y_ref_type = config["reference"]["y_reference_type"]
+    Σ_ref_type = config["reference"]["Σ_reference_type"]
     perform_PCA = config["regularization"]["perform_PCA"]
     normalize = config["regularization"]["normalize"]
     tikhonov_noise = config["regularization"]["tikhonov_noise"]
@@ -52,28 +53,52 @@ function init_calibration(
 
     params = config["prior"]["constraints"]
 
+    n_cases = length(config["reference"]["case_name"])
+    # if Σ_dir is `nothing`, it is expanded to an array of `nothing`
+    Σ_dir = expand_dict_entry(config["reference"], "Σ_dir", n_cases)
+
+    # Similarly, generate `Σ_t_start` and `Σ_t_end`
+    Σ_t_start = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
+    Σ_t_end = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
+
+    # Construct reference models
     kwargs_ref_model = Dict(
         :y_names => config["reference"]["y_names"],
         # Reference path specification
-        :les_dir => config["reference"]["les_dir"],
+        :y_dir => config["reference"]["y_dir"],
+        :Σ_dir => Σ_dir,
         :scm_parent_dir => config["reference"]["scm_parent_dir"],
         :scm_suffix => config["reference"]["scm_suffix"],
+        # Case name
+        :case_name => config["reference"]["case_name"],
         # Define observation window (s)
         :t_start => config["reference"]["t_start"],
         :t_end => config["reference"]["t_end"],
+        :Σ_t_start => Σ_t_start,
+        :Σ_t_end => Σ_t_end,
     )
-    ref_models = construct_reference_models(config["reference"]["case_name"], kwargs_ref_model)
+    ref_models = construct_reference_models(kwargs_ref_model)
 
     # Create input scm stats and namelist file if files don't already exist
     run_SCM(ref_models, overwrite = overwrite_scm_file)
+
     # Generate reference statistics
-    ref_stats = ReferenceStatistics(ref_models, reference_type, perform_PCA, normalize, tikhonov_noise = tikhonov_noise)
+    ref_stats = ReferenceStatistics(
+        ref_models,
+        perform_PCA,
+        normalize,
+        tikhonov_noise = tikhonov_noise,
+        y_type = y_ref_type,
+        Σ_type = Σ_ref_type,
+    )
 
     algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
     n_param = length(collect(keys(params)))
     d = length(ref_stats.y)
-    outdir_path =
-        joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(reference_type)")
+    outdir_path = joinpath(
+        outdir_root,
+        "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))",
+    )
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
 

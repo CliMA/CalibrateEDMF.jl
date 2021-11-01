@@ -9,6 +9,7 @@ using JSON
 using Random
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.LESUtils
+using CalibrateEDMF.ModelTypes
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
@@ -19,10 +20,12 @@ include(joinpath(tc_dir, "integration_tests", "utils", "generate_namelist.jl"))
 
 """
     get_obs(
-        obs_type::Symbol,
-        m::ReferenceModel;
+        m::ReferenceModel,
+        y_names::Vector{String},
+        Σ_names::Vector{String},
+        normalize::Bool;
         z_scm::Union{Vector{FT}, Nothing} = nothing,
-    ) where FT<:Real
+    )   
 
 Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
@@ -30,40 +33,41 @@ z_scm (if given), and possibly normalized with respect to the pooled variance.
 Inputs:
  - obs_type     :: Either :les or :scm
  - m            :: Reference model
- - z_scm :: If given, interpolate LES observations to given levels.
+ - z_scm        :: If given, interpolate LES observations to given levels.
 Outputs:
- - y_ :: Mean of observations, possibly interpolated to z_scm levels.
- - y_tvar :: Observational covariance matrix, possibly pool-normalized.
- - pool_var :: Vector of vertically averaged time-variance, one entry for each variable
+ - y            :: Mean of observations, possibly interpolated to z_scm levels.
+ - Σ            :: Observational covariance matrix, possibly pool-normalized.
+ - pool_var     :: Vector of vertically averaged time-variance, one entry for each variable
 """
 function get_obs(
-    obs_type::Symbol,
     m::ReferenceModel,
+    y_names::Vector{String},
+    Σ_names::Vector{String},
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where {FT <: Real}
-    les_names = get_les_names(m.y_names, les_dir(m))
-
-    # True observables from SCM or LES depending on `obs_type` flag
-    y_names, sim_dir = if obs_type == :scm
-        m.y_names, scm_dir(m)
-    elseif obs_type == :les
-        les_names, les_dir(m)
-    else
-        error("Unknown observation type $obs_type")
-    end
-
-    y_tvar, pool_var = get_time_covariance(m, sim_dir, y_names, z_scm = z_scm)
+    # time covariance
+    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm = z_scm)
+    # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
-
     # Get true observables
-    y_ = get_profile(m, sim_dir, y_names, z_scm = z_scm)
+    y = get_profile(m, y_dir(m), y_names, z_scm = z_scm)
     # normalize
-    y_ = normalize_profile(y_, num_vars(m), norm_vec)
-
-    return y_, y_tvar, norm_vec
+    y = normalize_profile(y, num_vars(m), norm_vec)
+    return y, Σ, norm_vec
 end
 
+function get_obs(
+    m::ReferenceModel,
+    y_type::Union{LES, SCM},
+    Σ_type::Union{LES, SCM},
+    normalize::Bool;
+    z_scm::Union{Vector{FT}, Nothing},
+) where {FT <: Real}
+    y_names = isa(y_type, LES) ? get_les_names(m) : m.y_names
+    Σ_names = isa(Σ_type, LES) ? get_les_names(m) : m.y_names
+    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
+end
 
 """
     obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
@@ -72,13 +76,13 @@ Perform dimensionality reduction using principal component analysis on
 the variance y_var. Only eigenvectors with eigenvalues that contribute
 to the leading 1-allowed_var_loss variance are retained.
 Inputs:
- - y_mean :: Mean of the observations.
- - y_var :: Variance of the observations.
+ - y_mean           :: Mean of the observations.
+ - y_var            :: Variance of the observations.
  - allowed_var_loss :: Maximum variance loss allowed.
 Outputs:
- - y_pca :: Projection of y_mean onto principal subspace spanned by eigenvectors.
- - y_var_pca :: Projection of y_var on principal subspace.
- - P_pca :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+ - y_pca            :: Projection of y_mean onto principal subspace spanned by eigenvectors.
+ - y_var_pca        :: Projection of y_var on principal subspace.
+ - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
     eig = eigen(y_var)
@@ -108,7 +112,7 @@ function get_profile(
     y_names::Vector{String};
     z_scm::Union{Vector{Float64}, Nothing} = nothing,
 )
-    get_profile(sim_dir, y_names, ti = m.t_start, tf = m.t_end, z_scm = z_scm)
+    get_profile(sim_dir, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
 end
 
 """
@@ -336,7 +340,6 @@ end
 """
     get_time_covariance(
         m::ReferenceModel,
-        sim_dir::String,
         var_names::Vector{String};
         z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
     )
@@ -344,21 +347,20 @@ end
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
 Inputs:
- - m :: The ReferenceModel to extract the covariance from.
- - sim_dir :: Name of simulation directory.
- - var_names :: List of variable names to be included.
- - z_scm :: If given, interpolates covariance matrix to these locations.
+ - m            :: Reference model.
+ - var_names    :: List of variable names to be included.
+ - z_scm        :: If given, interpolates covariance matrix to this locations.
 """
 function get_time_covariance(
     m::ReferenceModel,
-    sim_dir::String,
     var_names::Vector{String};
     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
 )
+    sim_dir = Σ_dir(m)
     t = nc_fetch(sim_dir, "timeseries", "t")
     # Find closest interval in data
-    ti_index = argmin(broadcast(abs, t .- m.t_start))
-    tf_index = argmin(broadcast(abs, t .- m.t_end))
+    ti_index = argmin(broadcast(abs, t .- get_t_start_Σ(m)))
+    tf_index = argmin(broadcast(abs, t .- get_t_end_Σ(m)))
     ts_vec = zeros(0, length(ti_index:tf_index))
     num_outputs = length(var_names)
     pool_var = zeros(num_outputs)
@@ -406,7 +408,16 @@ end
 Given directory to standard LES or SCM output, fetch path to stats file.
 """
 function get_stats_path(dir)
-    return joinpath(dir, "stats", readdir(string(dir, "/stats"))[1])
+    stats = joinpath(dir, "stats")
+    path = readdir(stats, join = true)
+    if length(path) == 1
+        pth = path[1]
+    elseif length(path) == 0
+        throw(SystemError("No stats file found in directory '$stats'."))
+    else
+        throw(SystemError("No unique stats file found in directory `$stats`."))
+    end
+    return pth
 end
 
 """
@@ -531,4 +542,12 @@ function write_versions(versions::Vector{Int}, iteration::Int; outdir_path::Stri
             write(io, "$(version)\n")
         end
     end
+end
+
+"Returns the N-vector stored in `dict[key]`, or an N-vector of `nothing`"
+function expand_dict_entry(dict, key, N)
+    val = get(dict, key, nothing)
+    r = isnothing(val) ? repeat([nothing], N) : val
+    @assert length(r) == N
+    r
 end

@@ -28,7 +28,8 @@ cutoff_reg = true # Regularize above PCA cutoff
 beta = 10.0 # Regularization hyperparameter
 variance_loss = 1.0e-3 # PCA variance loss
 noisy_obs = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
-model_type = :les  # :les or :scm
+y_type = LES()
+Σ_type = LES()
 
 
 """Define parameters and their priors"""
@@ -78,14 +79,14 @@ function construct_reference_models()::Vector{ReferenceModel}
     ref_models = [
         ReferenceModel(
             # Define variables considered in the loss function
-            y_names = vars,
+            vars,
             # Reference data specification
-            les_dir = data_directory("/groups/esm/ilopezgo", sim_name, les_suffix),
+            data_directory("/groups/esm/ilopezgo", sim_name, les_suffix),
             # Simulation case specification
-            scm_dir = data_directory("./tc_inputs", sim_name, "00000"),
-            case_name = sim_name,
-            t_start = t_start,
-            t_end = t_end,
+            data_directory("./tc_inputs", sim_name, "00000"),
+            sim_name,
+            t_start,
+            t_end,
         ) for (sim_name, les_suffix, vars, t_start, t_end) in zip(sim_names, les_suffixes, y_names, ti, tf)
     ]
     @assert all(isdir.([les_dir.(ref_models)...]))
@@ -111,6 +112,8 @@ function run_calibrate()
         tikhonov_noise = beta,
         tikhonov_mode = "relative",
         dim_scaling = true,
+        y_type = y_type,
+        Σ_type = Σ_type,
     )
     d = pca_length(ref_stats)
 
