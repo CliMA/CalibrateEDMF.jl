@@ -1,4 +1,4 @@
-"""Custom calibration configuration file."""
+#= Custom calibration configuration file. =#
 
 using Distributions
 using StatsBase
@@ -47,8 +47,11 @@ end
 function get_regularization_config()
     config = Dict()
     config["perform_PCA"] = true # Performs PCA on data
+    config["variance_loss"] = 1.0e-3 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
-    config["tikhonov_noise"] = 1.0e-2 # Tikhonov regularization
+    config["tikhonov_mode"] = "relative" # Tikhonov regularization
+    config["tikhonov_noise"] = 2.0 # Tikhonov regularization
+    config["dim_scaling"] = false # Dimensional scaling of the loss
     config["precondition"] = true # Application of prior preconditioning
     return config
 end
@@ -57,7 +60,8 @@ function get_process_config()
     config = Dict()
     config["N_iter"] = 2
     config["N_ens"] = 5
-    config["algorithm"] = Inversion() # Sampler(vcat(get_mean(priors)...), get_cov(priors))
+    config["algorithm"] = "Inversion" # "Sampler", "Unscented"
+    config["noisy_obs"] = false
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
     return config
 end

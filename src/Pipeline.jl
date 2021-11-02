@@ -39,16 +39,20 @@ function init_calibration(
 
     y_ref_type = config["reference"]["y_reference_type"]
     Σ_ref_type = config["reference"]["Σ_reference_type"]
+
     perform_PCA = config["regularization"]["perform_PCA"]
     normalize = config["regularization"]["normalize"]
     tikhonov_noise = config["regularization"]["tikhonov_noise"]
+    tikhonov_mode = config["regularization"]["tikhonov_mode"]
+    variance_loss = config["regularization"]["variance_loss"]
+    dim_scaling = config["regularization"]["dim_scaling"]
 
     save_eki_data = config["output"]["save_eki_data"]
     save_ensemble_data = config["output"]["save_ensemble_data"]
     overwrite_scm_file = config["output"]["overwrite_scm_file"]
     outdir_root = config["output"]["outdir_root"]
 
-    algo = config["process"]["algorithm"]
+    algo_name = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
 
     params = config["prior"]["constraints"]
@@ -88,24 +92,39 @@ function init_calibration(
         perform_PCA,
         normalize,
         tikhonov_noise = tikhonov_noise,
+        tikhonov_mode = tikhonov_mode,
+        variance_loss = variance_loss,
+        dim_scaling = dim_scaling,
         y_type = y_ref_type,
         Σ_type = Σ_ref_type,
     )
 
-    algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
+    # Dimensionality
     n_param = length(collect(keys(params)))
     d = length(ref_stats.y)
+    if algo_name == "Unscented"
+        N_ens = 2 * n_param + 1
+        println("Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion.")
+    end
+
+    # Output path
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))",
+        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))",
     )
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
 
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = config["prior"]["unconstrained_σ"])
     # parameters are sampled in unconstrained space
-    initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
-    ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+    if algo_name == "Inversion" || algo_name == "Sampler"
+        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
+        initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
+        ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+    elseif algo_name == "Unscented"
+        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0)
+        ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+    end
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
