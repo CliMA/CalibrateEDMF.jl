@@ -104,7 +104,7 @@ function init_calibration(
     d = length(ref_stats.y)
     if algo_name == "Unscented"
         N_ens = 2 * n_param + 1
-        println("Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion.")
+        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
     end
 
     # Output path
@@ -112,7 +112,7 @@ function init_calibration(
         outdir_root,
         "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))",
     )
-    println("Name of outdir path for this EKP is: $outdir_path")
+    @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
 
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = config["prior"]["unconstrained_σ"])

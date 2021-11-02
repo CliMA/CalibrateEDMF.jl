@@ -66,8 +66,6 @@ function run_SCAMPy(
     g_scm, g_scm_pca = get_scm_outputs(sim_dirs, y_names, ti, tf, norm_var_list, P_pca_list)
 
     if !isnothing(P_pca_list)
-        println("LENGTH OF G_SCM_ARR : ", length(g_scm))
-        println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
         return sim_dirs, penalize_nan(g_scm), penalize_nan(g_scm_pca)
     else
         return sim_dirs, penalize_nan(g_scm)
@@ -298,14 +296,14 @@ function precondition_ensemble!(
     # If more than 1/4 of outputs are over limit lim, deemed as unstable simulation
     uns_vals_frac = sum(count.(x -> x > lim, g_ens_arr), dims = 2) ./ N_out
     unstable_point_inds = findall(x -> x > 0.25, uns_vals_frac)
-    println(string("Unstable parameter indices: ", unstable_point_inds))
+    @info string("Unstable parameter indices: ", unstable_point_inds)
     # Recursively eliminate all unstable parameters
     if !isempty(unstable_point_inds)
-        println(length(unstable_point_inds), " unstable parameters found:")
+        @warn "$(length(unstable_point_inds)) unstable parameters found:"
         for j in 1:length(unstable_point_inds)
-            println(params[:, unstable_point_inds[j]])
+            @warn params[:, unstable_point_inds[j]]
         end
-        println("Sampling new parameters from prior...")
+        @info "Sampling new parameters from prior..."
         new_params = construct_initial_ensemble(priors, length(unstable_point_inds))
         precondition_ensemble!(
             new_params,
@@ -321,7 +319,7 @@ function precondition_ensemble!(
         )
         params[:, unstable_point_inds] = new_params
     end
-    println("\nPreconditioning finished.")
+    @info "Preconditioning finished."
     return
 end
 

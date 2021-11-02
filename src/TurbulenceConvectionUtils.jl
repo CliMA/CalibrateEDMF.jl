@@ -78,8 +78,8 @@ function run_SCM(
     g_scm[isnan.(g_scm)] .= 1e5
 
     g_scm_pca[isnan.(g_scm_pca)] .= 1e5
-    println("LENGTH OF G_SCM_ARR : ", length(g_scm))
-    println("LENGTH OF G_SCM_ARR_PCA : ", length(g_scm_pca))
+    @info "Length of g_scm (full): $(length(g_scm))"
+    @info "Length of g_scm (pca) : $(length(g_scm_pca))"
     if error_check
         return sim_dirs, g_scm, g_scm_pca, model_error
     else
@@ -159,8 +159,8 @@ function run_SCM_handler(
         main(namelist)
     catch
         model_error = true
-        println("TurbulenceConvection.jl simulation failed with parameters:")
-        [println("$param_name = $param_value") for (param_name, param_value) in zip(u_names, u)]
+        @warn "TurbulenceConvection.jl simulation failed with parameters:"
+        [@warn "$param_name = $param_value" for (param_name, param_value) in zip(u_names, u)]
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end
@@ -196,7 +196,7 @@ function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: Abs
     try
         main(namelist)
     catch
-        println("Default TurbulenceConvection.jl simulation failed. Verify default setup.")
+        @warn "Default TurbulenceConvection.jl simulation failed. Verify default setup."
     end
     return data_directory(output_dir, m.case_name, namelist["meta"]["uuid"])
 end
@@ -302,13 +302,13 @@ function precondition(
     params_cons = deepcopy(transform_unconstrained_to_constrained(priors, params))
     _, _, _, model_error = g_(params_cons)
     if model_error
-        println("Unstable parameter vector found:")
-        [println("$param_name = $param") for (param_name, param) in zip(param_names, params)]
-        println("Sampling new parameter vector from prior...")
+        @warn "Unstable parameter vector found:"
+        [@warn "$param_name = $param" for (param_name, param) in zip(param_names, params)]
+        @warn "Sampling new parameter vector from prior..."
         new_params = precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats)
     else
         new_params = params
-        println("\nPreconditioning finished.")
+        @info "Preconditioning finished."
     end
     return new_params
 end

@@ -151,9 +151,11 @@ function get_profile(
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
     # If simulation does not contain values for ti or tf, return high value (penalization)
     if Δt_start > dt
-        println("Note: Δt_start > dt, which means that simulation stopped before reaching the requested t_start.")
-        println("Requested t_start = $ti s. However, the last time available is $(t[end]) s.")
-        println("Defaulting to penalized profiles...")
+        @warn string(
+            "Note: Δt_start > dt, which means that simulation stopped before reaching the requested t_start.",
+            "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
+            "Defaulting to penalized profiles...",
+        )
         for i in 1:length(var_names)
             var_ = get_height(sim_dir)
             append!(y, 1.0e5 * ones(length(var_[:])))
@@ -163,9 +165,11 @@ function get_profile(
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
         if Δt_end > dt
-            println("Note: Δt_end > dt, which means that simulation stopped before reaching the requested t_end.")
-            println("Requested t_end = $tf s. However, the last time available is $(t[end]) s.")
-            println("Defaulting to penalized profiles...")
+            @warn string(
+                "Note: Δt_end > dt, which means that simulation stopped before reaching the requested t_end.",
+                "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
+                "Defaulting to penalized profiles...",
+            )
             for i in 1:length(var_names)
                 var_ = get_height(sim_dir)
                 append!(y, 1.0e5 * ones(length(var_[:])))
@@ -397,7 +401,7 @@ function is_face_variable(dir, nc_group, var_name)
     elseif ("zf" in var_dims) | ("z" in var_dims)
         return true
     else
-        println("Variable $var_name does not contain a vertical dimension.")
+        @warn "Variable $var_name does not contain a vertical coordinate."
         return false
     end
 end
