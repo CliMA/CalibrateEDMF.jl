@@ -19,7 +19,7 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 using JLD2
 
 # Cases defined as structs for quick access to default configs
-struct Bomex end
+struct ObsCampaigns end
 struct LesDrivenScm end
 # struct MyAwesomeSetup end
 
@@ -30,7 +30,7 @@ function get_config()
     # Define preconditioning and regularization of inverse problem
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
-    config["reference"] = get_reference_config(Bomex())
+    config["reference"] = get_reference_config(ObsCampaigns())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -53,8 +53,8 @@ function get_regularization_config()
     config["variance_loss"] = 1.0e-3 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
-    config["tikhonov_noise"] = 2.0 # Tikhonov regularization
-    config["dim_scaling"] = false # Dimensional scaling of the loss
+    config["tikhonov_noise"] = 10.0 # Tikhonov regularization
+    config["dim_scaling"] = true # Tikhonov regularization
     config["precondition"] = true # Application of prior preconditioning
     return config
 end
@@ -63,26 +63,34 @@ function get_process_config()
     config = Dict()
     config["N_iter"] = 4
     config["N_ens"] = 5
-    config["algorithm"] = "Inversion" # "Sampler", "Unscented"
-    config["noisy_obs"] = false
+    config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
+    config["noisy_obs"] = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
     return config
 end
 
-function get_reference_config(::Bomex)
+function get_reference_config(::ObsCampaigns)
     config = Dict()
-    config["case_name"] = ["Bomex"]
+    config["case_name"] = ["DYCOMS_RF01", "GABLS", "Bomex"]
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]]
-    config["y_dir"] = ["/groups/esm/zhaoyi/pycles_clima/Output.Bomex.aug09"]
+    config["y_names"] = [
+        ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        ["thetal_mean", "u_mean", "v_mean", "tke_mean"],
+        ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+    ]
+    config["y_dir"] = [
+        "/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20",
+        "/groups/esm/ilopezgo/Output.GABLS.iles128wCov",
+        "/groups/esm/ilopezgo/Output.Bomex.may18",
+    ]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
-    config["t_start"] = [4.0 * 3600]
-    config["t_end"] = [6.0 * 3600]
+    config["scm_suffix"] = repeat(["000000"], length(config["case_name"]))
+    config["scm_parent_dir"] = repeat(["scm_init"], length(config["case_name"]))
+    config["t_start"] = [2, 7, 4] * 3600.0
+    config["t_end"] = [4, 9, 6] * 3600.0
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
@@ -111,8 +119,18 @@ end
 
 function get_prior_config()
     config = Dict()
-    config["constraints"] =
-        Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.0, 0.5)])
+    config["constraints"] = Dict(
+        # entrainment parameters
+        "entrainment_factor" => [bounded(0.01, 0.3)],
+        "detrainment_factor" => [bounded(0.01, 0.9)],
+        "sorting_power" => [bounded(0.25, 4.0)],
+        "tke_ed_coeff" => [bounded(0.01, 0.5)],
+        "tke_diss_coeff" => [bounded(0.01, 0.5)],
+        "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
+        "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 0.5)],
+        "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
+        "static_stab_coeff" => [bounded(0.1, 0.8)],
+    )
     config["unconstrained_σ"] = 0.5
     return config
 end

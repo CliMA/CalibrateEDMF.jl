@@ -409,15 +409,23 @@ Given directory to standard LES or SCM output, fetch path to stats file.
 """
 function get_stats_path(dir)
     stats = joinpath(dir, "stats")
-    path = readdir(stats, join = true)
-    if length(path) == 1
-        pth = path[1]
-    elseif length(path) == 0
-        throw(SystemError("No stats file found in directory '$stats'."))
-    else
-        throw(SystemError("No unique stats file found in directory `$stats`."))
+    try
+        stat_files = glob(relpath(joinpath(stats, "*.nc")))
+        @assert length(stat_files) == 1
+        return stat_files[1]
+    catch e
+        if isa(e, AssertionError)
+            @warn "No unique stats netCDF file found at $dir. Extending search to other files."
+            stat_files = readdir(stats, join = true) # WindowsOS/julia 1.6.0 relpath bug
+            if length(stat_files) == 1
+                return stat_files[1]
+            else
+                @error "No unique stats file found at $dir."
+            end
+        else
+            @error "An error occurred retrieving the stats path at $dir."
+        end
     end
-    return pth
 end
 
 """
