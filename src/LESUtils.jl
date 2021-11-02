@@ -66,7 +66,7 @@ function get_cfsite_les_dir(
         @assert month in LES_library["months"]
         @assert experiment in LES_library["experiments"]
     catch
-        println("The requested cfsite LES does not exist.")
+        @error "The requested cfsite LES does not exist."
     end
     cfsite_number = string(cfsite_number)
     month = string(month, pad = 2)

@@ -75,7 +75,8 @@ function get_reference_config(::Bomex)
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"]]
+    # "total_flux_qt" will be available in TC.jl version 0.5.0
+    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h"]]
     config["y_dir"] = ["/groups/esm/zhaoyi/pycles_clima/Output.Bomex.aug09"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]

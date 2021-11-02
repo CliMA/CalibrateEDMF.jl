@@ -70,7 +70,7 @@ function run_calibrate(config; return_ekobj = false)
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
         g_output_list = pmap(g_, [c[:] for c in eachcol(params_cons_i)]; retry_delays = zeros(5)) # Outer dim is params iterator
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(g_output_list, l), 3) # Outer dim is G̃, G 
-        println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
+        @info "\n\nEKP evaluation $i finished. Updating ensemble ...\n"
         for j in 1:N_ens
             g_ens[j, :] = perform_PCA ? g_ens_arr_pca[j] : g_ens_arr[j]
         end
@@ -89,7 +89,7 @@ function run_calibrate(config; return_ekobj = false)
         else
             update_ensemble!(ekobj, Array(g_ens'))
         end
-        println("\nEnsemble updated. Saving results to file...\n")
+        @info "\nEnsemble updated. Saving results to file...\n"
 
         # Get normalized error for full dimensionality output
         push!(norm_err_list, compute_errors(g_ens_arr, ref_stats.y_full))
@@ -165,8 +165,10 @@ function run_calibrate(config; return_ekobj = false)
         end
     end
     # EKP results: Has the ensemble collapsed toward the truth?
-    println("\nEKP ensemble mean at last stage (original space):")
-    println(mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2)) # Parameters are stored as columns
+    @info string(
+        "\nEKP ensemble mean at last stage (original space): ",
+        $"mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2)",
+    )
 
     if return_ekobj
         return ekobj, outdir_path
