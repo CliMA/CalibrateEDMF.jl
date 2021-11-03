@@ -52,12 +52,14 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
             dim_scaling::Bool = false,
             y_type::ModelType = LES(),
             Σ_type::ModelType = LES(),
+            Δt_y::FT = 3 * 3600,
+            Δt_Σ::FT = 6 * 3600,
         )
 
     Constructs the ReferenceStatistics defining the inverse problem.
 
     Inputs:
-     - RM               :: Vector of `ReferenceModel`s
+     - RM               :: Vector of `ReferenceModel`s.
      - perform_PCA      :: Boolean specifying whether to perform PCA.
      - normalize        :: Boolean specifying whether to normalize the data.
      - variance_loss    :: Fraction of variance loss when performing PCA.
@@ -65,8 +67,10 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
      - tikhonov_mode    :: If "relative", tikhonov_noise is scaled by the minimum
         eigenvalue in the covariance matrix considered.
      - dim_scaling      :: Whether to scale covariance blocks by their size.
-     - y_type           :: Type of reference mean data. Either LES() or SCM()
-     - Σ_type           :: Type of reference covariance data. Either LES() or SCM()
+     - y_type           :: Type of reference mean data. Either LES() or SCM().
+     - Σ_type           :: Type of reference covariance data. Either LES() or SCM().
+     - Δt_y             :: Time window for LES mean evaluation in LES_driven_SCM configurations.
+     - Δt_Σ             :: Time window for LES covariance evaluation in LES_driven_SCM configurations.
     Outputs:
      - A ReferenceStatistics struct.
     """
@@ -80,6 +84,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         dim_scaling::Bool = false,
         y_type::ModelType = LES(),
         Σ_type::ModelType = LES(),
+        Δt_y::FT = 3 * 3600.0,
+        Δt_Σ::FT = 6 * 3600.0,
     ) where {FT <: Real}
         # Init arrays
         y = FT[]  # yt
@@ -90,9 +96,10 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         norm_vec = Vector[]  # pool_var_list
 
         for m in RM
+            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt_y, Δt_Σ) : m
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            z_scm = get_height(scm_dir(m))
-            y_, y_var_, pool_var = get_obs(m, y_type, Σ_type, normalize, z_scm = z_scm)
+            z_scm = get_height(scm_dir(model))
+            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = z_scm)
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
