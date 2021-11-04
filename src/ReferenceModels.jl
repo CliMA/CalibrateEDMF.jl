@@ -1,10 +1,13 @@
 module ReferenceModels
 
+using NCDatasets
+include("helper_funcs.jl")
+
 export ReferenceModel
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
-export construct_reference_models
+export construct_reference_models, time_shift_reference_model
 
 """
     struct ReferenceModel
@@ -161,5 +164,49 @@ function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::
     end
     return ref_models
 end
+
+"""
+    time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) where {FT <: Real}
+
+Returns a time-shifted ReferenceModel, considering an interval relative to the last
+available time step of the original model.
+
+Inputs:
+ - m     :: A ReferenceModel.
+ - Δt_y  :: The time interval between t_start and t_end of the new model.
+ - Δt_Σ  :: The time interval between Σ_t_start and Σ_t_end of the new model.
+Outputs:
+ - The time-shifted ReferenceModel.
+"""
+function time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) where {FT <: Real}
+    les_filename = get_stats_path(y_dir(m))
+
+    ds = NCDataset(get_stats_path(y_dir(m)), "r")
+    t = ds.group["profiles"]["t"][:]
+    t_end = t[end]
+    t_start = t_end - Δt_y
+    Σ_t_start = t_end - Δt_Σ
+
+    close(ds)
+    @assert t_start > 0 "t_start must be positive after time shift, but $t_start was given."
+    @assert Σ_t_start > 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
+    @info string(
+        "Shifting time windows for ReferenceModel $(m.case_name)",
+        "to ty=($t_start, $t_end), tΣ=($Σ_t_start, $t_end).",
+    )
+
+    return ReferenceModel(
+        m.y_names,
+        y_dir(m),
+        scm_dir(m),
+        m.case_name,
+        t_start,
+        t_end;
+        Σ_dir = Σ_dir(m),
+        Σ_t_start = Σ_t_start,
+        Σ_t_end = t_end,
+    )
+end
+
 
 end # module

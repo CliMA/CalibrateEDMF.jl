@@ -4,6 +4,7 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
+using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
