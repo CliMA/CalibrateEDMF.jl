@@ -10,6 +10,7 @@ include(joinpath("DistributionUtils", "runtests.jl"))
 include(joinpath("LESUtils", "runtests.jl"))
 include(joinpath("TurbulenceConvectionUtils", "runtests.jl"))
 include(joinpath("ReferenceModels", "runtests.jl"))
+include(joinpath("ReferenceStats", "runtests.jl"))
 include(joinpath("Pipeline", "runtests.jl"))
 
 @testset "error_utils" begin

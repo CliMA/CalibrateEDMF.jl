@@ -31,7 +31,6 @@ end
         :y_names => [["u_mean"], ["v_mean"]],
         :y_dir => scm_dirs,
         :scm_dir => scm_dirs,
-        :scm_parent_dir => repeat([pwd()], 2),
         :case_name => repeat(["Bomex"], 2),
         :t_start => [4.0 * 3600, 4.0 * 3600],
         :t_end => [6.0 * 3600, 6.0 * 3600],

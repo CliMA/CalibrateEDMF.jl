@@ -121,6 +121,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         # Construct global observational covariance matrix, TSVD
         if tikhonov_mode == "relative"
+            @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
             Γ_vec = map(x -> x + tikhonov_noise * minimum(diag(x)) * I, Γ_vec)
         else
             Γ_vec = map(x -> x + tikhonov_noise * I, Γ_vec)
