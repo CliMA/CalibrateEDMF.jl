@@ -179,15 +179,11 @@ Outputs:
  - The time-shifted ReferenceModel.
 """
 function time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) where {FT <: Real}
-    les_filename = get_stats_path(y_dir(m))
-
-    ds = NCDataset(get_stats_path(y_dir(m)), "r")
-    t = ds.group["profiles"]["t"][:]
+    t = nc_fetch(y_dir(m), "t")
     t_end = t[end]
     t_start = t_end - Δt_y
     Σ_t_start = t_end - Δt_Σ
 
-    close(ds)
     @assert t_start > 0 "t_start must be positive after time shift, but $t_start was given."
     @assert Σ_t_start > 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
     @info string(

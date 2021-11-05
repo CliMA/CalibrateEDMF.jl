@@ -186,8 +186,8 @@ function get_obs(
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing},
 ) where {FT <: Real}
-    y_names = isa(y_type, LES) ? get_les_names(m) : m.y_names
-    Σ_names = isa(Σ_type, LES) ? get_les_names(m) : m.y_names
+    y_names = isa(y_type, LES) ? get_les_names(m, m.y_dir) : m.y_names
+    Σ_names = isa(Σ_type, LES) ? get_les_names(m, m.Σ_dir) : m.y_names
     get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
 end
 
@@ -265,7 +265,7 @@ function get_profile(
     z_scm::Union{Vector{Float64}, Nothing} = nothing,
 )
 
-    t = nc_fetch(sim_dir, "timeseries", "t")
+    t = nc_fetch(sim_dir, "t")
     dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
     y = zeros(0)
 
@@ -329,7 +329,7 @@ function get_time_covariance(
     z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
 )
     sim_dir = Σ_dir(m)
-    t = nc_fetch(sim_dir, "timeseries", "t")
+    t = nc_fetch(sim_dir, "t")
     # Find closest interval in data
     ti_index = argmin(broadcast(abs, t .- get_t_start_Σ(m)))
     tf_index = argmin(broadcast(abs, t .- get_t_end_Σ(m)))

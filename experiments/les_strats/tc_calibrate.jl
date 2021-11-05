@@ -166,8 +166,8 @@ function run_calibrate(config; return_ekobj = false)
     end
     # EKP results: Has the ensemble collapsed toward the truth?
     @info string(
-        "\nEKP ensemble mean at last stage (original space): ",
-        $"mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2)",
+        "EKP ensemble mean at last stage (original space): ",
+        "$(mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2))",
     )
 
     if return_ekobj

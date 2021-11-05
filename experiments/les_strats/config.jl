@@ -31,7 +31,7 @@ function get_config()
     # Define preconditioning and regularization of inverse problem
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
-    config["reference"] = get_reference_config(ObsCampaigns())
+    config["reference"] = get_reference_config(LesDrivenScm())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -51,7 +51,7 @@ end
 function get_regularization_config()
     config = Dict()
     config["perform_PCA"] = true # Performs PCA on data
-    config["variance_loss"] = 1.0e-3 # Variance truncation level in PCA
+    config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 10.0 # Tikhonov regularization
@@ -101,18 +101,22 @@ end
 
 function get_reference_config(::LesDrivenScm)
     config = Dict()
-    config["case_name"] = ["LES_driven_SCM"]
+    config["case_name"] = repeat(["LES_driven_SCM"], 3)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
-    cfsite_number = 17
+    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "s_mean"]], 3)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
-    config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...)]
-    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...)]
-    config["scm_parent_dir"] = ["scm_init"]
-    config["t_start"] = [4.0 * 3600]
-    config["t_end"] = [12.0 * 3600]
+    config["y_dir"] = [
+        get_cfsite_les_dir(17; les_kwargs...),
+        get_cfsite_les_dir(19; les_kwargs...),
+        get_cfsite_les_dir(22; les_kwargs...),
+    ]
+    config["scm_suffix"] =
+        [get_gcm_les_uuid(17; les_kwargs...), get_gcm_les_uuid(19; les_kwargs...), get_gcm_les_uuid(22; les_kwargs...)]
+    config["scm_parent_dir"] = repeat(["scm_init"], 3)
+    config["t_start"] = repeat([9.0 * 3600], 3)
+    config["t_end"] = repeat([12.0 * 3600], 3)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
     return config
