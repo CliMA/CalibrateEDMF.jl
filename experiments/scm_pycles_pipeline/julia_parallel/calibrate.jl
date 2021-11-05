@@ -31,7 +31,7 @@ function run_calibrate(config; return_ekobj = false)
 
     N_iter = config["process"]["N_iter"]
     N_ens = config["process"]["N_ens"]
-    algo = config["process"]["algorithm"]
+    algo_name = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
 
     perform_PCA = config["regularization"]["perform_PCA"]
@@ -53,7 +53,13 @@ function run_calibrate(config; return_ekobj = false)
     # Precondition prior
     @everywhere precondition_param(x::Vector{FT}) where {FT <: Real} = precondition(x, $priors, $ref_models, $ref_stats)
     precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
-    ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
+    if algo_name == "Inversion" || algo_name == "Sampler"
+        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
+        ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
+    elseif algo_name == "Unscented"
+        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0)
+        N_ens = 2 * n_param + 1
+    end
 
     # Define caller function
     @everywhere g_(x::Vector{FT}) where {FT <: Real} = run_SCM(x, $priors.names, $ref_models, $ref_stats)
@@ -141,8 +147,8 @@ function run_calibrate(config; return_ekobj = false)
     end
     # EKP results: Has the ensemble collapsed toward the truth?
     @info string(
-        "\nEKP ensemble mean at last stage (original space): ",
-        $"mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2)",
+        "EKP ensemble mean at last stage (original space): ",
+        "$(mean(transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims = 2))",
     )
 
     if return_ekobj

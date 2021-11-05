@@ -1,7 +1,12 @@
 module LESUtils
-import CalibrateEDMF.ReferenceModels: ReferenceModel
 
-export get_les_names, get_cfsite_les_dir
+import CalibrateEDMF.ReferenceModels: ReferenceModel
+using TurbulenceConvection
+const tc_dir = dirname(pathof(TurbulenceConvection))
+include(joinpath(tc_dir, "name_aliases.jl"))
+include("helper_funcs.jl")
+
+export get_les_names, get_cfsite_les_dir, find_alias
 
 
 """
@@ -17,21 +22,40 @@ LES_library = Dict(
     "experiments" => ["amip", "amip4K"],
 )
 
-get_les_names(m::ReferenceModel)::Vector{String} = get_les_names(m.y_names, m.case_name)
-function get_les_names(scm_y_names::Vector{String}, case_name::String)::Vector{String}
-    y_names = deepcopy(scm_y_names)
-    if (case_name == "GABLS") || (case_name == "Soares")
-        y_names[y_names .== "thetal_mean"] .= "theta_mean"
-        y_names[y_names .== "total_flux_h"] .= "resolved_z_flux_theta"
-    else
-        y_names[y_names .== "thetal_mean"] .= "thetali_mean"
-        y_names[y_names .== "total_flux_h"] .= "resolved_z_flux_thetali"
+"""
+    get_les_names(y_names::Vector{String}, les_dir::String)
+    get_les_names(m::ReferenceModel, les_dir::String)
+
+Returns the aliases of the variables actually present in `les_dir`
+corresponding to SCM variables `y_names`.
+"""
+get_les_names(m::ReferenceModel, les_dir::String)::Vector{String} = get_les_names(m.y_names, les_dir)
+function get_les_names(y_names::Vector{String}, les_dir::String)::Vector{String}
+    dict = name_aliases()
+    y_alias_groups = [haskey(dict, var) ? (dict[var]..., var) : (var,) for var in y_names]
+    return [find_alias(aliases, les_dir) for aliases in y_alias_groups]
+end
+
+"""
+    find_alias(les_dir::String, aliases::Tuple{Vararg{String}})
+
+Finds the alias present in an NCDataset from a list of possible aliases.
+"""
+function find_alias(aliases::Tuple{Vararg{String}}, les_dir::String)
+    ds = NCDataset(get_stats_path(les_dir))
+    for alias in aliases
+        if haskey(ds, alias)
+            return alias
+        else
+            for group_option in ["profiles", "reference", "timeseries"]
+                haskey(ds.group, group_option) || continue
+                if haskey(ds.group[group_option], alias)
+                    return alias
+                end
+            end
+        end
     end
-    y_names[y_names .== "total_flux_qt"] .= "resolved_z_flux_qt"
-    y_names[y_names .== "u_mean"] .= "u_translational_mean"
-    y_names[y_names .== "v_mean"] .= "v_translational_mean"
-    y_names[y_names .== "tke_mean"] .= "tke_nd_mean"
-    return y_names
+    error("None of the aliases $aliases found in the dataset $les_dir.")
 end
 
 """

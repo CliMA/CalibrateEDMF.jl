@@ -11,17 +11,16 @@ using Random
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
 using TurbulenceConvection
-tc_dir = dirname(dirname(pathof(TurbulenceConvection)));
+tc_dir = dirname(dirname(pathof(TurbulenceConvection)))
 include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
 include(joinpath(tc_dir, "integration_tests", "utils", "generate_namelist.jl"))
-
+include(joinpath(tc_dir, "src", "name_aliases.jl"))
 
 """
     vertical_interpolation(
         var_name::String,
         sim_dir::String,
         z_scm::Vector{FT};
-        group::String = "profiles",
     ) where {FT <: AbstractFloat}
 
 Returns the netcdf variable var_name interpolated to heights z_scm.
@@ -30,18 +29,12 @@ Inputs:
  - var_name :: Name of variable in the netcdf dataset.
  - sim_dir :: Name of simulation directory.
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
- - group :: netcdf group of the variable.
 Output:
  - The interpolated vector.
 """
-function vertical_interpolation(
-    var_name::String,
-    sim_dir::String,
-    z_scm::Vector{FT};
-    group::String = "profiles",
-) where {FT <: AbstractFloat}
-    z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, group, var_name))
-    var_ = nc_fetch(sim_dir, group, var_name)
+function vertical_interpolation(var_name::String, sim_dir::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
+    z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, var_name))
+    var_ = nc_fetch(sim_dir, var_name)
     if length(size(var_)) == 2
         # Create interpolant
         nodes = (z_ref, 1:size(var_, 2))
@@ -62,7 +55,6 @@ end
         var_name::String,
         sim_dir::String,
         z_scm::Union{Vector{Float64}, Nothing};
-        group::String = "profiles",
     )
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
@@ -71,20 +63,14 @@ Inputs:
  - var_name :: Name of variable in the netcdf dataset.
  - sim_dir :: Name of simulation directory.
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
- - group :: netcdf group of the variable.
 Output:
  - The interpolated vector.
 """
-function nc_fetch_interpolate(
-    var_name::String,
-    sim_dir::String,
-    z_scm::Union{Vector{Float64}, Nothing};
-    group::String = "profiles",
-)
+function nc_fetch_interpolate(var_name::String, sim_dir::String, z_scm::Union{Vector{Float64}, Nothing};)
     if !isnothing(z_scm)
-        return vertical_interpolation(var_name, sim_dir, z_scm, group = group)
+        return vertical_interpolation(var_name, sim_dir, z_scm)
     else
-        return nc_fetch(sim_dir, group, var_name)
+        return nc_fetch(sim_dir, var_name)
     end
 end
 
@@ -93,7 +79,6 @@ end
         var_name::String,
         sim_dir::String,
         z_scm::Union{Vector{Float64}, Nothing};
-        group::String = "profiles",
     )
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm. If the
@@ -104,27 +89,21 @@ Inputs:
  - var_name :: Name of variable in the netcdf dataset.
  - sim_dir :: Name of simulation directory.
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
- - group :: netcdf group of the variable.
 Output:
  - The interpolated and transformed vector.
 """
-function fetch_interpolate_transform(
-    var_name::String,
-    sim_dir::String,
-    z_scm::Union{Vector{Float64}, Nothing};
-    group::String = "profiles",
-)
+function fetch_interpolate_transform(var_name::String, sim_dir::String, z_scm::Union{Vector{Float64}, Nothing};)
     # PyCLES vertical fluxes are per volume, not mass
     if occursin("resolved_z_flux", var_name)
-        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm, group = group)
-        rho_half = nc_fetch_interpolate("rho0_half", sim_dir, z_scm, group = "reference")
+        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm)
+        rho_half = nc_fetch_interpolate("rho0_half", sim_dir, z_scm)
         var_ = var_ .* rho_half
     elseif occursin("horizontal_vel", var_name)
-        u_ = nc_fetch_interpolate("u_mean", sim_dir, z_scm, group = group)
-        v_ = nc_fetch_interpolate("v_mean", sim_dir, z_scm, group = group)
+        u_ = nc_fetch_interpolate("u_mean", sim_dir, z_scm)
+        v_ = nc_fetch_interpolate("v_mean", sim_dir, z_scm)
         var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
     else
-        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm, group = group)
+        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm)
     end
     return var_
 end
@@ -144,9 +123,9 @@ Output:
 function get_height(sim_dir::String; get_faces::Bool = false)
     z = nothing # Julia scoping
     try
-        z = get_faces ? nc_fetch(sim_dir, "profiles", "zf") : nc_fetch(sim_dir, "profiles", "zc")
+        z = get_faces ? nc_fetch(sim_dir, "zf") : nc_fetch(sim_dir, "zc")
     catch e
-        z = get_faces ? nc_fetch(sim_dir, "profiles", "z") : nc_fetch(sim_dir, "profiles", "z_half")
+        z = get_faces ? nc_fetch(sim_dir, "z") : nc_fetch(sim_dir, "z_half")
     end
     return z
 end
@@ -169,28 +148,44 @@ function normalize_profile(profile_vec, n_vars, var_vec)
     return y
 end
 
+"""
+    nc_fetch(dir::String, var_name::String)
 
-function nc_fetch(dir, nc_group, var_name)
+Returns the data for a variable `var_name`, looping
+through all dataset groups.
+"""
+function nc_fetch(dir::String, var_name::String)
     ds = NCDataset(get_stats_path(dir))
-    ds_group = ds.group[nc_group]
-    ds_var = deepcopy(Array(ds_group[var_name]))
-    close(ds)
-    return Array(ds_var)
+    if haskey(ds, var_name)
+        return Array(ds[var_name])
+    else
+        for group_option in ["profiles", "reference", "timeseries"]
+            haskey(ds.group, group_option) || continue
+            if haskey(ds.group[group_option], var_name)
+                return Array(ds.group[group_option][var_name])
+            end
+        end
+    end
+    error("Variable $var_name not found in the output directory $dir.")
 end
 
 """Returns whether the given variables is defined in faces, or not."""
-function is_face_variable(dir, nc_group, var_name)
+function is_face_variable(dir::String, var_name::String)
     ds = NCDataset(get_stats_path(dir))
-    ds_group = ds.group[nc_group]
-    var_dims = dimnames(ds_group[var_name])
-    close(ds)
-    if ("zc" in var_dims) | ("z_half" in var_dims)
-        return false
-    elseif ("zf" in var_dims) | ("z" in var_dims)
-        return true
-    else
-        @warn "Variable $var_name does not contain a vertical coordinate."
-        return false
+
+    for group_option in ["profiles", "reference", "timeseries"]
+        haskey(ds.group, group_option) || continue
+        if haskey(ds.group[group_option], var_name)
+            var_dims = dimnames(ds.group[group_option][var_name])
+            if ("zc" in var_dims) | ("z_half" in var_dims)
+                return false
+            elseif ("zf" in var_dims) | ("z" in var_dims)
+                return true
+            else
+                @warn "Variable $var_name does not contain a vertical coordinate."
+                return false
+            end
+        end
     end
 end
 
