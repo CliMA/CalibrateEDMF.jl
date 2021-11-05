@@ -150,19 +150,22 @@ Run the single-column model (SCM) for a reference model object
 using default parameters.
 
 Inputs:
- - m            :: A `ReferenceModel`
- - overwrite    :: if true, overwrite existing simulation files
+ - m                    :: A `ReferenceModel`
+ - overwrite            :: if true, overwrite existing simulation files
+ - run_single_timestep  :: if true, run only one time step
 Outputs:
  - Nothing
 """
-function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false)
+function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
     namelist = get_scm_namelist(m, overwrite = overwrite)
     # prepare and run simulation
     output_dir = scm_dir(m)
     if ~isfile(get_stats_path(output_dir)) | overwrite
-        # Run only 1 timestep -- since we don't need output data, only simulation config
         default_t_max = namelist["time_stepping"]["t_max"]
-        namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt"]
+        if run_single_timestep
+            # Run only 1 timestep -- since we don't need output data, only simulation config
+            namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt"]
+        end
         namelist["meta"]["uuid"] = uuid(m)
         namelist["output"]["output_root"] = dirname(output_dir)
         # if `LES_driven_SCM` case, provide input LES stats file
@@ -175,10 +178,12 @@ function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false)
         catch
             @warn "Default TurbulenceConvection.jl simulation failed. Verify default setup."
         end
-        # reset t_max to default and overwrite stored namelist file
-        namelist["time_stepping"]["t_max"] = default_t_max
-        open(namelist_directory(output_dir, m), "w") do io
-            JSON.print(io, namelist, 4)
+        if run_single_timestep
+            # reset t_max to default and overwrite stored namelist file
+            namelist["time_stepping"]["t_max"] = default_t_max
+            open(namelist_directory(output_dir, m), "w") do io
+                JSON.print(io, namelist, 4)
+            end
         end
     end
 end
