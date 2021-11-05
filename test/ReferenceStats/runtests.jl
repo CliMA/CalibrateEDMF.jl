@@ -18,7 +18,7 @@ using CalibrateEDMF.TurbulenceConvectionUtils
         :t_end => repeat([6.0 * 3600], 2),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_SCM(ref_models, overwrite = false)
+    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
 
     # Test only tikhonov vs PCA and tikhonov
     pca_list = [false, true]

@@ -14,6 +14,18 @@ include("config.jl")
 
 @testset "Pipeline" begin
     config = get_config()
+    # Generate reference data
+    ref_config = config["reference"]
+    ref_model = ReferenceModel(
+        ref_config["y_names"][1],
+        ref_config["y_dir"][1],
+        ref_config["y_dir"][1],
+        ref_config["case_name"][1],
+        ref_config["t_start"][1],
+        ref_config["t_end"][1],
+    )
+    run_reference_SCM(ref_model, run_single_timestep = false)
+    # Initialize calibration setup
     init_calibration(config; mode = "hpc")
     res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]

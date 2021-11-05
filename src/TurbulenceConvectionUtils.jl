@@ -13,7 +13,7 @@ using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export ModelEvaluator
-export run_SCM, run_SCM_handler
+export run_SCM, run_SCM_handler, get_scm_namelist, run_reference_SCM
 export generate_scm_input, get_gcm_les_uuid
 export save_full_ensemble_data
 export precondition
@@ -128,26 +128,62 @@ function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = 
 end
 
 """
-    run_SCM(
-        RM::Vector{ReferenceModel};
-        overwrite::Bool,
-    ) where FT<:Real
+    get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
 
-Run the single-column model (SCM) for each reference model object
+Fetch the namelist stored in `scm_dir(m)`.
+Generate a new namelist if it doesn't exist or `overwrite=true`.
+"""
+function get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
+    namelist_path = namelist_directory(scm_dir(m), m)
+    namelist = if ~isfile(namelist_path) | overwrite
+        NameList.default_namelist(m.case_name, root = scm_dir(m))
+    else
+        JSON.parsefile(namelist_path)
+    end
+    return namelist
+end
+
+"""
+    run_reference_SCM(m::ReferenceModel; overwrite::Bool = false)
+
+Run the single-column model (SCM) for a reference model object
 using default parameters.
 
 Inputs:
- - RM               :: Vector of `ReferenceModel`s
- - overwrite       :: if true, overwrite existing simulation files
+ - m                    :: A `ReferenceModel`
+ - overwrite            :: if true, overwrite existing simulation files
+ - run_single_timestep  :: if true, run only one time step
 Outputs:
  - Nothing
 """
-function run_SCM(RM::Vector{ReferenceModel}; overwrite::Bool = false) where {FT <: Real}
-
-    for ref_model in RM
-        output_dir = scm_dir(ref_model)
-        if ~isdir(output_dir) | overwrite
-            run_SCM_handler(ref_model, dirname(output_dir))
+function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
+    namelist = get_scm_namelist(m, overwrite = overwrite)
+    # prepare and run simulation
+    output_dir = scm_dir(m)
+    if ~isfile(get_stats_path(output_dir)) | overwrite
+        default_t_max = namelist["time_stepping"]["t_max"]
+        if run_single_timestep
+            # Run only 1 timestep -- since we don't need output data, only simulation config
+            namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt"]
+        end
+        namelist["meta"]["uuid"] = uuid(m)
+        namelist["output"]["output_root"] = dirname(output_dir)
+        # if `LES_driven_SCM` case, provide input LES stats file
+        if m.case_name == "LES_driven_SCM"
+            namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
+        end
+        # run TurbulenceConvection.jl
+        try
+            main(namelist)
+        catch
+            @warn "Default TurbulenceConvection.jl simulation failed. Verify default setup."
+        end
+        if run_single_timestep
+            # reset t_max to default and overwrite stored namelist file
+            namelist["time_stepping"]["t_max"] = default_t_max
+            open(namelist_directory(output_dir, m), "w") do io
+                JSON.print(io, namelist, 4)
+            end
         end
     end
 end
@@ -255,42 +291,6 @@ function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where 
     append!(u_out, collect(values(u_vec_dict)))
 
     return (u_names_out, u_out)
-end
-
-"""
-    run_SCM_handler(
-        m::ReferenceModel,
-        output_dir::String;
-    ) where {FT<:AbstractFloat}
-
-Run a case with default SCM parameters and return data
-directory pointing to where data is stored for simulation run.
-
-Inputs:
- - m            :: Reference model
- - output_dir   :: Directory to store simulation results in
-Outputs:
- - output_dirs  :: directory containing output data from the SCM run.
-"""
-function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: AbstractFloat}
-
-    namelist = NameList.default_namelist(m.case_name)
-    # calling NameList.default_namelist writes namelist to pwd
-    rm("namelist_" * namelist["meta"]["casename"] * ".in")
-    namelist["meta"]["uuid"] = uuid(m)
-    # set output dir to `output_dir`
-    namelist["output"]["output_root"] = output_dir
-    # if `LES_driven_SCM` case, provide input LES stats file
-    if m.case_name == "LES_driven_SCM"
-        namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
-    end
-    # run TurbulenceConvection.jl
-    try
-        main(namelist)
-    catch
-        @warn "Default TurbulenceConvection.jl simulation failed. Verify default setup."
-    end
-    return data_directory(output_dir, m.case_name, namelist["meta"]["uuid"])
 end
 
 """
