@@ -80,7 +80,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     ref_models = construct_reference_models(kwargs_ref_model)
 
     # Create input scm stats and namelist file if files don't already exist
-    run_SCM(ref_models, overwrite = overwrite_scm_file)
+    run_reference_SCM.(ref_models, overwrite = overwrite_scm_file)
 
     # Generate reference statistics
     ref_stats = ReferenceStatistics(
