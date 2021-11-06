@@ -12,10 +12,38 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
+export ModelEvaluator
 export run_SCM, run_SCM_handler
 export generate_scm_input, get_gcm_les_uuid
 export save_full_ensemble_data
 export precondition
+
+"""
+    struct ModelEvaluator
+    
+A structure containing the information required to perform
+a forward model evaluation at a given parameter vector.
+"""
+Base.@kwdef struct ModelEvaluator{FT <: Real}
+    "Parameter vector in constrained (i.e. physical) space"
+    param_cons::Vector{FT}
+    "Parameter names associated with parameter vector"
+    param_names::Vector{String}
+    "Vector of reference models"
+    ref_models::Vector{ReferenceModel}
+    "Reference statistics for the inverse problem"
+    ref_stats::ReferenceStatistics
+
+    function ModelEvaluator(
+        param_cons::Vector{FT},
+        param_names::Vector{String},
+        RM::Vector{ReferenceModel},
+        RS::ReferenceStatistics,
+    ) where {FT <: Real}
+        return new{FT}(param_cons, param_names, RM, RS)
+    end
+end
+
 
 """
     run_SCM(
@@ -85,6 +113,10 @@ function run_SCM(
     else
         return sim_dirs, g_scm, g_scm_pca
     end
+end
+
+function run_SCM(ME::ModelEvaluator; error_check::Bool = false) where {FT <: Real}
+    return run_SCM(ME.param_cons, ME.param_names, ME.ref_models, ME.ref_stats, error_check = error_check)
 end
 
 """
@@ -202,26 +234,15 @@ function run_SCM_handler(m::ReferenceModel, output_dir::String) where {FT <: Abs
 end
 
 """
-    generate_scm_input(u::Vector{Float64},
-        u_names::Vector{String},
-        RM::Vector{ReferenceModel},
-        RS::ReferenceStatistics,)
+    generate_scm_input(model_evaluator::ModelEvaluator, outdir_path::String = pwd())
 
 Generates all data necessary to initialize a SCM evaluation
 at the given parameter vector `u`.
 """
-function generate_scm_input(
-    u::Vector{Float64},
-    u_names::Vector{String},
-    RM::Vector{ReferenceModel},
-    RS::ReferenceStatistics,
-    outdir_path::String = pwd(),
-)
+function generate_scm_input(model_evaluator::ModelEvaluator, outdir_path::String = pwd())
     # Generate version
     version = rand(11111:99999)
-    ref_models = map(x -> serialize_struct(x), RM)
-    ref_stats = serialize_struct(RS)
-    jldsave(scm_init_path(outdir_path, version); u, u_names, ref_models, ref_stats, version)
+    jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
     return version
 end
 
@@ -275,22 +296,21 @@ end
         ref_stats::ReferenceStatistics,
     ) where {FT <: Real}
 
-Recursively substitute unstable parameters by stable parameters drawn from 
-the same prior.
+Substitute parameter vector `param` by a parameter vector drawn
+from the same prior, conditioned on the forward model being stable.
 
 Inputs:
- - params      :: A parameter vector that may possibly result in unstable
-    forward model evaluations.
+ - param      :: A parameter vector that may possibly result in unstable
+    forward model evaluations (in unconstrained space).
  - priors      :: Priors from which the parameters were drawn.
  - ref_models  :: Vector of ReferenceModels to check stability for.
  - ref_stats   :: ReferenceStatistics of the ReferenceModels.
 Outputs:
- - new_params  :: A new parameter vector drawn from the prior for which simulations
-    are stable.
-
+ - new_param  :: A new parameter vector drawn from the prior, conditioned on
+  simulations being stable (in unconstrained space).
 """
 function precondition(
-    params::Vector{FT},
+    param::Vector{FT},
     priors,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
@@ -299,19 +319,40 @@ function precondition(
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) = run_SCM(u, param_names, ref_models, ref_stats, error_check = true)
 
-    params_cons = deepcopy(transform_unconstrained_to_constrained(priors, params))
-    _, _, _, model_error = g_(params_cons)
+    param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
+    _, _, _, model_error = g_(param_cons)
     if model_error
         @warn "Unstable parameter vector found:"
-        [@warn "$param_name = $param" for (param_name, param) in zip(param_names, params)]
+        [@warn "$param_name = $param" for (param_name, param) in zip(param_names, param)]
         @warn "Sampling new parameter vector from prior..."
-        new_params = precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats)
+        new_param = precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats)
     else
-        new_params = params
+        new_param = param
         @info "Preconditioning finished."
     end
-    return new_params
+    return new_param
 end
 
+"""
+    precondition(ME::ModelEvaluator, priors)
+
+Substitute the parameter vector of a ModelEvaluator by another
+one drawn from the given `priors`, conditioned on the forward
+model being stable.
+
+Inputs:
+ - ME          :: A ModelEvaluator.
+ - priors      :: Priors from which the parameters were drawn.
+Outputs:
+ - A preconditioned ModelEvaluator.
+"""
+function precondition(ME::ModelEvaluator, priors)
+    # Precondition in unconstrained space
+    u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
+    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats)
+    # Transform back to constrained space
+    param_cons = transform_unconstrained_to_constrained(priors, u)
+    return ModelEvaluator(param_cons, ME.param_names, ME.ref_models, ME.ref_stats)
+end
 
 end # module

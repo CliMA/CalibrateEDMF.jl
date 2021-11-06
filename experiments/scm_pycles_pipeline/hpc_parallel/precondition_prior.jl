@@ -33,18 +33,11 @@ outdir_path = parsed_args["job_dir"]
 
 scm_args = load(scm_init_path(outdir_path, version))
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
-u_names = scm_args["u_names"]
-ref_models = scm_args["ref_models"]
-ref_stats = scm_args["ref_stats"]
+ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
-# Preconditioning in unconstrained space
-u_unconstrained = precondition(
-    transform_constrained_to_unconstrained(priors, scm_args["u"]),
-    priors,
-    map(x -> deserialize_struct(x, ReferenceModel), ref_models),
-    deserialize_struct(ref_stats, ReferenceStatistics),
-)
-# Transform back to constrained space for SCM runs
-u = transform_unconstrained_to_constrained(priors, u_unconstrained)
-rm(scm_init_path(outdir_path, version))
-jldsave(scm_init_path(outdir_path, version); u, u_names, ref_models, ref_stats, version)
+# Preconditioning ensemble methods in unconstrained space
+if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
+    model_evaluator = precondition(scm_args["model_evaluator"], priors)
+    rm(scm_init_path(outdir_path, version))
+    jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
+end

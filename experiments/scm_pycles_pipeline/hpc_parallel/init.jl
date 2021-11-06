@@ -4,22 +4,17 @@ using ArgParse
 using CalibrateEDMF
 using CalibrateEDMF.Pipeline
 
-# Include calibration config file to define problem
-include(joinpath(dirname(pwd()), "config.jl"))
-
 s = ArgParseSettings()
 @add_arg_table s begin
-    "--n_ens"
-    help = "Number of ensemble members."
-    arg_type = Int
-    "--n_it"
-    help = "Number of algorithm iterations."
-    arg_type = Int
+    "--config"
+    help = "Inverse problem config file"
+    arg_type = String
     "--job_id"
     help = "Job identifier"
     arg_type = String
     default = "default_id"
 end
 parsed_args = parse_args(ARGS, s)
+include(parsed_args["config"])
 
-init_calibration(parsed_args["n_ens"], parsed_args["n_it"], get_config(); job_id = parsed_args["job_id"])
+init_calibration(get_config(); job_id = parsed_args["job_id"])

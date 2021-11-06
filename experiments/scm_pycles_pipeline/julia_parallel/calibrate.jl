@@ -30,56 +30,57 @@ include(joinpath(dirname(pwd()), "config.jl"))
 function run_calibrate(config; return_ekobj = false)
 
     N_iter = config["process"]["N_iter"]
-    N_ens = config["process"]["N_ens"]
-    algo_name = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
+    # Adds noise to deterministic maps in EKI
+    deterministic_forward_map = config["process"]["noisy_obs"]
 
     perform_PCA = config["regularization"]["perform_PCA"]
-    # For now this is not used, pmap does not work within if scopes
-    apply_preconditioning = config["regularization"]["precondition"]
 
     save_eki_data = config["output"]["save_eki_data"]
     save_ensemble_data = config["output"]["save_ensemble_data"]
 
-    init_dict = init_calibration(N_ens, N_iter, config, mode = "pmap")
+    init_dict = init_calibration(config, mode = "pmap")
     ekobj = init_dict["ekobj"]
+    algo = ekobj.process
     priors = init_dict["priors"]
     ref_models = init_dict["ref_models"]
     ref_stats = init_dict["ref_stats"]
-    d = init_dict["d"]
-    n_param = init_dict["n_param"]
+    d = length(ref_stats.y)
+    N_par, N_ens = size(ekobj.u[1])
     outdir_path = init_dict["outdir_path"]
+    C = sum(ref_model -> length(get_t_start(ref_model)), ref_models)
 
     # Precondition prior
     @everywhere precondition_param(x::Vector{FT}) where {FT <: Real} = precondition(x, $priors, $ref_models, $ref_stats)
-    precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
-    if algo_name == "Inversion" || algo_name == "Sampler"
-        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
+    if isa(algo, Inversion) || isa(algo, Sampler)
+        precond_params = pmap(precondition_param, [c[:] for c in eachcol(get_u_final(ekobj))])
         ekobj = generate_ekp(hcat(precond_params...), ref_stats, algo, outdir_path = outdir_path)
-    elseif algo_name == "Unscented"
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0)
-        N_ens = 2 * n_param + 1
     end
 
-    # Define caller function
-    @everywhere g_(x::Vector{FT}) where {FT <: Real} = run_SCM(x, $priors.names, $ref_models, $ref_stats)
     # EKP iterations
     g_ens = zeros(N_ens, d)
     norm_err_list = []
     g_big_list = []
+    Δt_scaled = Δt / C # Scale artificial timestep by batch size
     for i in 1:N_iter
         # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
-        g_output_list = pmap(g_, [c[:] for c in eachcol(params_cons_i)]; retry_delays = zeros(5)) # Outer dim is params iterator
+        params = [c[:] for c in eachcol(params_cons_i)]
+        mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+        g_output_list = pmap(run_SCM, mod_evaluators; retry_delays = zeros(5)) # Outer dim is params iterator
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(g_output_list, l), 3) # Outer dim is G̃, G 
         @info "\n\nEKP evaluation $i finished. Updating ensemble ...\n"
         for j in 1:N_ens
             g_ens[j, :] = perform_PCA ? g_ens_arr_pca[j] : g_ens_arr[j]
         end
 
-        # Get normalized error
-        if typeof(algo) != Sampler{Float64}
-            update_ensemble!(ekobj, Array(g_ens'), Δt_new = Δt)
+        if isa(algo, Inversion)
+            update_ensemble!(
+                ekobj,
+                Array(g_ens'),
+                Δt_new = Δt_scaled,
+                deterministic_forward_map = deterministic_forward_map,
+            )
         else
             update_ensemble!(ekobj, Array(g_ens'))
         end
@@ -93,7 +94,7 @@ function run_calibrate(config; return_ekobj = false)
 
         # Convert to arrays
         phi_params = Array{Array{Float64, 2}, 1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
-        phi_params_arr = zeros(i + 1, n_param, N_ens)
+        phi_params_arr = zeros(i + 1, N_par, N_ens)
         g_big_arr = zeros(i, N_ens, full_length(ref_stats))
         for (k, elem) in enumerate(phi_params)
             phi_params_arr[k, :, :] = elem

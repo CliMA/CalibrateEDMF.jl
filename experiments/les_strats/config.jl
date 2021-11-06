@@ -28,7 +28,7 @@ function get_config()
     config = Dict()
     # Flags for saving output data
     config["output"] = get_output_config()
-    # Define preconditioning and regularization of inverse problem
+    # Define regularization of inverse problem
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(LesDrivenScm())
@@ -56,7 +56,6 @@ function get_regularization_config()
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 10.0 # Tikhonov regularization
     config["dim_scaling"] = true # Tikhonov regularization
-    config["precondition"] = true # Application of prior preconditioning
     return config
 end
 
@@ -105,7 +104,7 @@ function get_reference_config(::LesDrivenScm)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "s_mean"]], 3)
+    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean"]], 3)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     config["y_dir"] = [
         get_cfsite_les_dir(17; les_kwargs...),
@@ -136,6 +135,19 @@ function get_prior_config()
         "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
         "static_stab_coeff" => [bounded(0.1, 0.8)],
     )
-    config["unconstrained_σ"] = 0.5
+    # Tight initial bounds for Unscented
+    # config["constraints"] = Dict(
+    #     # entrainment parameters
+    #     "entrainment_factor" => [bounded(0.1, 0.15)],
+    #     "detrainment_factor" => [bounded(0.4, 0.6)],
+    #     "sorting_power" => [bounded(1.5, 2.5)],
+    #     "tke_ed_coeff" => [bounded(0.1, 0.15)],
+    #     "tke_diss_coeff" => [bounded(0.2, 0.25)],
+    #     "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
+    #     "pressure_normalmode_buoy_coeff1" => [bounded(0.1, 0.2)],
+    #     "pressure_normalmode_drag_coeff" => [bounded(9.0, 11.0)],
+    #     "static_stab_coeff" => [bounded(0.1, 0.8)],
+    # )
+    config["unconstrained_σ"] = 1.0
     return config
 end
