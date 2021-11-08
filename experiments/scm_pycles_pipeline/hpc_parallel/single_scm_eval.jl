@@ -31,12 +31,7 @@ version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
 
 scm_args = load(scm_init_path(outdir_path, version))
+model_evaluator = scm_args["model_evaluator"]
+sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator)
 
-sim_dirs, g_scm, g_scm_pca = run_SCM(
-    scm_args["u"],
-    scm_args["u_names"],
-    map(x -> deserialize_struct(x, ReferenceModel), scm_args["ref_models"]),
-    deserialize_struct(scm_args["ref_stats"], ReferenceStatistics),
-)
-
-jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, version)
+jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)

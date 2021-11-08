@@ -10,9 +10,8 @@
 module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
-n_ens=${1?Error: no ensemble size given}
-n_it=${2?Error: no iteration number given}
-job_id=${3?Error: no job ID given}
+config=${1?Error: no config file given}
+job_id=${2?Error: no job ID given}
 
-julia --project init.jl --n_ens $n_ens --n_it $n_it --job_id $job_id
+julia --project init.jl --config $config --job_id $job_id
 echo 'Ensemble initialized for calibration.'

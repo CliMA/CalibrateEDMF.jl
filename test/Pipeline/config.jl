@@ -25,7 +25,7 @@ function get_config()
     config = Dict()
     # Flags for saving output data
     config["output"] = get_output_config()
-    # Define preconditioning and regularization of inverse problem
+    # Define regularization of inverse problem
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(Bomex())
@@ -53,7 +53,6 @@ function get_regularization_config()
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 2.0 # Tikhonov regularization
     config["dim_scaling"] = false # Dimensional scaling of the loss
-    config["precondition"] = true # Application of prior preconditioning
     return config
 end
 

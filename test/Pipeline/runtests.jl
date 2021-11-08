@@ -14,7 +14,7 @@ include("config.jl")
 
 @testset "Pipeline" begin
     config = get_config()
-    init_calibration(config["process"]["N_ens"], config["process"]["N_iter"], config; mode = "hpc")
+    init_calibration(config; mode = "hpc")
     res_dir_list = glob("results_*_SCM", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
     # Check for output
@@ -32,10 +32,14 @@ include("config.jl")
 
     # Re-use previous simulation
     config["output"]["overwrite_scm_file"] = false
-    res_dict = init_calibration(config["process"]["N_ens"], config["process"]["N_iter"], config; mode = "pmap")
+    res_dict = init_calibration(config; mode = "pmap")
 
-    @test typeof(res_dict["ekobj"]) == EnsembleKalmanProcess{Float64, Int64, Inversion}
+    ekobj = res_dict["ekobj"]
+    N_par, N_ens = size(ekobj.u[1])
+
+    @test typeof(ekobj) == EnsembleKalmanProcess{Float64, Int64, Inversion}
     @test typeof(res_dict["ref_stats"]) == ReferenceStatistics{Float64}
     @test typeof(res_dict["ref_models"]) == Vector{ReferenceModel}
-    @test res_dict["n_param"] == 2
+    @test N_par == 2
+    @test N_ens == 5
 end

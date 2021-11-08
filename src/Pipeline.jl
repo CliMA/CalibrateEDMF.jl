@@ -16,25 +16,17 @@ export init_calibration
 
 
 """
-    init_calibration(N_ens::Int, N_iter::Int, job_id::String, config::Dict{Any, Any})
+    init_calibration(job_id::String, config::Dict{Any, Any})
 
 Initializes a calibration process given a configuration, and a pipeline mode.
 
     Inputs:
-    - N_ens :: Number of ensemble members.
-    - N_iter :: Number of iterations.
     - job_id :: Unique job identifier for sbatch communication.
     - config :: User-defined configuration dictionary.
     - mode :: Whether the calibration process is parallelized through HPC resources
       or using Julia's pmap.
 """
-function init_calibration(
-    N_ens::Int,
-    N_iter::Int,
-    config::Dict{Any, Any};
-    mode::String = "hpc",
-    job_id::String = "12345",
-)
+function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345")
     @assert mode in ["hpc", "pmap"]
 
     y_ref_type = config["reference"]["y_reference_type"]
@@ -52,6 +44,8 @@ function init_calibration(
     overwrite_scm_file = config["output"]["overwrite_scm_file"]
     outdir_root = config["output"]["outdir_root"]
 
+    N_ens = config["process"]["N_ens"]
+    N_iter = config["process"]["N_iter"]
     algo_name = config["process"]["algorithm"]
     Δt = config["process"]["Δt"]
 
@@ -122,7 +116,7 @@ function init_calibration(
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
     elseif algo_name == "Unscented"
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 0)
+        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 1)
         ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
     end
 
@@ -130,9 +124,10 @@ function init_calibration(
         open("$(job_id).txt", "w") do io
             write(io, "$(outdir_path)\n")
         end
-        params_cons_i = transform_unconstrained_to_constrained(priors, initial_params)
+        params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
         params = [c[:] for c in eachcol(params_cons_i)]
-        versions = map(param -> generate_scm_input(param, get_name(priors), ref_models, ref_stats, outdir_path), params)
+        mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+        versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
         # Store version identifiers for this ensemble in a common file
         write_versions(versions, 1, outdir_path = outdir_path)
 
@@ -142,8 +137,6 @@ function init_calibration(
             "priors" => priors,
             "ref_stats" => ref_stats,
             "ref_models" => ref_models,
-            "d" => d,
-            "n_param" => n_param,
             "outdir_path" => outdir_path,
         )
     end

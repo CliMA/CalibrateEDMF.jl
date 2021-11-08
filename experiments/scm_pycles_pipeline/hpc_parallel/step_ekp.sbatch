@@ -8,8 +8,9 @@
 
 module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 iteration_=${1?Error: no iteration given}
-job_id=${2?Error: no job ID given}
+config=${2?Error: no config file given}
+job_id=${3?Error: no job ID given}
 job_dir=$(head $job_id".txt" | tail -1)
 
-julia --project step_ekp.jl --iteration $iteration_ --job_dir $job_dir
+julia --project step_ekp.jl --iteration $iteration_ --config $config --job_dir $job_dir
 echo "Ensemble at iteration ${iteration_} stepped forward."

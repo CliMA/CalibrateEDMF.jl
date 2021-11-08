@@ -378,26 +378,24 @@ function generate_ekp(
     outdir_path::String = pwd(),
     to_file::Bool = true,
 )
-    ekp_obj = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
+    ekp = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
     if to_file
-        ekp = serialize_struct(ekp_obj)
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
-    return ekp_obj
+    return ekp
 end
 
 function generate_ekp(
     ref_stats::ReferenceStatistics,
-    algo::Unscented{FT, IT};
+    algo::Unscented;
     outdir_path::String = pwd(),
     to_file::Bool = true,
-) where {FT <: Real, IT <: Integer}
-    ekp_obj = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo)
+)
+    ekp = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo)
     if to_file
-        ekp = serialize_struct(ekp_obj)
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
-    return ekp_obj
+    return ekp
 end
 
 end # module
