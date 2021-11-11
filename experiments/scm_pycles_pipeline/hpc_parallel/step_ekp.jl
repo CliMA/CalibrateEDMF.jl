@@ -5,11 +5,14 @@ using ArgParse
 using Distributions
 using StatsBase
 using LinearAlgebra
+using NCDatasets
+const NC = NCDatasets
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.NetCDFIO
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
@@ -87,7 +90,28 @@ function ek_update(
     versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
+
+    # Diagnostics IO
+    update_diagnostics(outdir_path, ekp, priors)
     return
+end
+
+"""
+    update_diagnostics(outdir_path::String, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Appends current iteration diagnostics to a diagnostics netcdf file.
+
+    Inputs:
+    - outdir_path :: Path of results directory.
+    - ekp :: Current EnsembleKalmanProcess.
+    - priors:: Prior distributions of the parameters.
+"""
+function update_diagnostics(outdir_path::String, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+    diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
+    open_files(diags)
+    io_metrics(diags, ekp)
+    io_particle_diags(diags, ekp, priors)
+    close_files(diags)
 end
 
 

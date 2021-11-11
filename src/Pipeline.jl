@@ -5,6 +5,7 @@ using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.NetCDFIO
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
@@ -120,6 +121,9 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
     end
 
+    # Diagnostics IO
+    init_diagnostics(config, outdir_path, ref_stats, ekobj, priors)
+
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
             write(io, "$(outdir_path)\n")
@@ -142,5 +146,42 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     end
 end
 
+"""
+    init_diagnostics(
+        config::Dict{Any, Any},
+        outdir_path::String,
+        ref_stats::ReferenceStatistics,
+        ekp::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
+    )
+
+Creates a diagnostics netcdf file.
+
+    Inputs:
+    - config :: User-defined configuration dictionary.
+    - outdir_path :: Path of results directory.
+    - ref_stats :: ReferenceStatistics.
+    - ekp :: Initial EnsembleKalmanProcess, containing parameter information,
+     but no forward model evaluations.
+    - priors:: Prior distributions of the parameters.
+"""
+function init_diagnostics(
+    config::Dict{Any, Any},
+    outdir_path::String,
+    ref_stats::ReferenceStatistics,
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats)
+    # Write reference
+    io_reference(diags, ref_stats)
+    # Add metric fields
+    init_metrics(diags, ekp)
+    # Add diags, write first ensemble diags
+    open_files(diags)
+    init_iteration_io(diags)
+    init_particle_diags(diags, ekp, priors)
+    close_files(diags)
+end
 
 end # module
