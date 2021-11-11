@@ -12,6 +12,7 @@ include(joinpath("TurbulenceConvectionUtils", "runtests.jl"))
 include(joinpath("ReferenceModels", "runtests.jl"))
 include(joinpath("ReferenceStats", "runtests.jl"))
 include(joinpath("Pipeline", "runtests.jl"))
+include(joinpath("NetCDFIO", "runtests.jl"))
 
 @testset "error_utils" begin
     foo = rand(5)
