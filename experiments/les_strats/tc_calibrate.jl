@@ -50,7 +50,7 @@ function run_calibrate(config; return_ekobj = false)
     end
 
     # EKP iterations
-    g_ens = zeros(N_ens, d)
+    g_ens = zeros(d, N_ens)
     norm_err_list = []
     g_big_list = []
     Δt_scaled = Δt / C # Scale artificial timestep by batch size
@@ -63,18 +63,13 @@ function run_calibrate(config; return_ekobj = false)
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l -> getindex.(g_output_list, l), 3) # Outer dim is G̃, G 
         @info "\n\nEKP evaluation $i finished. Updating ensemble ...\n"
         for j in 1:N_ens
-            g_ens[j, :] = perform_PCA ? g_ens_arr_pca[j] : g_ens_arr[j]
+            g_ens[:, j] = perform_PCA ? g_ens_arr_pca[j] : g_ens_arr[j]
         end
 
         if isa(algo, Inversion)
-            update_ensemble!(
-                ekobj,
-                Array(g_ens'),
-                Δt_new = Δt_scaled,
-                deterministic_forward_map = deterministic_forward_map,
-            )
+            update_ensemble!(ekobj, g_ens, Δt_new = Δt_scaled, deterministic_forward_map = deterministic_forward_map)
         else
-            update_ensemble!(ekobj, Array(g_ens'))
+            update_ensemble!(ekobj, g_ens)
         end
         @info "\nEnsemble updated. Saving results to file...\n"
 

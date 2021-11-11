@@ -59,20 +59,17 @@ function ek_update(
     deterministic_forward_map = config["noisy_obs"]
     # Get dimensionality
     mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
-    N_par, N_ens = size(ekobj.u[1])
+    _, N_ens = size(ekobj.u[1])
     @assert N_ens == length(versions)
     C = sum(ref_model -> length(get_t_start(ref_model)), mod_evaluator.ref_models)
     Δt_scaled = Δt / C # Scale artificial timestep by batch size
 
-    u = zeros(N_ens, N_par)
-    g = zeros(N_ens, pca_length(mod_evaluator.ref_stats))
+    g = zeros(pca_length(mod_evaluator.ref_stats), N_ens)
     for (ens_index, version) in enumerate(versions)
         scm_outputs = load(scm_output_path(outdir_path, version))
-        mod_evaluator = scm_outputs["model_evaluator"]
-        u[ens_index, :] = mod_evaluator.param_cons
-        g[ens_index, :] = scm_outputs["g_scm_pca"]
+        g[:, ens_index] = scm_outputs["g_scm_pca"]
     end
-    g = Array(g')
+
     # Advance EKP
     if isa(ekobj.process, Inversion)
         update_ensemble!(ekobj, g, Δt_new = Δt_scaled, deterministic_forward_map = deterministic_forward_map)
