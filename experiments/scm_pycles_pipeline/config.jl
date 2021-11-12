@@ -103,8 +103,8 @@ function get_reference_config(::LesDrivenScm)
     config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...)]
     config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...)]
     config["scm_parent_dir"] = ["scm_init"]
-    config["t_start"] = [4.0 * 3600]
-    config["t_end"] = [12.0 * 3600]
+    config["t_start"] = [3.0 * 3600]
+    config["t_end"] = [6.0 * 3600]
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
     return config
