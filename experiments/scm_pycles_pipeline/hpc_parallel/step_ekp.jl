@@ -59,15 +59,19 @@ function ek_update(
     deterministic_forward_map = config["noisy_obs"]
     # Get dimensionality
     mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
-    _, N_ens = size(ekobj.u[1])
+    ref_stats = mod_evaluator.ref_stats
+    ref_models = mod_evaluator.ref_models
+    _, N_ens = size(get_u_final(ekobj))
     @assert N_ens == length(versions)
-    C = sum(ref_model -> length(get_t_start(ref_model)), mod_evaluator.ref_models)
+    C = sum(ref_model -> length(get_t_start(ref_model)), ref_models)
     Δt_scaled = Δt / C # Scale artificial timestep by batch size
 
-    g = zeros(pca_length(mod_evaluator.ref_stats), N_ens)
+    g = zeros(pca_length(ref_stats), N_ens)
+    g_full = zeros(full_length(ref_stats), N_ens)
     for (ens_index, version) in enumerate(versions)
         scm_outputs = load(scm_output_path(outdir_path, version))
         g[:, ens_index] = scm_outputs["g_scm_pca"]
+        g_full[:, ens_index] = scm_outputs["g_scm"]
     end
 
     # Advance EKP
@@ -82,14 +86,13 @@ function ek_update(
     # Get new step
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators =
-        [ModelEvaluator(param, get_name(priors), mod_evaluator.ref_models, mod_evaluator.ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
 
     # Diagnostics IO
-    update_diagnostics(outdir_path, ekp, priors)
+    update_diagnostics(outdir_path, ekp, priors, ref_stats, g_full)
     return
 end
 
@@ -102,12 +105,23 @@ Appends current iteration diagnostics to a diagnostics netcdf file.
     - outdir_path :: Path of results directory.
     - ekp :: Current EnsembleKalmanProcess.
     - priors:: Prior distributions of the parameters.
+    - ref_stats :: ReferenceStatistics.
+    - g_full :: The forward model evaluation in primitive space.
 """
-function update_diagnostics(outdir_path::String, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+function update_diagnostics(
+    outdir_path::String,
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    ref_stats::ReferenceStatistics,
+    g_full::Array{FT, 2},
+) where {FT <: Real}
+
+    # Compute diagnostics
+    error_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
     open_files(diags)
-    io_metrics(diags, ekp)
-    io_particle_diags(diags, ekp, priors)
+    io_metrics(diags, ekp, error_full)
+    io_particle_diags(diags, ekp, priors, g_full, error_full)
     close_files(diags)
 end
 

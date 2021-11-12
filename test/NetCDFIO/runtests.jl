@@ -1,12 +1,15 @@
 using Test
 using LinearAlgebra
 using NCDatasets
+using Random
 const NC = NCDatasets
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.NetCDFIO
 using CalibrateEDMF.TurbulenceConvectionUtils
+
+using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 
 @testset "NetCDFIO_Diags" begin
     # Choose same SCM to speed computation
@@ -31,7 +34,8 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     config["prior"] = Dict()
     config["prior"]["constraints"] = Dict("foo" => 1, "bar" => 2)
 
-    diags = NetCDFIO_Diags(config, data_dir, ref_stats)
+    ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
+    diags = NetCDFIO_Diags(config, data_dir, ref_stats, ekp)
 
     # Test constructor
     @test isa(diags, NetCDFIO_Diags)

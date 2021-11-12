@@ -216,17 +216,33 @@ function get_stats_path(dir)
 end
 
 """
-    compute_errors(g_arr, y)
+    compute_mse(g_arr::Vector{Vector{FT}}, y::Vector{FT})::Vector{FT}
+    compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT}
 
-Computes the L2-norm error of each elmt of g_arr
-wrt vector y.
+Computes the L2-norm error of each vector, column or row of an array
+with respect to a vector y.
+
+Output:
+ - The mse for each ensemble member.
 """
-function compute_errors(g_arr, y)
+function compute_mse(g_arr::Vector{Vector{FT}}, y::Vector{FT})::Vector{FT} where {FT <: Real}
     diffs = [g - y for g in g_arr]
-    errors = map(x -> dot(x, x), diffs)
+    errors = map(x -> dot(x, x) / length(x), diffs)
     return errors
 end
-
+function compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT} where {FT <: Real}
+    # Data are columns
+    if size(g_mat, 1) == length(y)
+        diffs = [g - y for g in eachcol(g_mat)]
+        return map(x -> dot(x, x) / length(x), diffs)
+        # Data are rows
+    elseif size(g_mat, 2) == length(y)
+        diffs = [g - y for g in eachrow(g_mat)]
+        return map(x -> dot(x, x) / length(x), diffs)
+    else
+        throw(BoundsError("Dimension mismatch between inputs to `compute_error`."))
+    end
+end
 
 """
     penalize_nan(arr::Array{Float64, 1}; penalization::Float64 = 1.0e5)

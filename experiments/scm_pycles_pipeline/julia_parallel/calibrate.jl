@@ -82,7 +82,7 @@ function run_calibrate(config; return_ekobj = false)
         @info "\nEnsemble updated. Saving results to file...\n"
 
         # Get normalized error for full dimensionality output
-        push!(norm_err_list, compute_errors(g_ens_arr, ref_stats.y_full))
+        push!(norm_err_list, compute_mse(g_ens_arr, ref_stats.y_full))
         norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
         # Store full dimensionality output
         push!(g_big_list, g_ens_arr)

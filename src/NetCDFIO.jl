@@ -1,6 +1,7 @@
 module NetCDFIO
 
 using NCDatasets
+using Statistics
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
@@ -21,7 +22,12 @@ mutable struct NetCDFIO_Diags
     outdir_path::String
     filepath::String
     vars::Dict{String, Any} # Hack to avoid https://github.com/Alexander-Barth/NCDatasets.jl/issues/135
-    function NetCDFIO_Diags(config::Dict{Any, Any}, outdir_path::String, ref_stats::ReferenceStatistics)
+    function NetCDFIO_Diags(
+        config::Dict{Any, Any},
+        outdir_path::String,
+        ref_stats::ReferenceStatistics,
+        ekp::EnsembleKalmanProcess,
+    )
 
         # Initialize properties with valid type:
         tmp = tempname()
@@ -42,10 +48,9 @@ mutable struct NetCDFIO_Diags
         NC.Dataset(filepath, "c") do root_grp
 
             # Fetch dimensionality
-            N_ens = config["process"]["N_ens"]
+            p, N_ens = size(get_u_final(ekp))
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
-            p = length(collect(keys(config["prior"]["constraints"])))
 
             particle = Array(1:N_ens)
             out = Array(1:d)
@@ -105,55 +110,105 @@ mutable struct NetCDFIO_Diags
     end
 end
 
-# IO DIctionaries
-
-function io_dictionary_reference(ref_stats::ReferenceStatistics)
+# IO Dictionaries
+function io_dictionary_reference()
     io_dict = Dict(
-        "Gamma" => (; dims = ("out", "out"), group = "reference", field = ref_stats.Γ),
-        "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference", field = ref_stats.Γ_full),
-        "y" => (; dims = ("out",), group = "reference", field = ref_stats.y),
-        "y_full" => (; dims = ("out_full",), group = "reference", field = ref_stats.y_full),
+        "Gamma" => (; dims = ("out", "out"), group = "reference"),
+        "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference"),
+        "y" => (; dims = ("out",), group = "reference"),
+        "y_full" => (; dims = ("out_full",), group = "reference"),
+    )
+    return io_dict
+end
+function io_dictionary_reference(ref_stats::ReferenceStatistics)
+    orig_dict = io_dictionary_reference()
+    io_dict = Dict(
+        "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
+        "Gamma_full" => Base.setindex(orig_dict["Gamma_full"], ref_stats.Γ_full, :field),
+        "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
+        "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
     )
     return io_dict
 end
 
-function io_dictionary_metrics(ekp::EnsembleKalmanProcess)
-    try
-        return Dict("ekp_error" => (; dims = ("iteration",), group = "metrics", field = get_error(ekp)[end]))
-    catch e
-        # For EnsembleKalmanProcesses prior to evaluation of g.
-        if isa(e, BoundsError)
-            return Dict("ekp_error" => (; dims = ("iteration",), group = "metrics"))
-        else
-            throw(e)
-        end
-    end
+"""
+    io_dictionary_metrics()
+
+Metrics dictionary
+
+    Elements:
+    - loss_mean_g :: (ḡ - y)'Γ_inv(ḡ - y).
+    - mse_full_mean :: Ensemble mean of MSE(g_full, y_full).
+    - mse_full_min :: Ensemble min of MSE(g_full, y_full).
+    - mse_full_max :: Ensemble max of MSE(g_full, y_full).
+"""
+function io_dictionary_metrics()
+    io_dict = Dict(
+        "loss_mean_g" => (; dims = ("iteration",), group = "metrics"),
+        "mse_full_mean" => (; dims = ("iteration",), group = "metrics"),
+        "mse_full_min" => (; dims = ("iteration",), group = "metrics"),
+        "mse_full_max" => (; dims = ("iteration",), group = "metrics"),
+    )
+    return io_dict
+end
+function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+    orig_dict = io_dictionary_metrics()
+    io_dict = Dict(
+        "loss_mean_g" => Base.setindex(orig_dict["loss_mean_g"], get_error(ekp)[end], :field),
+        "mse_full_mean" => Base.setindex(orig_dict["mse_full_mean"], mean(mse_full), :field),
+        "mse_full_min" => Base.setindex(orig_dict["mse_full_min"], minimum(mse_full), :field),
+        "mse_full_max" => Base.setindex(orig_dict["mse_full_max"], maximum(mse_full), :field),
+    )
     return io_dict
 end
 
+function io_dictionary_particle_state()
+    io_dict = Dict(
+        "u" => (; dims = ("particle", "param", "iteration"), group = "particle_diags"),
+        "phi" => (; dims = ("particle", "param", "iteration"), group = "particle_diags"),
+    )
+    return io_dict
+end
 function io_dictionary_particle_state(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+    orig_dict = io_dictionary_particle_state()
     u = get_u_final(ekp)
     ϕ = transform_unconstrained_to_constrained(priors, u)
-    io_dict = Dict(
-        "u" => (; dims = ("particle", "param", "iteration"), group = "particle_diags", field = u'),
-        "phi" => (; dims = ("particle", "param", "iteration"), group = "particle_diags", field = ϕ'),
-    )
+    io_dict =
+        Dict("u" => Base.setindex(orig_dict["u"], u', :field), "phi" => Base.setindex(orig_dict["phi"], ϕ', :field))
     return io_dict
 end
 
-function io_dictionary_particle_eval(ekp::EnsembleKalmanProcess)
-    try
-        return Dict(
-            "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags", field = get_g_final(ekp)'),
-        )
-    catch e
-        # For EnsembleKalmanProcesses prior to evaluation of g.
-        if isa(e, BoundsError)
-            return Dict("g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags"))
-        else
-            throw(e)
-        end
-    end
+"""
+    io_dictionary_particle_eval()
+
+Particle evaluation diagnostics dictionary
+
+    Elements:
+    - g :: Forward model evaluation in inverse problem space.
+    - g_full :: Forward model evaluation in primitive output space,
+        normalized using the pooled field covariance.
+    - mse_full :: Particle-wise evaluation of MSE(g_full, y_full).
+"""
+function io_dictionary_particle_eval()
+    io_dict = Dict(
+        "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags"),
+        "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags"),
+        "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags"),
+    )
+    return io_dict
+end
+function io_dictionary_particle_eval(
+    ekp::EnsembleKalmanProcess,
+    g_full::Array{FT, 2},
+    mse_full::Vector{FT},
+) where {FT <: Real}
+    orig_dict = io_dictionary_particle_eval()
+    io_dict = Dict(
+        "g" => Base.setindex(orig_dict["g"], get_g_final(ekp)', :field),
+        "g_full" => Base.setindex(orig_dict["g_full"], g_full', :field),
+        "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
+    )
+    return io_dict
 end
 
 function open_files(self)
@@ -190,7 +245,6 @@ function add_field(self::NetCDFIO_Diags, var_name::String; dims, group)
     end
 end
 
-
 function write_current(self::NetCDFIO_Diags, var_name::String, data; group)
     var = self.vars[group][var_name]
     last_dim = length(size(var))
@@ -215,7 +269,7 @@ function io_reference(diags::NetCDFIO_Diags, ref_stats::ReferenceStatistics)
 end
 
 function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
-    io_dict = io_dictionary_particle_eval(ekp)
+    io_dict = io_dictionary_particle_eval()
     for var in keys(io_dict)
         add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
     end
@@ -230,23 +284,29 @@ function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, 
     close_files(diags)
 end
 
-function init_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess)
-    io_dict = io_dictionary_metrics(ekp)
+function init_metrics(diags::NetCDFIO_Diags)
+    io_dict = io_dictionary_metrics()
     for var in keys(io_dict)
         add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
     end
 end
 
-function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess)
-    io_dict = io_dictionary_metrics(ekp)
+function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+    io_dict = io_dictionary_metrics(ekp, mse_full)
     for var in keys(io_dict)
         write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
     end
 end
 
-function io_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+function io_particle_diags(
+    diags::NetCDFIO_Diags,
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    g_full::Array{FT, 2},
+    mse_full::Vector{FT},
+) where {FT <: Real}
     # Write eval diagnostics to file
-    io_dict = io_dictionary_particle_eval(ekp)
+    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full)
     for var in keys(io_dict)
         write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
     end

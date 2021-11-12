@@ -172,11 +172,11 @@ function init_diagnostics(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
 )
-    diags = NetCDFIO_Diags(config, outdir_path, ref_stats)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp)
     # Write reference
     io_reference(diags, ref_stats)
     # Add metric fields
-    init_metrics(diags, ekp)
+    init_metrics(diags)
     # Add diags, write first ensemble diags
     open_files(diags)
     init_iteration_io(diags)
