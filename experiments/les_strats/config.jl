@@ -61,10 +61,10 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 4
-    config["N_ens"] = 5
+    config["N_iter"] = 20
+    config["N_ens"] = 19
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
-    config["noisy_obs"] = true # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
+    config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
     return config
 end
@@ -104,7 +104,7 @@ function get_reference_config(::LesDrivenScm)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean"]], 3)
+    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], 3)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     config["y_dir"] = [
         get_cfsite_les_dir(17; les_kwargs...),
@@ -114,8 +114,8 @@ function get_reference_config(::LesDrivenScm)
     config["scm_suffix"] =
         [get_gcm_les_uuid(17; les_kwargs...), get_gcm_les_uuid(19; les_kwargs...), get_gcm_les_uuid(22; les_kwargs...)]
     config["scm_parent_dir"] = repeat(["scm_init"], 3)
-    config["t_start"] = repeat([9.0 * 3600], 3)
-    config["t_end"] = repeat([12.0 * 3600], 3)
+    config["t_start"] = repeat([3.0 * 3600], 3)
+    config["t_end"] = repeat([6.0 * 3600], 3)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
     return config
@@ -123,31 +123,31 @@ end
 
 function get_prior_config()
     config = Dict()
-    config["constraints"] = Dict(
-        # entrainment parameters
-        "entrainment_factor" => [bounded(0.01, 0.3)],
-        "detrainment_factor" => [bounded(0.01, 0.9)],
-        "sorting_power" => [bounded(0.25, 4.0)],
-        "tke_ed_coeff" => [bounded(0.01, 0.5)],
-        "tke_diss_coeff" => [bounded(0.01, 0.5)],
-        "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
-        "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 0.5)],
-        "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
-        "static_stab_coeff" => [bounded(0.1, 0.8)],
-    )
-    # Tight initial bounds for Unscented
     # config["constraints"] = Dict(
     #     # entrainment parameters
-    #     "entrainment_factor" => [bounded(0.1, 0.15)],
-    #     "detrainment_factor" => [bounded(0.4, 0.6)],
-    #     "sorting_power" => [bounded(1.5, 2.5)],
-    #     "tke_ed_coeff" => [bounded(0.1, 0.15)],
-    #     "tke_diss_coeff" => [bounded(0.2, 0.25)],
+    #     "entrainment_factor" => [bounded(0.01, 0.3)],
+    #     "detrainment_factor" => [bounded(0.01, 0.9)],
+    #     "sorting_power" => [bounded(0.25, 4.0)],
+    #     "tke_ed_coeff" => [bounded(0.01, 0.5)],
+    #     "tke_diss_coeff" => [bounded(0.01, 0.5)],
     #     "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
-    #     "pressure_normalmode_buoy_coeff1" => [bounded(0.1, 0.2)],
-    #     "pressure_normalmode_drag_coeff" => [bounded(9.0, 11.0)],
+    #     "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 0.5)],
+    #     "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
     #     "static_stab_coeff" => [bounded(0.1, 0.8)],
     # )
+    # Tight initial bounds for Unscented
+    config["constraints"] = Dict(
+        # entrainment parameters
+        "entrainment_factor" => [bounded(0.1, 0.15)],
+        "detrainment_factor" => [bounded(0.4, 0.6)],
+        "sorting_power" => [bounded(1.5, 2.5)],
+        "tke_ed_coeff" => [bounded(0.1, 0.15)],
+        "tke_diss_coeff" => [bounded(0.2, 0.25)],
+        "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
+        "pressure_normalmode_buoy_coeff1" => [bounded(0.1, 0.2)],
+        "pressure_normalmode_drag_coeff" => [bounded(9.0, 11.0)],
+        "static_stab_coeff" => [bounded(0.1, 0.8)],
+    )
     config["unconstrained_σ"] = 1.0
     return config
 end

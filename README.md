@@ -2,7 +2,6 @@
 
 A package to calibrate turbulence and convection parameterizations.
 
-
 |||
 |---------------------:|:----------------------------------------------|
 | **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |

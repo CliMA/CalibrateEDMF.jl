@@ -72,6 +72,9 @@ function ek_update(
         scm_outputs = load(scm_output_path(outdir_path, version))
         g[:, ens_index] = scm_outputs["g_scm_pca"]
         g_full[:, ens_index] = scm_outputs["g_scm"]
+        # Clean up
+        rm(scm_output_path(outdir_path, version))
+        rm(scm_init_path(outdir_path, version))
     end
 
     # Advance EKP
