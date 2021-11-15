@@ -130,6 +130,20 @@ function get_height(sim_dir::String; get_faces::Bool = false)
     return z
 end
 
+"""
+    get_dz(sim_dir::String)
+
+Returns the vertical grid size of the given configuration.
+
+Inputs:
+ - sim_dir :: Name of simulation directory.
+Output:
+ - The vertical grid size.
+"""
+function get_dz(sim_dir::String)
+    z = get_height(sim_dir)
+    return z[2] - z[1]
+end
 
 """
     normalize_profile(profile_vec, n_vars, var_vec)
@@ -140,10 +154,9 @@ in var_vec.
 """
 function normalize_profile(profile_vec, n_vars, var_vec)
     y = deepcopy(profile_vec)
-    dim_variable = Integer(length(profile_vec) / n_vars)
+    var_dof = Integer(length(profile_vec) / n_vars)
     for i in 1:n_vars
-        y[(dim_variable * (i - 1) + 1):(dim_variable * i)] =
-            y[(dim_variable * (i - 1) + 1):(dim_variable * i)] ./ sqrt(var_vec[i])
+        y[(var_dof * (i - 1) + 1):(var_dof * i)] = y[(var_dof * (i - 1) + 1):(var_dof * i)] ./ sqrt(var_vec[i])
     end
     return y
 end

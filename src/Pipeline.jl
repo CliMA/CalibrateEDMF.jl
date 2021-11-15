@@ -1,5 +1,6 @@
 module Pipeline
 
+using Random
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
@@ -27,7 +28,7 @@ Initializes a calibration process given a configuration, and a pipeline mode.
     - mode :: Whether the calibration process is parallelized through HPC resources
       or using Julia's pmap.
 """
-function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345")
+function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345", config_path = nothing)
     @assert mode in ["hpc", "pmap"]
 
     y_ref_type = config["reference"]["y_reference_type"]
@@ -105,10 +106,13 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Output path
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))",
+        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
+    if !isnothing(config_path)
+        cp(config_path, joinpath(outdir_path, "config.jl"))
+    end
 
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = config["prior"]["unconstrained_σ"])
     # parameters are sampled in unconstrained space
@@ -122,7 +126,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     end
 
     # Diagnostics IO
-    init_diagnostics(config, outdir_path, ref_stats, ekobj, priors)
+    init_diagnostics(config, outdir_path, ref_stats, ref_models, ekobj, priors)
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
@@ -169,12 +173,13 @@ function init_diagnostics(
     config::Dict{Any, Any},
     outdir_path::String,
     ref_stats::ReferenceStatistics,
+    ref_models::Vector{ReferenceModel},
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
 )
     diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp)
     # Write reference
-    io_reference(diags, ref_stats)
+    io_reference(diags, ref_stats, ref_models)
     # Add metric fields
     init_metrics(diags)
     # Add diags, write first ensemble diags

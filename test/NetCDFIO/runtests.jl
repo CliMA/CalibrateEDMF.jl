@@ -42,7 +42,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     @test isempty(diags.vars)
 
     # Test reference diagnostics
-    io_reference(diags, ref_stats)
+    io_reference(diags, ref_stats, ref_models)
     NC.Dataset(diags.filepath, "r") do root_grp
         ref_grp = root_grp.group["reference"]
         @test ref_grp["Gamma"] ≈ ref_stats.Γ

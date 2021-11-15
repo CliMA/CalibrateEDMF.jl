@@ -5,7 +5,9 @@ using Statistics
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
+using ..ReferenceModels
 using ..ReferenceStats
+include("helper_funcs.jl")
 const NC = NCDatasets
 
 export NetCDFIO_Diags
@@ -51,11 +53,13 @@ mutable struct NetCDFIO_Diags
             p, N_ens = size(get_u_final(ekp))
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
+            C = length(ref_stats.pca_vec)
 
             particle = Array(1:N_ens)
             out = Array(1:d)
             out_full = Array(1:d_full)
             param = Array(1:p)
+            configuration = Array(1:C)
 
             # Ensemble diagnostics (over all particles)
             ensemble_grp = NC.defGroup(root_grp, "ensemble_diags")
@@ -74,6 +78,8 @@ mutable struct NetCDFIO_Diags
             NC.defVar(reference_grp, "out_full", out_full, ("out_full",))
             NC.defDim(reference_grp, "out", d)
             NC.defVar(reference_grp, "out", out, ("out",))
+            NC.defDim(reference_grp, "config", C)
+            NC.defVar(reference_grp, "config", configuration, ("config",))
 
             # Particle diagnostics
             particle_grp = NC.defGroup(root_grp, "particle_diags")
@@ -113,20 +119,38 @@ end
 # IO Dictionaries
 function io_dictionary_reference()
     io_dict = Dict(
-        "Gamma" => (; dims = ("out", "out"), group = "reference"),
-        "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference"),
-        "y" => (; dims = ("out",), group = "reference"),
-        "y_full" => (; dims = ("out_full",), group = "reference"),
+        "Gamma" => (; dims = ("out", "out"), group = "reference", type = Float64),
+        "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference", type = Float64),
+        "y" => (; dims = ("out",), group = "reference", type = Float64),
+        "y_full" => (; dims = ("out_full",), group = "reference", type = Float64),
+        "num_vars" => (; dims = ("config",), group = "reference", type = Int16),
+        "var_dof" => (; dims = ("config",), group = "reference", type = Int16),
+        "config_pca_dim" => (; dims = ("config",), group = "reference", type = Int16),
+        "config_name" => (; dims = ("config",), group = "reference", type = String),
+        "config_dz" => (; dims = ("config",), group = "reference", type = Float64),
     )
     return io_dict
 end
-function io_dictionary_reference(ref_stats::ReferenceStatistics)
+function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel})
     orig_dict = io_dictionary_reference()
+    num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
+    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
+    config_name = [
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
+        for rm in ref_models
+    ]
+    config_dz = [get_dz(rm.y_dir) for rm in ref_models]
     io_dict = Dict(
         "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
         "Gamma_full" => Base.setindex(orig_dict["Gamma_full"], ref_stats.Γ_full, :field),
         "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
         "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
+        "num_vars" => Base.setindex(orig_dict["num_vars"], num_vars, :field),
+        "var_dof" => Base.setindex(orig_dict["var_dof"], var_dof, :field),
+        "config_pca_dim" => Base.setindex(orig_dict["config_pca_dim"], config_pca_dim, :field),
+        "config_name" => Base.setindex(orig_dict["config_name"], config_name, :field),
+        "config_dz" => Base.setindex(orig_dict["config_dz"], config_dz, :field),
     )
     return io_dict
 end
@@ -144,10 +168,10 @@ Metrics dictionary
 """
 function io_dictionary_metrics()
     io_dict = Dict(
-        "loss_mean_g" => (; dims = ("iteration",), group = "metrics"),
-        "mse_full_mean" => (; dims = ("iteration",), group = "metrics"),
-        "mse_full_min" => (; dims = ("iteration",), group = "metrics"),
-        "mse_full_max" => (; dims = ("iteration",), group = "metrics"),
+        "loss_mean_g" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "mse_full_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
     )
     return io_dict
 end
@@ -164,8 +188,8 @@ end
 
 function io_dictionary_particle_state()
     io_dict = Dict(
-        "u" => (; dims = ("particle", "param", "iteration"), group = "particle_diags"),
-        "phi" => (; dims = ("particle", "param", "iteration"), group = "particle_diags"),
+        "u" => (; dims = ("particle", "param", "iteration"), group = "particle_diags", type = Float64),
+        "phi" => (; dims = ("particle", "param", "iteration"), group = "particle_diags", type = Float64),
     )
     return io_dict
 end
@@ -191,9 +215,9 @@ Particle evaluation diagnostics dictionary
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(
-        "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags"),
-        "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags"),
-        "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags"),
+        "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags", type = Float64),
+        "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags", type = Float64),
+        "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
     )
     return io_dict
 end
@@ -238,10 +262,10 @@ function close_files(self::NetCDFIO_Diags)
 end
 
 
-function add_field(self::NetCDFIO_Diags, var_name::String; dims, group)
+function add_field(self::NetCDFIO_Diags, var_name::String; dims, group, type)
     NC.Dataset(self.filepath, "a") do root_grp
         grp = root_grp.group[group]
-        new_var = NC.defVar(grp, var_name, Float64, dims)
+        new_var = NC.defVar(grp, var_name, type, dims)
     end
 end
 
@@ -260,10 +284,10 @@ function write_ref(self::NetCDFIO_Diags, var_name::String, data)
     end
 end
 
-function io_reference(diags::NetCDFIO_Diags, ref_stats::ReferenceStatistics)
-    io_dict = io_dictionary_reference(ref_stats)
+function io_reference(diags::NetCDFIO_Diags, ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel})
+    io_dict = io_dictionary_reference(ref_stats, ref_models)
     for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
         write_ref(diags, var, io_dict[var].field)
     end
 end
@@ -271,11 +295,11 @@ end
 function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_particle_eval()
     for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
     end
     io_dict = io_dictionary_particle_state(ekp, priors)
     for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
     end
     open_files(diags)
     for var in keys(io_dict)
@@ -287,7 +311,7 @@ end
 function init_metrics(diags::NetCDFIO_Diags)
     io_dict = io_dictionary_metrics()
     for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
     end
 end
 

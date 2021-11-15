@@ -17,4 +17,4 @@ end
 parsed_args = parse_args(ARGS, s)
 include(parsed_args["config"])
 
-init_calibration(get_config(); job_id = parsed_args["job_id"])
+init_calibration(get_config(); job_id = parsed_args["job_id"], config_path = parsed_args["config"])
