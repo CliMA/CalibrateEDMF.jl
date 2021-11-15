@@ -63,7 +63,7 @@ function ek_update(
     ref_models = mod_evaluator.ref_models
     _, N_ens = size(get_u_final(ekobj))
     @assert N_ens == length(versions)
-    C = sum(ref_model -> length(get_t_start(ref_model)), ref_models)
+    C = length(ref_stats.pca_vec)
     Δt_scaled = Δt / C # Scale artificial timestep by batch size
 
     g = zeros(pca_length(ref_stats), N_ens)
@@ -135,21 +135,18 @@ s = ArgParseSettings()
     "--iteration"
     help = "Calibration iteration number"
     arg_type = Int
-    "--config"
-    help = "Inverse problem config file"
-    arg_type = String
     "--job_dir"
     help = "Job output directory"
     arg_type = String
     default = "output"
 end
 parsed_args = parse_args(ARGS, s)
-
-include(parsed_args["config"])
-
 # Recover inputs for update
 iteration = parsed_args["iteration"]
 outdir_path = parsed_args["job_dir"]
+
+include(joinpath(outdir_path, "config.jl"))
+
 versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 ekobj = load(ekobj_path(outdir_path, iteration))["ekp"]

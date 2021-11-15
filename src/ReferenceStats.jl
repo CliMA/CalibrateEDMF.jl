@@ -64,8 +64,10 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
      - normalize        :: Boolean specifying whether to normalize the data.
      - variance_loss    :: Fraction of variance loss when performing PCA.
      - tikhonov_noise   :: Tikhonov regularization factor for covariance matrices.
-     - tikhonov_mode    :: If "relative", tikhonov_noise is scaled by the minimum
-        eigenvalue in the covariance matrix considered.
+     - tikhonov_mode    :: If "relative", tikhonov_noise is scaled by the maximum
+        eigenvalue in the covariance matrix considered, having the interpretation of
+        the inverse of the desired condition number. This value is enforced to be
+        larger than the sqrt of the machine precision for stability.
      - dim_scaling      :: Whether to scale covariance blocks by their size.
      - y_type           :: Type of reference mean data. Either LES() or SCM().
      - Σ_type           :: Type of reference covariance data. Either LES() or SCM().
@@ -88,12 +90,12 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Δt_Σ::FT = 6 * 3600.0,
     ) where {FT <: Real}
         # Init arrays
-        y = FT[]  # yt
-        Γ_vec = Array{FT, 2}[]  # yt_var_list
-        y_full = FT[]  # yt_big
-        Γ_full_vec = Array{FT, 2}[]  # yt_var_list_big
-        pca_vec = []  # P_pca_list
-        norm_vec = Vector[]  # pool_var_list
+        y = FT[]
+        Γ_vec = Array{FT, 2}[]
+        y_full = FT[]
+        Γ_full_vec = Array{FT, 2}[]
+        pca_vec = []
+        norm_vec = Vector[]
 
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt_y, Δt_Σ) : m
@@ -122,14 +124,15 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         # Construct global observational covariance matrix, TSVD
         if tikhonov_mode == "relative"
             @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
-            Γ_vec = map(x -> x + tikhonov_noise * minimum(diag(x)) * I, Γ_vec)
+            tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
+            Γ_vec = map(x -> x + tikhonov_noise * maximum(diag(x)) * I, Γ_vec)
         else
             Γ_vec = map(x -> x + tikhonov_noise * I, Γ_vec)
         end
         # Scale by number of dimensions
         Γ_vec = dim_scaling ? map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
         Γ = cat(Γ_vec..., dims = (1, 2))
-        @assert isposdef(Γ)
+        @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
 
         return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
     end

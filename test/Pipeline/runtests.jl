@@ -15,7 +15,7 @@ include("config.jl")
 @testset "Pipeline" begin
     config = get_config()
     init_calibration(config; mode = "hpc")
-    res_dir_list = glob("results_*_SCM", config["output"]["outdir_root"])
+    res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
     # Check for output
     @test all(isdir.(config["reference"]["scm_parent_dir"]))
