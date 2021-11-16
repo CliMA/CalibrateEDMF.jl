@@ -123,6 +123,7 @@ function io_dictionary_reference()
         "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference", type = Float64),
         "y" => (; dims = ("out",), group = "reference", type = Float64),
         "y_full" => (; dims = ("out_full",), group = "reference", type = Float64),
+        "P_pca" => (; dims = ("out_full", "out"), group = "reference", type = Float64),
         "num_vars" => (; dims = ("config",), group = "reference", type = Int16),
         "var_dof" => (; dims = ("config",), group = "reference", type = Int16),
         "config_pca_dim" => (; dims = ("config",), group = "reference", type = Int16),
@@ -133,6 +134,8 @@ function io_dictionary_reference()
 end
 function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel})
     orig_dict = io_dictionary_reference()
+    d_full = full_length(ref_stats)
+    d = pca_length(ref_stats)
     num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
     var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
@@ -141,11 +144,21 @@ function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vec
         for rm in ref_models
     ]
     config_dz = [get_dz(rm.y_dir) for rm in ref_models]
+    P_pca_full = zeros(d_full, d)
+    idx_row = 1
+    idx_col = 1
+    for P_pca in ref_stats.pca_vec
+        rows, cols = size(P_pca)
+        P_pca_full[idx_row:(idx_row + rows - 1), idx_col:(idx_col + cols - 1)] = P_pca
+        idx_row += rows
+        idx_col += cols
+    end
     io_dict = Dict(
         "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
         "Gamma_full" => Base.setindex(orig_dict["Gamma_full"], ref_stats.Γ_full, :field),
         "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
         "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
+        "P_pca" => Base.setindex(orig_dict["P_pca"], P_pca_full, :field),
         "num_vars" => Base.setindex(orig_dict["num_vars"], num_vars, :field),
         "var_dof" => Base.setindex(orig_dict["var_dof"], var_dof, :field),
         "config_pca_dim" => Base.setindex(orig_dict["config_pca_dim"], config_pca_dim, :field),

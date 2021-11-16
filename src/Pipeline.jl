@@ -59,7 +59,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     # Similarly, generate `Σ_t_start` and `Σ_t_end`
     Σ_t_start = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
-    Σ_t_end = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
+    Σ_t_end = expand_dict_entry(config["reference"], "Σ_t_end", n_cases)
 
     # Construct reference models
     kwargs_ref_model = Dict(
