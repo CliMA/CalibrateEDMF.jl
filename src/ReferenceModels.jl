@@ -166,26 +166,26 @@ function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::
 end
 
 """
-    time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) where {FT <: Real}
+    time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
 
 Returns a time-shifted ReferenceModel, considering an interval relative to the last
 available time step of the original model.
 
 Inputs:
  - m     :: A ReferenceModel.
- - Δt_y  :: The time interval between t_start and t_end of the new model.
- - Δt_Σ  :: The time interval between Σ_t_start and Σ_t_end of the new model.
+ - Δt  :: [LES last time - SCM start time (LES timeframe)]
 Outputs:
  - The time-shifted ReferenceModel.
 """
-function time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) where {FT <: Real}
+function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
     t = nc_fetch(y_dir(m), "t")
-    t_end = t[end]
-    t_start = t_end - Δt_y
-    Σ_t_start = t_end - Δt_Σ
+    t_end = t[end] - Δt + get_t_end(m)
+    Σ_t_end = t[end] - Δt + get_t_end_Σ(m)
+    t_start = t[end] - Δt + get_t_start(m)
+    Σ_t_start = t[end] - Δt + get_t_start_Σ(m)
 
-    @assert t_start > 0 "t_start must be positive after time shift, but $t_start was given."
-    @assert Σ_t_start > 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
+    @assert t_start >= 0 "t_start must be positive after time shift, but $t_start was given."
+    @assert Σ_t_start >= 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
     @info string(
         "Shifting time windows for ReferenceModel $(m.case_name)",
         "to ty=($t_start, $t_end), tΣ=($Σ_t_start, $t_end).",
@@ -200,7 +200,7 @@ function time_shift_reference_model(m::ReferenceModel, Δt_y::FT, Δt_Σ::FT) wh
         t_end;
         Σ_dir = Σ_dir(m),
         Σ_t_start = Σ_t_start,
-        Σ_t_end = t_end,
+        Σ_t_end = Σ_t_end,
     )
 end
 

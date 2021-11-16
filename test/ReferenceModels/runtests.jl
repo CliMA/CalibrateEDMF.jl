@@ -33,22 +33,22 @@ end
         :scm_dir => scm_dirs,
         :case_name => repeat(["Bomex"], 2),
         :t_start => [4.0 * 3600, 4.0 * 3600],
-        :t_end => [6.0 * 3600, 6.0 * 3600],
+        :t_end => [5.0 * 3600, 5.0 * 3600],
+        :Σ_t_start => [2.0 * 3600, 2.0 * 3600],
+        :Σ_t_end => [4.5 * 3600, 4.5 * 3600],
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_SCM(ref_models, overwrite = false)
-    Δt_y = 3600.0
-    Δt_Σ = 5400.0
-    ref_model = time_shift_reference_model(ref_models[1], Δt_y, Δt_Σ)
+    Δt = 5.0 * 3600
+    ref_model = time_shift_reference_model(ref_models[1], Δt)
 
-    @test get_t_start(ref_model) == 21600.0 - Δt_y
-    @test get_t_start_Σ(ref_model) == 21600.0 - Δt_Σ
-    @test get_t_end(ref_model) == get_t_end_Σ(ref_model)
-    @test get_t_end(ref_model) == 21600.0
+    @test get_t_start(ref_model) == 21600.0 - Δt + 4.0 * 3600
+    @test get_t_start_Σ(ref_model) == 21600.0 - Δt + 2.0 * 3600
+    @test get_t_end_Σ(ref_model) == 21600.0 - Δt + 4.5 * 3600
+    @test get_t_end(ref_model) == 21600.0 - Δt + 5.0 * 3600
 
-    Δt_y = 2 * 21600.0
-    Δt_Σ = 2 * 21600.0
-    @test_throws AssertionError time_shift_reference_model(ref_models[2], Δt_y, Δt_Σ)
+    Δt = 2 * 21600.0
+    @test_throws AssertionError time_shift_reference_model(ref_models[2], Δt)
 
 
 end

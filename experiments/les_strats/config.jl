@@ -54,7 +54,7 @@ function get_regularization_config()
     config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
-    config["tikhonov_noise"] = 10.0 # Tikhonov regularization
+    config["tikhonov_noise"] = 1.0e-6 # Tikhonov regularization
     config["dim_scaling"] = true # Tikhonov regularization
     return config
 end
@@ -116,8 +116,9 @@ function get_reference_config(::LesDrivenScm)
     config["scm_parent_dir"] = repeat(["scm_init"], 3)
     config["t_start"] = repeat([3.0 * 3600], 3)
     config["t_end"] = repeat([6.0 * 3600], 3)
-    # config["Σ_t_start"] = [...]
-    # config["Σ_t_end"] = [...]
+    # Use full LES timeseries for covariance
+    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], 3)
+    config["Σ_t_end"] = repeat([6.0 * 3600], 3)
     return config
 end
 

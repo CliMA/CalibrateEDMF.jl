@@ -105,8 +105,9 @@ function get_reference_config(::LesDrivenScm)
     config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [3.0 * 3600]
     config["t_end"] = [6.0 * 3600]
-    # config["Σ_t_start"] = [...]
-    # config["Σ_t_end"] = [...]
+    # Use full LES timeseries for covariance
+    config["Σ_t_start"] = [-5.75 * 24 * 3600]
+    config["Σ_t_end"] = [6.0 * 3600]
     return config
 end
 
