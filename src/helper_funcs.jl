@@ -11,10 +11,10 @@ using Random
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
 using TurbulenceConvection
-tc_dir = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc_dir, "integration_tests", "utils", "main.jl"))
-include(joinpath(tc_dir, "integration_tests", "utils", "generate_namelist.jl"))
-include(joinpath(tc_dir, "src", "name_aliases.jl"))
+tc = dirname(dirname(pathof(TurbulenceConvection)))
+include(joinpath(tc, "integration_tests", "utils", "main.jl"))
+include(joinpath(tc, "integration_tests", "utils", "generate_namelist.jl"))
+include(joinpath(tc, "src", "name_aliases.jl"))
 
 """
     vertical_interpolation(

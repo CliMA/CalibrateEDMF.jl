@@ -2,8 +2,8 @@ module LESUtils
 
 import CalibrateEDMF.ReferenceModels: ReferenceModel
 using TurbulenceConvection
-const tc_dir = dirname(pathof(TurbulenceConvection))
-include(joinpath(tc_dir, "name_aliases.jl"))
+tc = dirname(pathof(TurbulenceConvection))
+include(joinpath(tc, "name_aliases.jl"))
 include("helper_funcs.jl")
 
 export get_les_names, get_cfsite_les_dir, find_alias
