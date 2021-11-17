@@ -7,8 +7,8 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 import TurbulenceConvection
-tc_dir = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc_dir, "integration_tests", "utils", "parameter_set.jl"))
+tc = dirname(dirname(pathof(TurbulenceConvection)))
+include(joinpath(tc, "integration_tests", "utils", "parameter_set.jl"))
 
 include("config.jl")
 
