@@ -96,7 +96,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     )
 
     # Dimensionality
-    n_param = length(collect(keys(params)))
+    n_param = sum(map(length, collect(values(params))))
     d = length(ref_stats.y)
     if algo_name == "Unscented"
         N_ens = 2 * n_param + 1
