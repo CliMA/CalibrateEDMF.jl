@@ -39,14 +39,48 @@ function construct_priors(
     outdir_path::String = pwd(),
     to_file::Bool = true,
 )
-    u_names = collect(keys(params))
-    constraints = collect(values(params))
-    n_param = length(u_names)
 
+    # if parameter vectors found => flatten
+    if any(1 .< [length(val) for val in collect(values(params))])
+        u_names, constraints = flatten_param_dict(params)
+    else
+        u_names = collect(keys(params))
+        constraints = collect(values(params))
+    end
+
+    n_param = length(u_names)
     # All vars are approximately uniform in unconstrained space
     distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
     return ParameterDistribution(distributions, constraints, u_names)
+end
+
+"""
+    flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
+
+For parameter names that correspond to vectors, assign unique name to each vector component.
+Inputs:
+    param_dict :: Dictionary of parameter names to constraints.
+Outputs:
+    u_names :: vector of parameter names
+    constraints :: vector of constraints
+"""
+function flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
+
+    u_names = Vector{String}()
+    constraints = Vector{Vector{Constraint}}()
+    for (param, value) in param_dict
+        if length(value) > 1
+            for j in 1:length(value)
+                push!(u_names, "$(param)_{$j}")
+                push!(constraints, [value[j]])
+            end
+        else
+            push!(u_names, param)
+            push!(constraints, [value])
+        end
+    end
+    return (u_names, constraints)
 end
 
 """

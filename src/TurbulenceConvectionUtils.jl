@@ -175,6 +175,8 @@ function run_SCM_handler(
     inputdir = scm_dir(m)
     namelist = JSON.parsefile(namelist_directory(inputdir, m))
 
+    u_names, u = create_parameter_vectors(u_names, u)
+
     # update parameter values
     for (pName, pVal) in zip(u_names, u)
         namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
@@ -195,6 +197,47 @@ function run_SCM_handler(
         [@warn "$param_name = $param_value" for (param_name, param_value) in zip(u_names, u)]
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
+end
+
+"""
+    create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
+
+Given vector of parameter names and corresponding values, combine any vector components
+into single parameter vectors for input into SCM.
+
+Inputs:
+    u_names :: SCM names for parameters `u`, which may contain vector components.
+    u :: Values of parameters to be used in simulations, which may contain vector components.
+Outputs:
+    u_names_out :: SCM names for parameters `u`.
+    u_out :: Values of parameters to be used in simulations.
+"""
+function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
+
+    u_names_out = []
+    u_out = []
+    u_vec_dict = Dict()
+
+    for i in 1:length(u_names)
+        param_name_i = u_names[i]
+        if occursin(r"{?}", param_name_i)
+            param_name_split = split(param_name_i, "_")
+            param_vec_name = join(param_name_split[1:(length(param_name_split) - 1)], "_")
+            if param_vec_name in keys(u_vec_dict)
+                push!(u_vec_dict[param_vec_name], u[i])
+            else
+                u_vec_dict[param_vec_name] = [u[i]]
+            end
+        else
+            push!(u_names_out, u_names[i])
+            push!(u_out, u[i])
+
+        end
+    end
+    append!(u_names_out, collect(keys(u_vec_dict)))
+    append!(u_out, collect(values(u_vec_dict)))
+
+    return (u_names_out, u_out)
 end
 
 """
