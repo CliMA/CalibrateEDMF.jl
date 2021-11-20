@@ -36,6 +36,8 @@ function get_config()
     config["prior"] = get_prior_config()
     # Define the kalman process
     config["process"] = get_process_config()
+    # Define the SCM static configuration
+    config["scm"] = get_scm_config()
     return config
 end
 
@@ -61,7 +63,7 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 20
+    config["N_iter"] = 10
     config["N_ens"] = 19
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
@@ -124,31 +126,32 @@ end
 
 function get_prior_config()
     config = Dict()
-    # config["constraints"] = Dict(
-    #     # entrainment parameters
-    #     "entrainment_factor" => [bounded(0.01, 0.3)],
-    #     "detrainment_factor" => [bounded(0.01, 0.9)],
-    #     "sorting_power" => [bounded(0.25, 4.0)],
-    #     "tke_ed_coeff" => [bounded(0.01, 0.5)],
-    #     "tke_diss_coeff" => [bounded(0.01, 0.5)],
-    #     "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
-    #     "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 0.5)],
-    #     "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
-    #     "static_stab_coeff" => [bounded(0.1, 0.8)],
-    # )
-    # Tight initial bounds for Unscented
     config["constraints"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.1, 0.15)],
-        "detrainment_factor" => [bounded(0.4, 0.6)],
-        "sorting_power" => [bounded(1.5, 2.5)],
-        "tke_ed_coeff" => [bounded(0.1, 0.15)],
-        "tke_diss_coeff" => [bounded(0.2, 0.25)],
+        "entrainment_factor" => [bounded(0.01, 0.3)],
+        "detrainment_factor" => [bounded(0.01, 1.0)],
+        "sorting_power" => [bounded(0.25, 4.0)],
+        # mixing parameters
+        "tke_ed_coeff" => [bounded(0.01, 0.3)],
+        "tke_diss_coeff" => [bounded(0.01, 0.45)],
+        "static_stab_coeff" => [bounded(0.1, 0.7)],
+        # momentum exchange parameters
         "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
-        "pressure_normalmode_buoy_coeff1" => [bounded(0.1, 0.2)],
-        "pressure_normalmode_drag_coeff" => [bounded(9.0, 11.0)],
-        "static_stab_coeff" => [bounded(0.1, 0.8)],
+        "pressure_normalmode_buoy_coeff1" => [bounded(0.01, 0.25)],
+        "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
     )
-    config["unconstrained_σ"] = 1.0
+    # config["unconstrained_σ"] = 1.0
+    # Tight initial prior for Unscented
+    config["unconstrained_σ"] = 0.2
+    return config
+end
+
+function get_scm_config()
+    config = Dict()
+    config["namelist_args"] = [
+        ("time_stepping", "dt", 1.0),
+        # ("grid", "dz", 50.0),
+        # ("grid", "nz", 80),
+    ]
     return config
 end

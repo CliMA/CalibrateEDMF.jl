@@ -30,6 +30,8 @@ end
 parsed_args = parse_args(ARGS, s)
 version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
+include(joinpath(outdir_path, "config.jl"))
+namelist_args = get_config()["scm"]["namelist_args"]
 
 scm_args = load(scm_init_path(outdir_path, version))
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
@@ -37,7 +39,7 @@ ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
 # Preconditioning ensemble methods in unconstrained space
 if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
-    model_evaluator = precondition(scm_args["model_evaluator"], priors)
+    model_evaluator = precondition(scm_args["model_evaluator"], priors, namelist_args = namelist_args)
     rm(scm_init_path(outdir_path, version))
     jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
 end
