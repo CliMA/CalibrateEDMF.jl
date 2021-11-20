@@ -75,6 +75,7 @@ function run_SCM(
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
+    namelist_args = nothing,
 ) where {FT <: Real}
 
     g_scm = zeros(0)
@@ -88,7 +89,7 @@ function run_SCM(
         tmpdir = mktempdir(joinpath(pwd(), "tmp"))
 
         # run TurbulenceConvection.jl. Get output directory for simulation data
-        sim_dir, sim_error = run_SCM_handler(m, tmpdir, u, u_names)
+        sim_dir, sim_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
         model_error = model_error || sim_error
         push!(sim_dirs, sim_dir)
 
@@ -115,8 +116,15 @@ function run_SCM(
     end
 end
 
-function run_SCM(ME::ModelEvaluator; error_check::Bool = false) where {FT <: Real}
-    return run_SCM(ME.param_cons, ME.param_names, ME.ref_models, ME.ref_stats, error_check = error_check)
+function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = nothing) where {FT <: Real}
+    return run_SCM(
+        ME.param_cons,
+        ME.param_names,
+        ME.ref_models,
+        ME.ref_stats,
+        error_check = error_check,
+        namelist_args = namelist_args,
+    )
 end
 
 """
@@ -169,6 +177,7 @@ function run_SCM_handler(
     tmpdir::String,
     u::Vector{FT},
     u_names::Vector{String},
+    namelist_args = nothing,
 ) where {FT <: AbstractFloat}
     model_error = false
     # fetch default namelist
@@ -187,6 +196,14 @@ function run_SCM_handler(
     namelist["meta"]["uuid"] = uuid
     # set output dir to `tmpdir`
     namelist["output"]["output_root"] = tmpdir
+
+    # Set additional namelist args
+    if !isnothing(namelist_args)
+        for namelist_arg in namelist_args
+            group, name, val = namelist_arg
+            namelist[group][name] = val
+        end
+    end
 
     # run TurbulenceConvection.jl with modified parameters
     try
@@ -357,10 +374,12 @@ function precondition(
     priors,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
+    namelist_args = nothing,
 ) where {FT <: Real}
     param_names = priors.names
     # Wrapper around SCM
-    g_(u::Array{Float64, 1}) = run_SCM(u, param_names, ref_models, ref_stats, error_check = true)
+    g_(u::Array{Float64, 1}) =
+        run_SCM(u, param_names, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
@@ -368,7 +387,8 @@ function precondition(
         @warn "Unstable parameter vector found:"
         [@warn "$param_name = $param" for (param_name, param) in zip(param_names, param)]
         @warn "Sampling new parameter vector from prior..."
-        new_param = precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats)
+        new_param =
+            precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats, namelist_args)
     else
         new_param = param
         @info "Preconditioning finished."
@@ -389,10 +409,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(ME::ModelEvaluator, priors)
+function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats)
+    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.ref_models, ME.ref_stats)

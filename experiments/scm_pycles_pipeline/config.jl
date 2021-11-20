@@ -36,6 +36,8 @@ function get_config()
     config["prior"] = get_prior_config()
     # Define the kalman process
     config["process"] = get_process_config()
+    # Define the SCM static configuration
+    config["scm"] = get_scm_config()
     return config
 end
 
@@ -116,5 +118,12 @@ function get_prior_config()
     config["constraints"] =
         Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.0, 0.5)])
     config["unconstrained_σ"] = 0.5
+    return config
+end
+
+function get_scm_config()
+    config = Dict()
+    # List of tuples like [("time_stepping", "dt", 1.0)], or nothing
+    config["namelist_args"] = nothing
     return config
 end

@@ -29,9 +29,11 @@ end
 parsed_args = parse_args(ARGS, s)
 version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
+include(joinpath(outdir_path, "config.jl"))
 
 scm_args = load(scm_init_path(outdir_path, version))
+namelist_args = get_config()["scm"]["namelist_args"]
 model_evaluator = scm_args["model_evaluator"]
-sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator)
+sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, namelist_args = namelist_args)
 
 jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
