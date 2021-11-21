@@ -247,6 +247,11 @@ function io_dictionary_particle_eval(
     )
     return io_dict
 end
+function io_dictionary_particle_eval(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+    orig_dict = io_dictionary_particle_eval()
+    io_dict = Dict("mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field))
+    return io_dict
+end
 
 function open_files(self)
     self.root_grp = NC.Dataset(self.filepath, "a")
@@ -339,11 +344,15 @@ function io_particle_diags(
     diags::NetCDFIO_Diags,
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
-    g_full::Array{FT, 2},
     mse_full::Vector{FT},
+    g_full::Union{Array{FT, 2}, Nothing} = nothing,
 ) where {FT <: Real}
     # Write eval diagnostics to file
-    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full)
+    if !isnothing(g_full)
+        io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full)
+    else
+        io_dict = io_dictionary_particle_eval(ekp, mse_full)
+    end
     for var in keys(io_dict)
         write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
     end

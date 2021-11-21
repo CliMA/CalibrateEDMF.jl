@@ -68,6 +68,7 @@ function get_process_config()
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
+    config["batch_size"] = nothing
     return config
 end
 
