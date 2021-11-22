@@ -1,13 +1,15 @@
 module ReferenceModels
 
 using NCDatasets
+using JLD2
 include("helper_funcs.jl")
 
-export ReferenceModel
+export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
-export construct_reference_models, time_shift_reference_model
+export construct_reference_models, construct_ref_model_batch
+export time_shift_reference_model, get_minibatch!, write_ref_model_batch
 
 """
     struct ReferenceModel
@@ -204,5 +206,68 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
     )
 end
 
+"""
+    struct ReferenceModelBatch
+    
+A structure containing a batch of ReferenceModels and a mutable evaluation
+order for ReferenceModels within the current epoch.
+"""
+Base.@kwdef struct ReferenceModelBatch
+    "Vector of reference models"
+    ref_models::Vector{ReferenceModel}
+    eval_order::Vector{Int}
+end
+
+"""
+    construct_ref_model_batch(
+        kwarg_ld::Dict{Symbol, Vector{T} where T},
+        shuffling::Bool = true,
+    )::ReferenceModelBatch
+
+Returns a ::ReferenceModelBatch given a dictionary of keyword argument lists.
+
+Inputs:
+ - kwarg_ld     :: Dictionary of keyword argument lists
+ - shuffling    :: Whether to shuffle the order of ReferenceModels.
+Outputs:
+ - A ReferenceModelBatch.
+"""
+function construct_ref_model_batch(
+    kwarg_ld::Dict{Symbol, Vector{T} where T},
+    shuffling::Bool = true,
+)::ReferenceModelBatch
+    ref_models = construct_reference_models(kwarg_ld)
+    eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
+    return ReferenceModelBatch(ref_models, eval_order)
+end
+function construct_ref_model_batch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)::ReferenceModelBatch
+    eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
+    return ReferenceModelBatch(ref_models, eval_order)
+end
+
+"""
+    get_minibatch!(ref_models::ReferenceModelBatch, batch_size::Int)
+
+Returns a minibatch of `ReferenceModel`s from a ReferenceModelBatch and updates
+the eval order.
+
+The size of the minibatch is either the requested size, or the remainder of the
+elements in the eval_order for this epoch.
+
+Inputs:
+ - ref_models   :: A ReferenceModelBatch.
+ - batch_size   :: The number of `ReferenceModel`s to retrieve.
+Outputs:
+ - A vector of `ReferenceModel`s.
+"""
+function get_minibatch!(ref_models::ReferenceModelBatch, batch_size::Int)
+    batch = min(batch_size, length(ref_models.eval_order))
+    indices = [pop!(ref_models.eval_order) for i in 1:batch]
+    return ref_models.ref_models[indices]
+end
+
+function write_ref_model_batch(ref_model_batch::ReferenceModelBatch; outdir_path::String = pwd())
+    jldsave(joinpath(outdir_path, "ref_model_batch.jld2"); ref_model_batch)
+end
 
 end # module

@@ -1,6 +1,8 @@
 module Pipeline
 
 using Random
+using JLD2
+
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
@@ -14,8 +16,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
-export init_calibration
-
+export init_calibration, ek_update
 
 """
     init_calibration(job_id::String, config::Dict{Any, Any})
@@ -49,6 +50,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     N_ens = config["process"]["N_ens"]
     N_iter = config["process"]["N_iter"]
     algo_name = config["process"]["algorithm"]
+    batch_size = config["process"]["batch_size"]
     Δt = config["process"]["Δt"]
 
     params = config["prior"]["constraints"]
@@ -60,6 +62,13 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Similarly, generate `Σ_t_start` and `Σ_t_end`
     Σ_t_start = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(config["reference"], "Σ_t_end", n_cases)
+
+    # Dimensionality
+    n_param = sum(map(length, collect(values(params))))
+    if algo_name == "Unscented"
+        N_ens = 2 * n_param + 1
+        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
+    end
 
     # Construct reference models
     kwargs_ref_model = Dict(
@@ -77,11 +86,32 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
     )
-    ref_models = construct_reference_models(kwargs_ref_model)
-
-    # Create input scm stats and namelist file if files don't already exist
-    run_SCM(ref_models, overwrite = overwrite_scm_file)
-
+    # Minibatch mode
+    if !isnothing(batch_size)
+        @info "Training using mini-batches."
+        @assert algo_name != "Unscented"
+        ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
+        global_ref_models = deepcopy(ref_model_batch.ref_models)
+        # Create input scm stats and namelist file if files don't already exist
+        run_SCM(global_ref_models, overwrite = overwrite_scm_file)
+        # Generate global reference statistics
+        global_ref_stats = ReferenceStatistics(
+            global_ref_models,
+            perform_PCA,
+            normalize,
+            variance_loss = variance_loss,
+            tikhonov_noise = tikhonov_noise,
+            tikhonov_mode = tikhonov_mode,
+            dim_scaling = dim_scaling,
+            y_type = y_ref_type,
+            Σ_type = Σ_ref_type,
+        )
+        ref_models = get_minibatch!(ref_model_batch, batch_size)
+    else
+        ref_models = construct_reference_models(kwargs_ref_model)
+        # Create input scm stats and namelist file if files don't already exist
+        run_SCM(ref_models, overwrite = overwrite_scm_file)
+    end
     # Generate reference statistics
     ref_stats = ReferenceStatistics(
         ref_models,
@@ -95,18 +125,11 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         Σ_type = Σ_ref_type,
     )
 
-    # Dimensionality
-    n_param = sum(map(length, collect(values(params))))
-    d = length(ref_stats.y)
-    if algo_name == "Unscented"
-        N_ens = 2 * n_param + 1
-        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
-    end
-
     # Output path
+    d = isnothing(batch_size) ? "d$(length(ref_stats.y))" : "mb"
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
+        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
@@ -126,7 +149,11 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     end
 
     # Diagnostics IO
-    init_diagnostics(config, outdir_path, ref_stats, ref_models, ekobj, priors)
+    if !isnothing(batch_size)
+        init_diagnostics(config, outdir_path, global_ref_stats, global_ref_models, ekobj, priors)
+    else
+        init_diagnostics(config, outdir_path, ref_stats, ref_models, ekobj, priors)
+    end
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
@@ -138,16 +165,228 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
         # Store version identifiers for this ensemble in a common file
         write_versions(versions, 1, outdir_path = outdir_path)
-
+        # Store ReferenceModelBatch
+        if !isnothing(batch_size)
+            write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+        end
     elseif mode == "pmap"
-        return Dict(
-            "ekobj" => ekobj,
-            "priors" => priors,
-            "ref_stats" => ref_stats,
-            "ref_models" => ref_models,
-            "outdir_path" => outdir_path,
-        )
+        if !isnothing(batch_size)
+            return Dict(
+                "ekobj" => ekobj,
+                "priors" => priors,
+                "ref_stats" => ref_stats,
+                "ref_models" => ref_models,
+                "ref_model_batch" => ref_model_batch,
+                "outdir_path" => outdir_path,
+            )
+        else
+            return Dict(
+                "ekobj" => ekobj,
+                "priors" => priors,
+                "ref_stats" => ref_stats,
+                "ref_models" => ref_models,
+                "outdir_path" => outdir_path,
+            )
+        end
     end
+end
+
+"""
+    ek_update(
+        ekobj::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
+        iteration::Int64,
+        config::Dict{Any, Any},
+        versions::Vector{String},
+        outdir_path::String,
+    )
+
+Updates an EnsembleKalmanProcess using forward model evaluations stored
+in output files defined by their `versions`, and generates the parameters
+for the next ensemble for forward model evaluations. The updated EnsembleKalmanProcess
+and new ModelEvaluators are both written to file.
+
+Inputs:
+
+ - ekobj         :: EnsembleKalmanProcess to be updated.
+ - priors        :: Priors over parameters, used for unconstrained-constrained mappings.
+ - iteration     :: Current iteration of the calibration process.
+ - config        :: Process configuration dictionary.
+ - versions      :: String versions identifying the forward model evaluations.
+ - outdir_path   :: Output path directory.
+"""
+function ek_update(
+    ekobj::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    iteration::Int64,
+    config::Dict{Any, Any},
+    versions::Vector{String},
+    outdir_path::String,
+)
+    # Get dimensionality
+    N_iter = config["process"]["N_iter"]
+    algo_name = config["process"]["algorithm"]
+    batch_size = config["process"]["batch_size"]
+    Δt = config["process"]["Δt"]
+    deterministic_forward_map = config["process"]["noisy_obs"]
+    mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
+    ref_stats = mod_evaluator.ref_stats
+    ref_models = mod_evaluator.ref_models
+
+    # Advance EKP
+    g, g_full = get_ensemble_g_eval(outdir_path, versions)
+    # Scale artificial timestep by batch size
+    Δt_scaled = Δt / length(ref_models)
+    if isa(ekobj.process, Inversion)
+        update_ensemble!(ekobj, g, Δt_new = Δt_scaled, deterministic_forward_map = deterministic_forward_map)
+    else
+        update_ensemble!(ekobj, g)
+    end
+    # Diagnostics IO
+    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, batch_size)
+
+    if !isnothing(batch_size)
+        ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
+        ekp, ref_models, ref_stats, ref_model_batch =
+            update_minibatch_inverse_problem(ref_model_batch, ekobj, batch_size, outdir_path, config)
+        rm(joinpath(outdir_path, "ref_model_batch.jld2"))
+        write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+    else
+        ekp = ekobj
+    end
+    jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
+    write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration)
+    return
+end
+
+"""
+    get_ensemble_g_eval(outdir_path::String, versions::Vector{String})
+
+Recovers forward model evaluations from the particle ensemble stored in jld2 files,
+after which the files are deleted from disk.
+
+Inputs:
+ - outdir_path  :: Path to output directory.
+ - versions     :: Version identifiers of the files containing forward model evaluations.
+Outputs:
+ - g            :: Forward model evaluations in the reduced space of the inverse problem.
+ - g_full       :: Forward model evaluations in the original physical space.
+"""
+function get_ensemble_g_eval(outdir_path::String, versions::Vector{String})
+    # Get array sizes with first file
+    scm_outputs = load(scm_output_path(outdir_path, versions[1]))
+    d = length(scm_outputs["g_scm_pca"])
+    d_full = length(scm_outputs["g_scm"])
+    N_ens = length(versions)
+    g = zeros(d, N_ens)
+    g_full = zeros(d_full, N_ens)
+    for (ens_index, version) in enumerate(versions)
+        scm_outputs = load(scm_output_path(outdir_path, version))
+        g[:, ens_index] = scm_outputs["g_scm_pca"]
+        g_full[:, ens_index] = scm_outputs["g_scm"]
+        # Clean up
+        rm(scm_output_path(outdir_path, version))
+        rm(scm_init_path(outdir_path, version))
+    end
+    return g, g_full
+end
+
+"""
+    update_minibatch_inverse_problem(
+        rm_batch::ReferenceModelBatch,
+        ekp_old::EnsembleKalmanProcess,
+        batch_size::Integer,
+        outdir_path::String,
+        config::Dict{Any, Any},
+    )
+
+Returns the EnsembleKalmanProcess and ReferenceStatistics consistent with the
+new ReferenceModel minibatch, and updates the evaluation order of the ReferenceModelBatch.
+
+Inputs:
+ - rm_batch    :: The global ReferenceModelBatch with the current model evaluation order.
+ - ekp_old     :: The EnsembleKalmanProcess from the previous minibatch evaluation.
+ - batch_size  :: The batch size of the current minibatch.
+ - outdir_path :: The output directory.
+ - config      :: The configuration dictionary.
+Outputs:
+ - ekp             :: The EnsembleKalmanProcess for the current minibatch.
+ - ref_models      :: The current minibatch of ReferenceModels.
+ - ref_stats       :: The ReferenceStatistics consistent with the current minibatch.
+ - ref_model_batch :: The global ReferenceModelBatch with the updated model evaluation order.
+"""
+function update_minibatch_inverse_problem(
+    rm_batch::ReferenceModelBatch,
+    ekp_old::EnsembleKalmanProcess,
+    batch_size::Integer,
+    outdir_path::String,
+    config::Dict{Any, Any},
+)
+    # Construct new reference minibatch, new ref_stats, and new ekp
+    ref_model_batch = deepcopy(rm_batch)
+    ref_models = get_minibatch!(ref_model_batch, batch_size)
+    if isempty(ref_model_batch.eval_order)
+        @info "Current epoch finished. Reshuffling dataset."
+        ref_model_batch = construct_ref_model_batch(ref_model_batch.ref_models)
+    else
+        ref_model_batch = ref_model_batch
+    end
+    ref_stats = ReferenceStatistics(
+        ref_models,
+        config["regularization"]["perform_PCA"],
+        config["regularization"]["normalize"],
+        variance_loss = config["regularization"]["variance_loss"],
+        tikhonov_noise = config["regularization"]["tikhonov_noise"],
+        tikhonov_mode = config["regularization"]["tikhonov_mode"],
+        dim_scaling = config["regularization"]["dim_scaling"],
+        y_type = config["reference"]["y_reference_type"],
+        Σ_type = config["reference"]["Σ_reference_type"],
+    )
+    if isa(ekp_old.process, Inversion) || isa(ekp_old.process, Sampler)
+        ekp = generate_ekp(get_u_final(ekp_old), ref_stats, ekp_old.process, outdir_path = outdir_path)
+    elseif isa(ekp_old.process, Unscented)
+        throw(ArgumentError("Minibatch unscented Kalman process not yet implemented. Requires different constructor."))
+    else
+        throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
+    end
+    return ekp, ref_models, ref_stats, ref_model_batch
+end
+
+"""
+    write_model_evaluators(
+        ekp::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
+        ref_models::Vector{ReferenceModel},
+        ref_stats::ReferenceStatistics,
+        outdir_path::String,
+        iteration::Int,
+    )
+
+Creates and writes to file the ModelEvaluators for the current particle ensemble.
+
+Inputs:
+ - ekp         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
+ - priors      :: The parameter priors.
+ - ref_models  :: The ReferenceModels defining the new model evaluations.
+ - ref_stats   :: The ReferenceStatistics corresponding to passed ref_models.
+ - outdir_path :: The output directory.
+ - iteration   :: The current process iteration.
+"""
+function write_model_evaluators(
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    ref_models::Vector{ReferenceModel},
+    ref_stats::ReferenceStatistics,
+    outdir_path::String,
+    iteration::Int,
+)
+    params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
+    params = [c[:] for c in eachcol(params_cons_i)]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
+    # Store version identifiers for this ensemble in a common file
+    write_versions(versions, iteration + 1, outdir_path = outdir_path)
+    return
 end
 
 """
@@ -186,6 +425,39 @@ function init_diagnostics(
     open_files(diags)
     init_iteration_io(diags)
     init_particle_diags(diags, ekp, priors)
+    close_files(diags)
+end
+
+"""
+    update_diagnostics(outdir_path::String, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Appends current iteration diagnostics to a diagnostics netcdf file.
+
+    Inputs:
+    - outdir_path :: Path of results directory.
+    - ekp :: Current EnsembleKalmanProcess.
+    - priors:: Prior distributions of the parameters.
+    - ref_stats :: ReferenceStatistics.
+    - g_full :: The forward model evaluation in primitive space.
+"""
+function update_diagnostics(
+    outdir_path::String,
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    ref_stats::ReferenceStatistics,
+    g_full::Array{FT, 2},
+    batch_size::Union{Int, Nothing},
+) where {FT <: Real}
+    # Compute diagnostics
+    error_full = compute_mse(g_full, ref_stats.y_full)
+    diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
+    open_files(diags)
+    io_metrics(diags, ekp, error_full)
+    if isnothing(batch_size)
+        io_particle_diags(diags, ekp, priors, error_full, g_full)
+    else
+        io_particle_diags(diags, ekp, priors, error_full)
+    end
     close_files(diags)
 end
 
