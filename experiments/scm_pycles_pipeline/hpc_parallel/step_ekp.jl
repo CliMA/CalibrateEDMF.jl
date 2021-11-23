@@ -3,25 +3,15 @@
 # Import modules to all processes
 using ArgParse
 using Distributions
-using StatsBase
-using LinearAlgebra
-using NCDatasets
-const NC = NCDatasets
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.ReferenceStats
-using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
-using CalibrateEDMF.NetCDFIO
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using JLD2
-using Base
 
 # Read iteration number of ensemble to be recovered
 s = ArgParseSettings()
