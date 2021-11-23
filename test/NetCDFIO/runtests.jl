@@ -31,6 +31,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     config = Dict()
     config["process"] = Dict()
     config["process"]["N_ens"] = 10
+    config["process"]["batch_size"] = nothing
     config["prior"] = Dict()
     config["prior"]["constraints"] = Dict("foo" => 1, "bar" => 2)
 

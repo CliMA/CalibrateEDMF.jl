@@ -305,6 +305,22 @@ function generate_scm_input(model_evaluator::ModelEvaluator, outdir_path::String
     jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
     return version
 end
+function generate_scm_input(
+    model_evaluators::Vector{ModelEvaluator{FT}},
+    outdir_path::String = pwd(),
+) where {FT <: AbstractFloat}
+    # Generate versions conditioned on being unique within the batch.
+    used_versions = Vector{Int}()
+    for model_evaluator in model_evaluators
+        version = rand(11111:99999)
+        while version in used_versions
+            version = rand(11111:99999)
+        end
+        jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
+        push!(used_versions, version)
+    end
+    return used_versions
+end
 
 """
     get_gcm_les_uuid(
