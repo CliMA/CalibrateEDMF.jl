@@ -54,6 +54,8 @@ mutable struct NetCDFIO_Diags
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)
+            batch_size =
+                isnothing(config["process"]["batch_size"]) ? length(ref_stats.pca_vec) : config["process"]["batch_size"]
 
             particle = Array(1:N_ens)
             out = Array(1:d)
@@ -80,6 +82,7 @@ mutable struct NetCDFIO_Diags
             NC.defVar(reference_grp, "out", out, ("out",))
             NC.defDim(reference_grp, "config", C)
             NC.defVar(reference_grp, "config", configuration, ("config",))
+            NC.defDim(reference_grp, "batch_size", batch_size)
 
             # Particle diagnostics
             particle_grp = NC.defGroup(root_grp, "particle_diags")

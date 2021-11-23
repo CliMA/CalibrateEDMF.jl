@@ -162,7 +162,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
         params = [c[:] for c in eachcol(params_cons_i)]
         mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
-        versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
+        versions = generate_scm_input(mod_evaluators, outdir_path)
         # Store version identifiers for this ensemble in a common file
         write_versions(versions, 1, outdir_path = outdir_path)
         # Store ReferenceModelBatch
@@ -383,7 +383,7 @@ function write_model_evaluators(
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
-    versions = map(mod_eval -> generate_scm_input(mod_eval, outdir_path), mod_evaluators)
+    versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
     return
