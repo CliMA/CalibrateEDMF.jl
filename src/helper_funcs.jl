@@ -215,15 +215,25 @@ function get_stats_path(dir)
         return stat_files[1]
     catch e
         if isa(e, AssertionError)
-            @warn "No unique stats netCDF file found at $dir. Extending search to other files."
-            stat_files = readdir(stats, join = true) # WindowsOS/julia 1.6.0 relpath bug
-            if length(stat_files) == 1
-                return stat_files[1]
-            else
-                @error "No unique stats file found at $dir."
+            @warn "No unique stats netCDF file found in $stats. Extending search to other files."
+            try
+                stat_files = readdir(stats, join = true) # WindowsOS/julia 1.6.0 relpath bug
+                if length(stat_files) == 1
+                    return stat_files[1]
+                else
+                    @error "No unique stats file found at $dir."
+                end
+            catch f
+                if isa(f, Base.IOError)
+                    @warn "Extended search errored with: $f"
+                    return ""
+                else
+                    throw(f)
+                end
             end
         else
-            @error "An error occurred retrieving the stats path at $dir."
+            @warn "An error occurred retrieving the stats path at $dir. Throwing..."
+            throw(e)
         end
     end
 end

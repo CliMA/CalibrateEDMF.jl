@@ -38,7 +38,7 @@ end
         :Σ_t_end => [4.5 * 3600, 4.5 * 3600],
     )
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_SCM(ref_models, overwrite = false)
+    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
     Δt = 5.0 * 3600
     ref_model = time_shift_reference_model(ref_models[1], Δt)
 

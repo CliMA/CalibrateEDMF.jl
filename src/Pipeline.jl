@@ -86,13 +86,14 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
     )
+
     # Minibatch mode
     if !isnothing(batch_size)
         @info "Training using mini-batches."
         ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         # Create input scm stats and namelist file if files don't already exist
-        run_SCM(global_ref_models, overwrite = overwrite_scm_file)
+        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file)
         # Generate global reference statistics
         global_ref_stats = ReferenceStatistics(
             global_ref_models,
@@ -109,7 +110,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     else
         ref_models = construct_reference_models(kwargs_ref_model)
         # Create input scm stats and namelist file if files don't already exist
-        run_SCM(ref_models, overwrite = overwrite_scm_file)
+        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file)
     end
     # Generate reference statistics
     ref_stats = ReferenceStatistics(

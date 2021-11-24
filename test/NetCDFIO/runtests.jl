@@ -27,7 +27,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     )
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_SCM(ref_models, overwrite = false)
+    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
     ref_stats = ReferenceStatistics(ref_models, true, true; y_type = SCM(), Σ_type = SCM())
     # Generate config
     config = Dict()

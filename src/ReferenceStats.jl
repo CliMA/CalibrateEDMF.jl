@@ -324,17 +324,14 @@ Inputs:
  - var_names    :: List of variable names to be included.
  - z_scm        :: If given, interpolates covariance matrix to this locations.
 """
-function get_time_covariance(
-    m::ReferenceModel,
-    var_names::Vector{String};
-    z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-)
+function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
     sim_dir = Σ_dir(m)
     t = nc_fetch(sim_dir, "t")
     # Find closest interval in data
     ti_index = argmin(broadcast(abs, t .- get_t_start_Σ(m)))
     tf_index = argmin(broadcast(abs, t .- get_t_end_Σ(m)))
-    ts_vec = zeros(0, length(ti_index:tf_index))
+    N_samples = length(ti_index:tf_index)
+    ts_vec = zeros(0, N_samples)
     num_outputs = length(var_names)
     pool_var = zeros(num_outputs)
 
