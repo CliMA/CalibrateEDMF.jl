@@ -89,7 +89,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Minibatch mode
     if !isnothing(batch_size)
         @info "Training using mini-batches."
-        @assert algo_name != "Unscented"
         ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         # Create input scm stats and namelist file if files don't already exist
@@ -345,7 +344,9 @@ function update_minibatch_inverse_problem(
     if isa(ekp_old.process, Inversion) || isa(ekp_old.process, Sampler)
         ekp = generate_ekp(get_u_final(ekp_old), ref_stats, ekp_old.process, outdir_path = outdir_path)
     elseif isa(ekp_old.process, Unscented)
-        throw(ArgumentError("Minibatch unscented Kalman process not yet implemented. Requires different constructor."))
+        # α == 1.0 to have a consistent reconstructed Unscented Kalman Process
+        algo = Unscented(ekp_old.process.u_mean[end], ekp_old.process.uu_cov[end], 1.0, 1)
+        ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
     else
         throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
     end
@@ -416,16 +417,15 @@ function init_diagnostics(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
 )
-    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors)
     # Write reference
     io_reference(diags, ref_stats, ref_models)
     # Add metric fields
     init_metrics(diags)
-    # Add diags, write first ensemble diags
-    open_files(diags)
+    # Add diags, write first state diags
     init_iteration_io(diags)
+    init_ensemble_diags(diags, ekp, priors)
     init_particle_diags(diags, ekp, priors)
-    close_files(diags)
 end
 
 """
@@ -449,16 +449,13 @@ function update_diagnostics(
     batch_size::Union{Int, Nothing},
 ) where {FT <: Real}
     # Compute diagnostics
-    error_full = compute_mse(g_full, ref_stats.y_full)
+    mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-    open_files(diags)
-    io_metrics(diags, ekp, error_full)
     if isnothing(batch_size)
-        io_particle_diags(diags, ekp, priors, error_full, g_full)
+        io_diagnostics(diags, ekp, priors, mse_full, g_full)
     else
-        io_particle_diags(diags, ekp, priors, error_full)
+        io_diagnostics(diags, ekp, priors, mse_full)
     end
-    close_files(diags)
 end
 
 end # module

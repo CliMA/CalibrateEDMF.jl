@@ -6,9 +6,11 @@ const NC = NCDatasets
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
+using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.NetCDFIO
 using CalibrateEDMF.TurbulenceConvectionUtils
 
+using EnsembleKalmanProcesses.ParameterDistributionStorage
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 
 @testset "NetCDFIO_Diags" begin
@@ -33,10 +35,11 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     config["process"]["N_ens"] = 10
     config["process"]["batch_size"] = nothing
     config["prior"] = Dict()
-    config["prior"]["constraints"] = Dict("foo" => 1, "bar" => 2)
+    config["prior"]["constraints"] = Dict("foo" => [bounded(0.0, 0.5)], "bar" => [bounded(0.0, 0.5)])
 
+    priors = construct_priors(config["prior"]["constraints"])
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
-    diags = NetCDFIO_Diags(config, data_dir, ref_stats, ekp)
+    diags = NetCDFIO_Diags(config, data_dir, ref_stats, ekp, priors)
 
     # Test constructor
     @test isa(diags, NetCDFIO_Diags)
@@ -53,8 +56,8 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     end
 
     # Test iteration-dependent diagnostics
-    open_files(diags)
     init_iteration_io(diags)
+    open_files(diags)
     write_iteration(diags)
     close_files(diags)
     NC.Dataset(diags.filepath, "r") do root_grp

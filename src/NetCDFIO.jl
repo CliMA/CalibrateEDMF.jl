@@ -12,8 +12,8 @@ const NC = NCDatasets
 
 export NetCDFIO_Diags
 export open_files, close_files, write_iteration
-export init_iteration_io, io_reference, init_particle_diags, io_particle_diags
-export init_metrics, io_metrics
+export init_iteration_io, init_particle_diags, init_metrics, init_ensemble_diags
+export io_reference, io_diagnostics
 
 
 mutable struct NetCDFIO_Diags
@@ -29,6 +29,7 @@ mutable struct NetCDFIO_Diags
         outdir_path::String,
         ref_stats::ReferenceStatistics,
         ekp::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
     )
 
         # Initialize properties with valid type:
@@ -60,8 +61,8 @@ mutable struct NetCDFIO_Diags
             particle = Array(1:N_ens)
             out = Array(1:d)
             out_full = Array(1:d_full)
-            param = Array(1:p)
             configuration = Array(1:C)
+            param = priors.names
 
             # Ensemble diagnostics (over all particles)
             ensemble_grp = NC.defGroup(root_grp, "ensemble_diags")
@@ -256,6 +257,31 @@ function io_dictionary_particle_eval(ekp::EnsembleKalmanProcess, mse_full::Vecto
     return io_dict
 end
 
+"""
+    io_dictionary_ensemble()
+
+Ensemble diagnostics dictionary.
+"""
+function io_dictionary_ensemble()
+    io_dict = Dict(
+        "u_mean" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
+        "phi_mean" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
+    )
+    return io_dict
+end
+function io_dictionary_ensemble(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+    orig_dict = io_dictionary_ensemble()
+    u = get_u_final(ekp)
+    u_mean = isa(ekp.process, Unscented) ? get_u_mean_final(ekp) : vcat(mean(u, dims = 2)...)
+    # The estimator of the mean is valid in unconstrained space, so we must transform the mean.
+    ϕ_mean = transform_unconstrained_to_constrained(priors, u_mean)
+    io_dict = Dict(
+        "u_mean" => Base.setindex(orig_dict["u_mean"], u_mean, :field),
+        "phi_mean" => Base.setindex(orig_dict["phi_mean"], ϕ_mean, :field),
+    )
+    return io_dict
+end
+
 function open_files(self)
     self.root_grp = NC.Dataset(self.filepath, "a")
     self.ensemble_grp = self.root_grp.group["ensemble_diags"]
@@ -297,6 +323,14 @@ function write_current(self::NetCDFIO_Diags, var_name::String, data; group)
     selectdim(var, last_dim, last_dim_end) .= data
 end
 
+function write_current_dict(self::NetCDFIO_Diags, io_dict)
+    open_files(self)
+    for var in keys(io_dict)
+        write_current(self, var, io_dict[var].field; group = io_dict[var].group)
+    end
+    close_files(self)
+end
+
 function write_ref(self::NetCDFIO_Diags, var_name::String, data)
     NC.Dataset(self.filepath, "a") do root_grp
         reference_grp = root_grp.group["reference"]
@@ -313,24 +347,28 @@ function io_reference(diags::NetCDFIO_Diags, ref_stats::ReferenceStatistics, ref
     end
 end
 
+function init_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+    io_dict = io_dictionary_ensemble(ekp, priors)
+    init_io_dict(diags, io_dict)
+    # Write initial ensemble_state to file.
+    write_current_dict(diags, io_dict)
+end
+
 function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_particle_eval()
-    for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
-    end
+    init_io_dict(diags, io_dict)
     io_dict = io_dictionary_particle_state(ekp, priors)
-    for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
-    end
-    open_files(diags)
-    for var in keys(io_dict)
-        write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
-    end
-    close_files(diags)
+    init_io_dict(diags, io_dict)
+    # Write initial particle_state to file.
+    write_current_dict(diags, io_dict)
 end
 
 function init_metrics(diags::NetCDFIO_Diags)
     io_dict = io_dictionary_metrics()
+    init_io_dict(diags, io_dict)
+end
+
+function init_io_dict(diags::NetCDFIO_Diags, io_dict)
     for var in keys(io_dict)
         add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
     end
@@ -338,6 +376,13 @@ end
 
 function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
     io_dict = io_dictionary_metrics(ekp, mse_full)
+    for var in keys(io_dict)
+        write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
+    end
+end
+
+function io_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+    io_dict = io_dictionary_ensemble(ekp, priors)
     for var in keys(io_dict)
         write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
     end
@@ -367,13 +412,29 @@ function io_particle_diags(
     end
 end
 
+function io_diagnostics(
+    diags::NetCDFIO_Diags,
+    ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    mse_full::Vector{FT},
+    g_full::Union{Array{FT, 2}, Nothing} = nothing,
+) where {FT <: Real}
+    open_files(diags)
+    io_metrics(diags, ekp, mse_full)
+    io_ensemble_diags(diags, ekp, priors)
+    io_particle_diags(diags, ekp, priors, mse_full, g_full)
+    close_files(diags)
+end
+
 function init_iteration_io(self::NetCDFIO_Diags)
+    open_files(self)
     ensemble_t = self.ensemble_grp["iteration"]
     @inbounds ensemble_t[1] = 0
     particle_t = self.particle_grp["iteration"]
     @inbounds particle_t[1] = 0
     metric_t = self.metric_grp["iteration"]
     @inbounds metric_t[1] = 0
+    close_files(self)
 end
 
 function write_iteration(self::NetCDFIO_Diags)
