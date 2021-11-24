@@ -75,10 +75,10 @@ function get_reference_config(::Bomex)
     config["Σ_reference_type"] = SCM()
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
     ref_root_dir = mktempdir()
-    config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.000000")]
-    config["scm_suffix"] = ["000000"]
+    config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.ref")]
+    config["scm_suffix"] = ["scm"]
     config["scm_parent_dir"] = [ref_root_dir]
-    config["t_start"] = [4.0 * 3600]
+    config["t_start"] = [2.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     return config
 end
