@@ -33,6 +33,8 @@ function get_config()
     config["prior"] = get_prior_config()
     # Define the kalman process
     config["process"] = get_process_config()
+    # Define the SCM static configuration
+    config["scm"] = get_scm_config()
     return config
 end
 
@@ -41,17 +43,17 @@ function get_output_config()
     config["outdir_root"] = mktempdir()
     config["save_eki_data"] = true  # eki output
     config["save_ensemble_data"] = false  # .nc-files from each ensemble run
-    config["overwrite_scm_file"] = true # Flag for overwritting SCM input file
+    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
 function get_regularization_config()
     config = Dict()
     config["perform_PCA"] = true # Performs PCA on data
-    config["variance_loss"] = 1.0e-3 # Variance truncation level in PCA
+    config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
-    config["tikhonov_noise"] = 2.0 # Tikhonov regularization
+    config["tikhonov_noise"] = 1.0e-4 # Tikhonov regularization
     config["dim_scaling"] = false # Dimensional scaling of the loss
     return config
 end
@@ -61,9 +63,6 @@ function get_process_config()
     config["N_iter"] = 2
     config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
-    config["noisy_obs"] = false
-    config["Δt"] = 1.0 # Artificial time stepper of the EKI.
-    config["batch_size"] = nothing
     return config
 end
 
@@ -73,13 +72,13 @@ function get_reference_config(::Bomex)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = SCM()
     config["Σ_reference_type"] = SCM()
-    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
+    config["y_names"] = [["thetal_mean", "qt_mean"]]
     ref_root_dir = mktempdir()
     config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.ref")]
     config["scm_suffix"] = ["scm"]
     config["scm_parent_dir"] = [ref_root_dir]
-    config["t_start"] = [2.0 * 3600]
-    config["t_end"] = [6.0 * 3600]
+    config["t_start"] = [0.0]
+    config["t_end"] = [2.0 * 3600]
     return config
 end
 
@@ -88,5 +87,16 @@ function get_prior_config()
     config["constraints"] =
         Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.0, 0.5)])
     config["unconstrained_σ"] = 0.5
+    return config
+end
+
+function get_scm_config()
+    config = Dict()
+    config["namelist_args"] = [
+        ("time_stepping", "t_max", 2.0 * 3600),
+        ("time_stepping", "dt", 10.0),
+        ("grid", "dz", 100.0),
+        ("grid", "nz", 30),
+    ]
     return config
 end

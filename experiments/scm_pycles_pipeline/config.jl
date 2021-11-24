@@ -32,6 +32,8 @@ function get_config()
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(Bomex())
+    # Define reference used for validation
+    config["validation"] = get_reference_config(LesDrivenScm())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -68,7 +70,6 @@ function get_process_config()
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
-    config["batch_size"] = nothing
     return config
 end
 
@@ -90,6 +91,7 @@ function get_reference_config(::Bomex)
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
+    config["batch_size"] = nothing
     return config
 end
 
@@ -111,6 +113,7 @@ function get_reference_config(::LesDrivenScm)
     # Use full LES timeseries for covariance
     config["Σ_t_start"] = [-5.75 * 24 * 3600]
     config["Σ_t_end"] = [6.0 * 3600]
+    config["batch_size"] = nothing
     return config
 end
 

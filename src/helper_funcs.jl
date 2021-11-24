@@ -385,3 +385,13 @@ function expand_dict_entry(dict, key, N)
     @assert length(r) == N
     r
 end
+
+"Dictionary entry getter that throws a warning if the default is used."
+function get_entry(dict, key, default)
+    try
+        return dict[key]
+    catch e
+        @warn "Key $key not found in dictionary. Returning default value."
+        get(dict, key, default)
+    end
+end

@@ -32,36 +32,39 @@ Initializes a calibration process given a configuration, and a pipeline mode.
 function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345", config_path = nothing)
     @assert mode in ["hpc", "pmap"]
 
-    y_ref_type = config["reference"]["y_reference_type"]
-    Σ_ref_type = config["reference"]["Σ_reference_type"]
+    ref_config = config["reference"]
+    n_cases = length(ref_config["case_name"])
+    y_ref_type = ref_config["y_reference_type"]
+    Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
+    Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
+    Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
+    Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
+    batch_size = get_entry(ref_config, "batch_size", nothing)
 
-    perform_PCA = config["regularization"]["perform_PCA"]
-    normalize = config["regularization"]["normalize"]
-    tikhonov_noise = config["regularization"]["tikhonov_noise"]
-    tikhonov_mode = config["regularization"]["tikhonov_mode"]
-    variance_loss = config["regularization"]["variance_loss"]
-    dim_scaling = config["regularization"]["dim_scaling"]
+    reg_config = config["regularization"]
+    perform_PCA = get_entry(reg_config, "perform_PCA", true)
+    variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
+    normalize = get_entry(reg_config, "normalize", true)
+    tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
+    tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
+    dim_scaling = get_entry(reg_config, "dim_scaling", true)
 
-    save_eki_data = config["output"]["save_eki_data"]
-    save_ensemble_data = config["output"]["save_ensemble_data"]
-    overwrite_scm_file = config["output"]["overwrite_scm_file"]
-    outdir_root = config["output"]["outdir_root"]
+    out_config = config["output"]
+    save_eki_data = get_entry(out_config, "save_eki_data", true)
+    save_ensemble_data = get_entry(out_config, "save_ensemble_data", false)
+    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
+    outdir_root = get_entry(out_config, "outdir_root", pwd())
 
-    N_ens = config["process"]["N_ens"]
-    N_iter = config["process"]["N_iter"]
-    algo_name = config["process"]["algorithm"]
-    batch_size = config["process"]["batch_size"]
-    Δt = config["process"]["Δt"]
+    proc_config = config["process"]
+    N_ens = proc_config["N_ens"]
+    N_iter = proc_config["N_iter"]
+    algo_name = get_entry(proc_config, "algorithm", "Inversion")
+    Δt = get_entry(proc_config, "Δt", 1.0)
 
     params = config["prior"]["constraints"]
+    unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
 
-    n_cases = length(config["reference"]["case_name"])
-    # if Σ_dir is `nothing`, it is expanded to an array of `nothing`
-    Σ_dir = expand_dict_entry(config["reference"], "Σ_dir", n_cases)
-
-    # Similarly, generate `Σ_t_start` and `Σ_t_end`
-    Σ_t_start = expand_dict_entry(config["reference"], "Σ_t_start", n_cases)
-    Σ_t_end = expand_dict_entry(config["reference"], "Σ_t_end", n_cases)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     # Dimensionality
     n_param = sum(map(length, collect(values(params))))
@@ -72,17 +75,17 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     # Construct reference models
     kwargs_ref_model = Dict(
-        :y_names => config["reference"]["y_names"],
+        :y_names => ref_config["y_names"],
         # Reference path specification
-        :y_dir => config["reference"]["y_dir"],
+        :y_dir => ref_config["y_dir"],
         :Σ_dir => Σ_dir,
-        :scm_parent_dir => config["reference"]["scm_parent_dir"],
-        :scm_suffix => config["reference"]["scm_suffix"],
+        :scm_parent_dir => ref_config["scm_parent_dir"],
+        :scm_suffix => ref_config["scm_suffix"],
         # Case name
-        :case_name => config["reference"]["case_name"],
+        :case_name => ref_config["case_name"],
         # Define observation window (s)
-        :t_start => config["reference"]["t_start"],
-        :t_end => config["reference"]["t_end"],
+        :t_start => ref_config["t_start"],
+        :t_end => ref_config["t_end"],
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
     )
@@ -93,7 +96,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file)
+        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
         # Generate global reference statistics
         global_ref_stats = ReferenceStatistics(
             global_ref_models,
@@ -110,7 +113,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     else
         ref_models = construct_reference_models(kwargs_ref_model)
         # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file)
+        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
     end
     # Generate reference statistics
     ref_stats = ReferenceStatistics(
@@ -137,7 +140,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         cp(config_path, joinpath(outdir_path, "config.jl"))
     end
 
-    priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = config["prior"]["unconstrained_σ"])
+    priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ)
     # parameters are sampled in unconstrained space
     if algo_name == "Inversion" || algo_name == "Sampler"
         algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
@@ -224,11 +227,15 @@ function ek_update(
     outdir_path::String,
 )
     # Get dimensionality
-    N_iter = config["process"]["N_iter"]
-    algo_name = config["process"]["algorithm"]
-    batch_size = config["process"]["batch_size"]
-    Δt = config["process"]["Δt"]
-    deterministic_forward_map = config["process"]["noisy_obs"]
+    proc_config = config["process"]
+    N_iter = proc_config["N_iter"]
+    algo_name = get_entry(proc_config, "algorithm", "Inversion")
+    Δt = get_entry(proc_config, "Δt", 1.0)
+    deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
+
+    ref_config = config["reference"]
+    batch_size = get_entry(ref_config, "batch_size", nothing)
+
     mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
     ref_stats = mod_evaluator.ref_stats
     ref_models = mod_evaluator.ref_models
@@ -331,16 +338,29 @@ function update_minibatch_inverse_problem(
     else
         ref_model_batch = ref_model_batch
     end
+
+    ref_config = config["reference"]
+    y_ref_type = ref_config["y_reference_type"]
+    Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
+
+    reg_config = config["regularization"]
+    perform_PCA = get_entry(reg_config, "perform_PCA", true)
+    variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
+    normalize = get_entry(reg_config, "normalize", true)
+    tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
+    tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
+    dim_scaling = get_entry(reg_config, "dim_scaling", true)
+
     ref_stats = ReferenceStatistics(
         ref_models,
-        config["regularization"]["perform_PCA"],
-        config["regularization"]["normalize"],
-        variance_loss = config["regularization"]["variance_loss"],
-        tikhonov_noise = config["regularization"]["tikhonov_noise"],
-        tikhonov_mode = config["regularization"]["tikhonov_mode"],
-        dim_scaling = config["regularization"]["dim_scaling"],
-        y_type = config["reference"]["y_reference_type"],
-        Σ_type = config["reference"]["Σ_reference_type"],
+        perform_PCA,
+        normalize,
+        variance_loss = variance_loss,
+        tikhonov_noise = tikhonov_noise,
+        tikhonov_mode = tikhonov_mode,
+        dim_scaling = dim_scaling,
+        y_type = y_ref_type,
+        Σ_type = Σ_ref_type,
     )
     if isa(ekp_old.process, Inversion) || isa(ekp_old.process, Sampler)
         ekp = generate_ekp(get_u_final(ekp_old), ref_stats, ekp_old.process, outdir_path = outdir_path)

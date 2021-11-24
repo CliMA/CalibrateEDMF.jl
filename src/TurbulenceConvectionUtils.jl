@@ -59,10 +59,12 @@ after normalization and projection onto lower dimensional
 space using PCA.
 
 Inputs:
- - u           :: Values of parameters to be used in simulations.
- - u_names     :: SCM names for parameters `u`.
- - RM          :: Vector of `ReferenceModel`s
- - RS          :: reference statistics for simulation
+ - u             :: Values of parameters to be used in simulations.
+ - u_names       :: SCM names for parameters `u`.
+ - RM            :: Vector of `ReferenceModel`s
+ - RS            :: reference statistics for simulation
+ - error_check   :: Returns as an additional argument whether the SCM call errored.
+ - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 Outputs:
  - sim_dirs    :: Vector of simulation output directories
  - g_scm       :: Vector of model evaluations concatenated for all flow configurations.
@@ -150,17 +152,27 @@ Run the single-column model (SCM) for a reference model object
 using default parameters.
 
 Inputs:
- - m                    :: A `ReferenceModel`
- - overwrite            :: if true, overwrite existing simulation files
- - run_single_timestep  :: if true, run only one time step
-Outputs:
- - Nothing
+ - m                    :: A `ReferenceModel`.
+ - overwrite            :: if true, overwrite existing simulation files.
+ - run_single_timestep  :: if true, run only one time step.
+ - namelist_args        :: Additional arguments passed to the TurbulenceConvection namelist.
 """
-function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
-    namelist = get_scm_namelist(m, overwrite = overwrite)
-    # prepare and run simulation
+function run_reference_SCM(
+    m::ReferenceModel;
+    overwrite::Bool = false,
+    run_single_timestep = true,
+    namelist_args = nothing,
+)
     output_dir = scm_dir(m)
-    if ~isfile(get_stats_path(output_dir)) | overwrite
+    if ~isdir(output_dir) | overwrite
+        namelist = get_scm_namelist(m, overwrite = overwrite)
+        # Set optional namelist args
+        if !isnothing(namelist_args)
+            for namelist_arg in namelist_args
+                group, name, val = namelist_arg
+                namelist[group][name] = val
+            end
+        end
         default_t_max = namelist["time_stepping"]["t_max"]
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
@@ -195,18 +207,20 @@ end
         tmpdir::String,
         u::Array{FT, 1},
         u_names::Array{String, 1},
+        namelist_args = nothing,
     ) where {FT<:AbstractFloat}
 
 Run a case using a set of parameters `u_names` with values `u`,
 and return directory pointing to where data is stored for simulation run.
 
 Inputs:
- - m            :: Reference model
- - tmpdir       :: Temporary directory to store simulation results in
- - u            :: Values of parameters to be used in simulations.
- - u_names      :: SCM names for parameters `u`.
+ - m             :: Reference model
+ - tmpdir        :: Temporary directory to store simulation results in
+ - u             :: Values of parameters to be used in simulations.
+ - u_names       :: SCM names for parameters `u`.
+ - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 Outputs:
- - output_dirs  :: directory containing output data from the SCM run.
+ - output_dirs   :: directory containing output data from the SCM run.
 """
 function run_SCM_handler(
     m::ReferenceModel,
@@ -222,6 +236,14 @@ function run_SCM_handler(
 
     u_names, u = create_parameter_vectors(u_names, u)
 
+    # Set optional namelist args
+    if !isnothing(namelist_args)
+        for namelist_arg in namelist_args
+            group, name, val = namelist_arg
+            namelist[group][name] = val
+        end
+    end
+
     # update parameter values
     for (pName, pVal) in zip(u_names, u)
         namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
@@ -232,14 +254,6 @@ function run_SCM_handler(
     namelist["meta"]["uuid"] = uuid
     # set output dir to `tmpdir`
     namelist["output"]["output_root"] = tmpdir
-
-    # Set additional namelist args
-    if !isnothing(namelist_args)
-        for namelist_arg in namelist_args
-            group, name, val = namelist_arg
-            namelist[group][name] = val
-        end
-    end
 
     # run TurbulenceConvection.jl with modified parameters
     try
