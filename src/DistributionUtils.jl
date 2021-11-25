@@ -118,7 +118,4 @@ function mean_and_std_from_ln(μ_log, σ_log)
     return μ, σ
 end
 
-log_transform(a::AbstractArray) = log.(a)
-exp_transform(a::AbstractArray) = exp.(a)
-
 end # module

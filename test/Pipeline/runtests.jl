@@ -48,6 +48,8 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     @test isfile(joinpath(res_dir, "ekobj_iter_1.jld2"))
     @test isfile(joinpath(res_dir, "versions_1.txt"))
 
+    priors = deserialize_prior(load(joinpath(res_dir, "prior.jld2")))
+    ekobj = load(ekobj_path(res_dir, 1))["ekp"]
     versions = readlines(joinpath(res_dir, "versions_1.txt"))
     for i in 1:config["process"]["N_ens"]
         @test isfile(joinpath(res_dir, "scm_initializer_$(versions[i]).jld2"))
@@ -56,6 +58,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     # Run one simulation and perturb results to emulate ensemble
     scm_args = load(scm_init_path(res_dir, versions[1]))
     model_evaluator = scm_args["model_evaluator"]
+    model_evaluator = precondition(model_evaluator, priors, namelist_args = namelist_args)
     sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator, namelist_args = namelist_args)
     for version in versions
         g_scm = g_scm_orig .* (1.0 + rand())
@@ -64,8 +67,6 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
         @test isfile(joinpath(res_dir, "scm_output_$version.jld2"))
     end
 
-    priors = deserialize_prior(load(joinpath(res_dir, "prior.jld2")))
-    ekobj = load(ekobj_path(res_dir, 1))["ekp"]
     ek_update(ekobj, priors, 1, config, versions, res_dir)
 
     # Test ek_update output
