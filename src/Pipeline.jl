@@ -110,6 +110,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
             Σ_type = Σ_ref_type,
         )
         ref_models = get_minibatch!(ref_model_batch, batch_size)
+        ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
     else
         ref_models = construct_reference_models(kwargs_ref_model)
         # Create input scm stats and namelist file if files don't already exist
@@ -332,12 +333,7 @@ function update_minibatch_inverse_problem(
     # Construct new reference minibatch, new ref_stats, and new ekp
     ref_model_batch = deepcopy(rm_batch)
     ref_models = get_minibatch!(ref_model_batch, batch_size)
-    if isempty(ref_model_batch.eval_order)
-        @info "Current epoch finished. Reshuffling dataset."
-        ref_model_batch = construct_ref_model_batch(ref_model_batch.ref_models)
-    else
-        ref_model_batch = ref_model_batch
-    end
+    ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
 
     ref_config = config["reference"]
     y_ref_type = ref_config["y_reference_type"]

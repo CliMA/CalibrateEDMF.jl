@@ -9,7 +9,8 @@ export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
 export construct_reference_models, construct_ref_model_batch
-export time_shift_reference_model, get_minibatch!, write_ref_model_batch
+export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
+export time_shift_reference_model
 
 """
     struct ReferenceModel
@@ -255,15 +256,25 @@ The size of the minibatch is either the requested size, or the remainder of the
 elements in the eval_order for this epoch.
 
 Inputs:
- - ref_models   :: A ReferenceModelBatch.
- - batch_size   :: The number of `ReferenceModel`s to retrieve.
+ - ref_model_batch :: A ReferenceModelBatch.
+ - batch_size      :: The number of `ReferenceModel`s to retrieve.
 Outputs:
  - A vector of `ReferenceModel`s.
 """
-function get_minibatch!(ref_models::ReferenceModelBatch, batch_size::Int)
-    batch = min(batch_size, length(ref_models.eval_order))
-    indices = [pop!(ref_models.eval_order) for i in 1:batch]
-    return ref_models.ref_models[indices]
+function get_minibatch!(ref_model_batch::ReferenceModelBatch, batch_size::Int)
+    batch = min(batch_size, length(ref_model_batch.eval_order))
+    indices = [pop!(ref_model_batch.eval_order) for i in 1:batch]
+    return ref_model_batch.ref_models[indices]
+end
+
+"Restarts a shuffled evaluation order if the current epoch has finished."
+function reshuffle_on_epoch_end(ref_model_batch::ReferenceModelBatch, shuffling::Bool = true)
+    if isempty(ref_model_batch.eval_order)
+        @info "Current epoch finished. Reshuffling dataset."
+        return construct_ref_model_batch(ref_model_batch.ref_models, shuffling)
+    else
+        return ref_model_batch
+    end
 end
 
 function write_ref_model_batch(ref_model_batch::ReferenceModelBatch; outdir_path::String = pwd())
