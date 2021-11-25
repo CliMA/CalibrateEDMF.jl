@@ -31,7 +31,8 @@ parsed_args = parse_args(ARGS, s)
 version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
 include(joinpath(outdir_path, "config.jl"))
-namelist_args = get_config()["scm"]["namelist_args"]
+config = get_config()
+namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
 scm_args = load(scm_init_path(outdir_path, version))
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))

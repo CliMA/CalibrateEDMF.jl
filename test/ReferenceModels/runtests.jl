@@ -23,32 +23,58 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     @test get_t_end_Σ(ref_model) == 10.0
 end
 
+@testset "ReferenceModelBatch" begin
+    scm_dir_test = "/foo/bar/scm/Output.test_case.12345"
+    # Choose same SCM to speed computation
+    scm_dirs = repeat([scm_dir_test], 2)
+    kwargs_ref_model = Dict(
+        :y_names => [["u_mean"], ["v_mean", "thetal_mean"]],
+        :y_dir => scm_dirs,
+        :scm_dir => scm_dirs,
+        :case_name => ["foo", "bar"],
+        :t_start => repeat([0.0], 2),
+        :t_end => repeat([10.0], 2),
+    )
+    ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
+    @test length(ref_model_batch.ref_models) == 2
+    @test length(ref_model_batch.eval_order) == 2
+
+    # Get a minibatch and check that the eval order shrinks
+    ref_models = get_minibatch!(ref_model_batch, 1)
+
+    @test isa(ref_models, Vector{ReferenceModel})
+    @test length(ref_model_batch.ref_models) == 2
+    @test length(ref_model_batch.eval_order) == 1
+end
+
 @testset "ReferenceModel handlers" begin
     # Choose same SCM to speed computation
     data_dir = mktempdir()
-    scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
+    scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
+    # Reduce resolution and t_max to speed computation as well
+    t_max = 4 * 3600.0
+    namelist_args =
+        [("time_stepping", "t_max", t_max), ("time_stepping", "dt", 10.0), ("grid", "dz", 100.0), ("grid", "nz", 30)]
     kwargs_ref_model = Dict(
-        :y_names => [["u_mean"], ["v_mean"]],
+        :y_names => [["u_mean", "v_mean"]],
         :y_dir => scm_dirs,
         :scm_dir => scm_dirs,
-        :case_name => repeat(["Bomex"], 2),
-        :t_start => [4.0 * 3600, 4.0 * 3600],
-        :t_end => [5.0 * 3600, 5.0 * 3600],
-        :Σ_t_start => [2.0 * 3600, 2.0 * 3600],
-        :Σ_t_end => [4.5 * 3600, 4.5 * 3600],
+        :case_name => ["Bomex"],
+        :t_start => [t_max - 3600],
+        :t_end => [t_max, t_max],
+        :Σ_t_start => [t_max - 2.0 * 3600],
+        :Σ_t_end => [t_max - 0.5 * 3600],
     )
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
-    Δt = 5.0 * 3600
+    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
+    Δt = 3.0 * 3600
     ref_model = time_shift_reference_model(ref_models[1], Δt)
 
-    @test get_t_start(ref_model) == 21600.0 - Δt + 4.0 * 3600
-    @test get_t_start_Σ(ref_model) == 21600.0 - Δt + 2.0 * 3600
-    @test get_t_end_Σ(ref_model) == 21600.0 - Δt + 4.5 * 3600
-    @test get_t_end(ref_model) == 21600.0 - Δt + 5.0 * 3600
+    @test get_t_start(ref_model) == t_max - Δt + 3.0 * 3600
+    @test get_t_start_Σ(ref_model) == t_max - Δt + 2.0 * 3600
+    @test get_t_end_Σ(ref_model) == t_max - Δt + 3.5 * 3600
+    @test get_t_end(ref_model) == t_max - Δt + 4.0 * 3600
 
-    Δt = 2 * 21600.0
-    @test_throws AssertionError time_shift_reference_model(ref_models[2], Δt)
-
-
+    Δt = 2 * t_max
+    @test_throws AssertionError time_shift_reference_model(ref_models[1], Δt)
 end

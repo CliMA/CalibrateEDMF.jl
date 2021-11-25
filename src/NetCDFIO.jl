@@ -55,8 +55,8 @@ mutable struct NetCDFIO_Diags
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)
-            batch_size =
-                isnothing(config["process"]["batch_size"]) ? length(ref_stats.pca_vec) : config["process"]["batch_size"]
+            batch_size = get_entry(config["process"], "batch_size", length(ref_stats.pca_vec))
+            batch_size = isnothing(batch_size) ? length(ref_stats.pca_vec) : batch_size
 
             particle = Array(1:N_ens)
             out = Array(1:d)

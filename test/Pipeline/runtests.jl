@@ -24,7 +24,9 @@ include("config.jl")
         ref_config["t_start"][1],
         ref_config["t_end"][1],
     )
-    run_reference_SCM(ref_model, run_single_timestep = false)
+    namelist_args = config["scm"]["namelist_args"]
+    # Generate "true" data
+    run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = namelist_args)
     # Initialize calibration setup
     init_calibration(config; mode = "hpc")
     res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
@@ -43,7 +45,6 @@ include("config.jl")
     end
 
     # Re-use previous simulation
-    config["output"]["overwrite_scm_file"] = false
     res_dict = init_calibration(config; mode = "pmap")
 
     ekobj = res_dict["ekobj"]
