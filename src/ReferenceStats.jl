@@ -42,18 +42,17 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
     """
         ReferenceStatistics(
-            RM::Vector{ReferenceModel},
-            perform_PCA::Bool,
-            normalize::Bool,
-            FT::DataType = Float64;
-            variance_loss::Float64 = 0.1,
-            tikhonov_noise::Float64 = 0.0,
+            RM::Vector{ReferenceModel};
+            perform_PCA::Bool = true,
+            normalize::Bool = true,
+            variance_loss::FT = 0.1,
+            tikhonov_noise::FT = 0.0,
             tikhonov_mode::String = "absolute",
             dim_scaling::Bool = false,
             y_type::ModelType = LES(),
             Σ_type::ModelType = LES(),
-            Δt::FT = 6 * 3600,
-        )
+            Δt::FT = 6 * 3600.0,
+        ) where {FT <: Real}
 
     Constructs the ReferenceStatistics defining the inverse problem.
 
@@ -76,9 +75,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
      - A ReferenceStatistics struct.
     """
     function ReferenceStatistics(
-        RM::Vector{ReferenceModel},
-        perform_PCA::Bool,
-        normalize::Bool;
+        RM::Vector{ReferenceModel};
+        perform_PCA::Bool = true,
+        normalize::Bool = true,
         variance_loss::FT = 0.1,
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",

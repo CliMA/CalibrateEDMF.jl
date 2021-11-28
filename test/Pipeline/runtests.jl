@@ -15,8 +15,9 @@ import TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))
 include(joinpath(tc, "integration_tests", "utils", "parameter_set.jl"))
 src = dirname(pathof(CalibrateEDMF))
+test_dir = joinpath(dirname(src), "test", "Pipeline")
 include(joinpath(src, "helper_funcs.jl"))
-include("config.jl")
+include(joinpath(test_dir, "config.jl"))
 
 # Shared simulations
 config = get_config()
@@ -37,7 +38,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
 @testset "Pipeline" begin
 
     ###  Test HPC pipeline
-    init_calibration(config; mode = "hpc")
+    init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
     res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
     # Check for output
@@ -81,27 +82,27 @@ end
 
 @testset "Pipeline_julia" begin
     ### Test pmap pipeline
-    res_dict = init_calibration(config; mode = "pmap")
+    outdir_path = init_calibration(config; config_path = joinpath(test_dir, "config.jl"), mode = "pmap")
 
-    ekobj = res_dict["ekobj"]
-    N_par, N_ens = size(ekobj.u[1])
+    @test isdir(outdir_path)
+    @test isfile(joinpath(outdir_path, "prior.jld2"))
+    @test isfile(joinpath(outdir_path, "ekobj_iter_1.jld2"))
+    @test isfile(joinpath(outdir_path, "versions_1.txt"))
 
-    res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
-    res_dir = res_dir_list[1]
-    rm(res_dir, recursive = true)
-
-    @test typeof(ekobj) == EnsembleKalmanProcess{Float64, Int64, Inversion}
-    @test typeof(res_dict["ref_stats"]) == ReferenceStatistics{Float64}
-    @test typeof(res_dict["ref_models"]) == Vector{ReferenceModel}
-    @test N_par == 2
-    @test N_ens == 5
+    versions = readlines(joinpath(outdir_path, "versions_1.txt"))
+    for i in 1:config["process"]["N_ens"]
+        @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
+    end
+    rm(outdir_path, recursive = true)
 end
 
-@testset "Pipeline_minibatch" begin
+@testset "Pipeline_val_minibatch" begin
 
     config["reference"]["batch_size"] = 1
     config["process"]["algorithm"] = "Unscented"
-    init_calibration(config; mode = "hpc")
+    config["validation"] = config["reference"]
+    config["validation"]["batch_size"] = 1
+    init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
     res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
     versions = readlines(joinpath(res_dir, "versions_1.txt"))
@@ -114,6 +115,7 @@ end
         g_scm = g_scm_orig .* (1.0 + rand())
         g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
         jldsave(scm_output_path(res_dir, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+        jldsave(scm_val_output_path(res_dir, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
         @test isfile(joinpath(res_dir, "scm_output_$version.jld2"))
     end
     @test isfile(joinpath(res_dir, "ref_model_batch.jld2"))

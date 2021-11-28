@@ -22,6 +22,7 @@ using JLD2
 # Cases defined as structs for quick access to default configs
 struct ObsCampaigns end
 struct LesDrivenScm end
+struct LesDrivenScmVal end
 # struct MyAwesomeSetup end
 
 function get_config()
@@ -32,6 +33,8 @@ function get_config()
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(LesDrivenScm())
+    # Define reference used for validation
+    config["validation"] = get_reference_config(LesDrivenScmVal())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -63,12 +66,11 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 10
+    config["N_iter"] = 20
     config["N_ens"] = 19
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
-    config["batch_size"] = nothing
     return config
 end
 
@@ -103,25 +105,45 @@ end
 
 function get_reference_config(::LesDrivenScm)
     config = Dict()
-    config["case_name"] = repeat(["LES_driven_SCM"], 3)
+    cfsite_numbers = (9, 11, 13, 15, 17, 19, 21, 23)
+    n_repeat = length(cfsite_numbers)
+    config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], 3)
+    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], n_repeat)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
-    config["y_dir"] = [
-        get_cfsite_les_dir(17; les_kwargs...),
-        get_cfsite_les_dir(19; les_kwargs...),
-        get_cfsite_les_dir(22; les_kwargs...),
-    ]
-    config["scm_suffix"] =
-        [get_gcm_les_uuid(17; les_kwargs...), get_gcm_les_uuid(19; les_kwargs...), get_gcm_les_uuid(22; les_kwargs...)]
-    config["scm_parent_dir"] = repeat(["scm_init"], 3)
-    config["t_start"] = repeat([3.0 * 3600], 3)
-    config["t_end"] = repeat([6.0 * 3600], 3)
+    config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
+    config["t_start"] = repeat([3.0 * 3600], n_repeat)
+    config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
-    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], 3)
-    config["Σ_t_end"] = repeat([6.0 * 3600], 3)
+    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
+    config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
+    config["batch_size"] = 2
+    return config
+end
+
+function get_reference_config(::LesDrivenScmVal)
+    config = Dict()
+    cfsite_numbers = (8, 10, 12, 14, 16, 18, 20, 22)
+    n_repeat = length(cfsite_numbers)
+    config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
+    # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
+    config["y_reference_type"] = LES()
+    config["Σ_reference_type"] = LES()
+    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], n_repeat)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+    config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
+    config["t_start"] = repeat([3.0 * 3600], n_repeat)
+    config["t_end"] = repeat([6.0 * 3600], n_repeat)
+    # Use full LES timeseries for covariance
+    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
+    config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
+    config["batch_size"] = 2
     return config
 end
 
@@ -143,16 +165,12 @@ function get_prior_config()
     )
     # config["unconstrained_σ"] = 1.0
     # Tight initial prior for Unscented
-    config["unconstrained_σ"] = 0.2
+    config["unconstrained_σ"] = 0.1
     return config
 end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] = [
-        ("time_stepping", "dt", 1.0),
-        # ("grid", "dz", 50.0),
-        # ("grid", "nz", 80),
-    ]
+    config["namelist_args"] = [("time_stepping", "dt", 2.0), ("grid", "dz", 50.0), ("grid", "nz", 80)]
     return config
 end

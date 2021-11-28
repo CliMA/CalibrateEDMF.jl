@@ -12,9 +12,10 @@ s = ArgParseSettings()
     "--job_id"
     help = "Job identifier"
     arg_type = String
-    default = "default_id"
+    default = "12345"
 end
 parsed_args = parse_args(ARGS, s)
 include(parsed_args["config"])
+config = get_config()
 
-init_calibration(get_config(); job_id = parsed_args["job_id"], config_path = parsed_args["config"])
+init_calibration(config; job_id = parsed_args["job_id"], config_path = parsed_args["config"])

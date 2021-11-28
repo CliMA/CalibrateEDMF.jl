@@ -2,7 +2,6 @@
 
 # Import modules to all processes
 using ArgParse
-using Distributions
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.Pipeline

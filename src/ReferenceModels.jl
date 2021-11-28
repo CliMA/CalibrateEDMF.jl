@@ -10,7 +10,7 @@ export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
 export construct_reference_models, construct_ref_model_batch
 export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
-export time_shift_reference_model
+export time_shift_reference_model, write_val_ref_model_batch
 
 """
     struct ReferenceModel
@@ -279,6 +279,9 @@ end
 
 function write_ref_model_batch(ref_model_batch::ReferenceModelBatch; outdir_path::String = pwd())
     jldsave(joinpath(outdir_path, "ref_model_batch.jld2"); ref_model_batch)
+end
+function write_val_ref_model_batch(ref_model_batch::ReferenceModelBatch; outdir_path::String = pwd())
+    jldsave(joinpath(outdir_path, "val_ref_model_batch.jld2"); ref_model_batch)
 end
 
 end # module
