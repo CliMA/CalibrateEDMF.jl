@@ -307,11 +307,13 @@ function io_diagnostics(
     g_full::Union{Array{FT, 2}, Nothing} = nothing,
 ) where {FT <: Real}
     open_files(diags)
+    # Eval diagnostics
     io_metrics(diags, ekp, mse_full)
-    io_ensemble_diags(diags, ekp, priors)
     io_particle_diags_eval(diags, ekp, mse_full, g_full)
     write_iteration(diags)
+    # State diagnostics
     io_particle_diags_state(diags, ekp, priors)
+    io_ensemble_diags(diags, ekp, priors)
     close_files(diags)
 end
 
