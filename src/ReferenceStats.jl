@@ -337,7 +337,7 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
     for (i, var_name) in enumerate(var_names)
         var_ = fetch_interpolate_transform(var_name, sim_dir, z_scm)
         # Store pooled variance
-        pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2))  # vertically averaged time-variance of variable
+        pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
         # Normalize timeseries
         ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i])
         ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # dims: (Nz*num_outputs, Nt)
