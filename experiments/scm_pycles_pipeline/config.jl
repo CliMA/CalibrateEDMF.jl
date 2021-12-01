@@ -32,8 +32,6 @@ function get_config()
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(Bomex())
-    # Define reference used for validation
-    config["validation"] = get_reference_config(LesDrivenScm())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process

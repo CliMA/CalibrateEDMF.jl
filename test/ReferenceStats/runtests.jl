@@ -31,9 +31,9 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     dim_list = [false, true]
     for (pca, norm, tikhonov_mode, dim_scaling) in zip(pca_list, norm_list, mode_list, dim_list)
         ref_stats = ReferenceStatistics(
-            ref_models,
-            pca,
-            norm;
+            ref_models;
+            perform_PCA = pca,
+            normalize = norm,
             variance_loss = 0.1,
             tikhonov_noise = 0.1,
             tikhonov_mode = tikhonov_mode,
@@ -58,9 +58,9 @@ using CalibrateEDMF.TurbulenceConvectionUtils
 
     # Verify that incorrect definitions throw error
     @test_throws AssertionError ReferenceStatistics(
-        ref_models,
-        false,
-        false;
+        ref_models;
+        perform_PCA = false,
+        normalize = false,
         tikhonov_mode = "relative",
         y_type = SCM(),
         Σ_type = SCM(),

@@ -1,19 +1,11 @@
 """Evaluates a set of SCM configurations for a single parameter vector."""
 
 using ArgParse
-using Distributions
 using CalibrateEDMF
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.ReferenceStats
-using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.Pipeline
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
-# Import EKP modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributionStorage
 using JLD2
-
 
 # Read iteration number of ensemble to be recovered
 s = ArgParseSettings()
@@ -25,16 +17,16 @@ s = ArgParseSettings()
     help = "Job output directory"
     arg_type = String
     default = "output"
+    "--mode"
+    help = "Forward model evaluation mode: `train` or `validation`"
+    arg_type = String
+    default = "train"
 end
 parsed_args = parse_args(ARGS, s)
-version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
 include(joinpath(outdir_path, "config.jl"))
 
-scm_args = load(scm_init_path(outdir_path, version))
 config = get_config()
-namelist_args = get_entry(config["scm"], "namelist_args", nothing)
-model_evaluator = scm_args["model_evaluator"]
-sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, namelist_args = namelist_args)
-
-jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+version = parsed_args["version"]
+mode = parsed_args["mode"]
+versioned_model_eval(version, outdir_path, mode, config)

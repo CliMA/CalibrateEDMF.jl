@@ -11,7 +11,6 @@ const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 using JLD2
 

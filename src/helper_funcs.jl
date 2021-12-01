@@ -362,6 +362,8 @@ end
 
 scm_init_path(root, version; prefix = "scm_initializer_") = jld2_path(root, version, prefix)
 scm_output_path(root, version; prefix = "scm_output_") = jld2_path(root, version, prefix)
+scm_val_init_path(root, version; prefix = "scm_val_initializer_") = jld2_path(root, version, prefix)
+scm_val_output_path(root, version; prefix = "scm_val_output_") = jld2_path(root, version, prefix)
 ekobj_path(root, iter; prefix = "ekobj_iter_") = jld2_path(root, iter, prefix)
 
 

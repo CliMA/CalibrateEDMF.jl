@@ -31,7 +31,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
-    ref_stats = ReferenceStatistics(ref_models, true, true; y_type = SCM(), Σ_type = SCM())
+    ref_stats = ReferenceStatistics(ref_models, y_type = SCM(), Σ_type = SCM())
     # Generate config
     config = Dict()
     config["process"] = Dict()
@@ -39,7 +39,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     config["process"]["batch_size"] = nothing
     config["prior"] = Dict()
     config["prior"]["constraints"] = Dict("foo" => [bounded(0.0, 0.5)], "bar" => [bounded(0.0, 0.5)])
-
+    config["reference"] = Dict()
     priors = construct_priors(config["prior"]["constraints"])
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, ekp, priors)

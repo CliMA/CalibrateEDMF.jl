@@ -95,7 +95,7 @@ function get_cfsite_les_dir(
     cfsite_number = string(cfsite_number)
     month = string(month, pad = 2)
     root_dir = "/central/groups/esm/zhaoyi/GCMForcedLES/cfsite/$month/$forcing_model/$experiment/"
-    rel_dir = join(["Output.cfsite$cfsite_number", forcing_model, experiment, "2004-2008.07.4x"], "_")
+    rel_dir = join(["Output.cfsite$cfsite_number", forcing_model, experiment, "2004-2008.$month.4x"], "_")
     return joinpath(root_dir, rel_dir)
 end
 
