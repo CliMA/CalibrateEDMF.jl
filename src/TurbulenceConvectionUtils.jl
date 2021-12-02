@@ -1,6 +1,5 @@
 module TurbulenceConvectionUtils
 
-using Glob
 using JLD2
 using JSON
 using Random
@@ -8,7 +7,6 @@ using ..ReferenceModels
 using ..ReferenceStats
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
@@ -188,7 +186,7 @@ function run_reference_SCM(
         try
             main(namelist)
         catch
-            @warn "Default TurbulenceConvection.jl simulation failed. Verify default setup."
+            @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
         end
         if run_single_timestep
             # reset t_max to default and overwrite stored namelist file
@@ -260,8 +258,9 @@ function run_SCM_handler(
         main(namelist)
     catch
         model_error = true
-        @warn "TurbulenceConvection.jl simulation failed with parameters:"
-        [@warn "$param_name = $param_value" for (param_name, param_value) in zip(u_names, u)]
+        message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
+        append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
+        @warn join(message)
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end
@@ -414,8 +413,9 @@ function precondition(
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
     if model_error
-        @warn "Unstable parameter vector found:"
-        [@warn "$param_name = $param" for (param_name, param) in zip(param_names, param)]
+        message = ["Unstable parameter vector found: \n"]
+        append!(message, ["$param_name = $param \n" for (param_name, param) in zip(param_names, param_cons)])
+        @warn join(message)
         @warn "Sampling new parameter vector from prior..."
         new_param =
             precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats, namelist_args)
