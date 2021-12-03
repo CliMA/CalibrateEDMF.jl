@@ -1,5 +1,6 @@
 using JLD2
 using PyPlot
+plt.rcParams["fontsize"] = 20
 using Statistics
 
 function make_ekp_plots(ekp_path::ST, param_names::Vector{ST}) where {ST <: AbstractString}
@@ -20,28 +21,27 @@ function make_ekp_plots(ekp_path::ST, param_names::Vector{ST}) where {ST <: Abst
     end
 
     # plot parameter evolution
-    fig, axs = subplots(nrows = n_param, sharex = true, figsize = (15, 4 * n_param))
+    n_plots = n_param + 1
+    fig, axs = subplots(nrows = n_plots, sharex = true, figsize = (15, 4 * n_plots))
     axs = n_param == 1 ? [axs] : axs
     x = 0:(n_iter - 1)
-    for (i, ax) in enumerate(axs)
+    for (i, ax) in enumerate(axs[1:(end - 1)])  # don't iterate last ax
         ax.plot(x, phi_m[:, i])
         ax.fill_between(x, phi_m[:, i] .- 2 * ustd[:, i], phi_m[:, i] .+ 2 * ustd[:, i], alpha = 0.5)
-        ax.set_ylabel(param_names[i])
+        ax.set_ylabel(param_names[i], fontsize = 20)
     end
 
     axs[1].set_xlim(0, n_iter - 1)
-    axs[1].set_title("Parameter evolution (mean ±2 std)")
-    axs[end].set_xlabel("iteration")
-    savefig(joinpath(ekp_path, "param_evol.png"))
+    axs[1].set_title("Parameter evolution (mean ±2 std)", fontsize = 20)
 
     # Error plot
     x = 1:(n_iter - 1)
     err = data["ekp_err"]
-    fig, ax = subplots()
-    ax.plot(x, err)
-    ax.set_xlim(1, n_iter - 1)
-    ax.set_ylabel("Error")
-    ax.set_xlabel("iteration")
-    ax.set_title("Error evolution")
-    savefig(joinpath(ekp_path, "error_evol.png"))
+
+    axs[end].plot(x, err)
+    axs[end].set_xlim(1, n_iter - 1)
+    axs[end].set_ylabel("Error", fontsize = 20)
+    axs[end].set_xlabel("iteration", fontsize = 20)
+    axs[end].set_title("Error evolution", fontsize = 20)
+    savefig(joinpath(ekp_path, "param_error_evol.png"))
 end

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#Submit this script with: sbatch plot_script
+
+#SBATCH --time=00:10:00   # walltime
+#SBATCH --mem-per-cpu=16G   # memory per CPU core
+#SBATCH --ntasks=1  # number of processor cores (i.e. tasks)
+#SBATCH -J "plot_ensembles"   # job name
+
+source ~/miniconda3/bin/activate stats
+python plot_data.py
