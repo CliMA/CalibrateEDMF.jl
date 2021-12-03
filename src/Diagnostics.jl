@@ -15,6 +15,7 @@ const NC = NCDatasets
 export io_dictionary_ensemble, io_dictionary_reference, io_dictionary_metrics
 export io_dictionary_particle_state, io_dictionary_particle_eval
 export io_dictionary_val_metrics, io_dictionary_val_particle_eval
+export io_dictionary_val_reference
 
 """Reference diagnostics dictionary."""
 function io_dictionary_reference()
@@ -32,7 +33,11 @@ function io_dictionary_reference()
     )
     return io_dict
 end
-function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel})
+function io_dictionary_reference(
+    ref_stats::ReferenceStatistics,
+    ref_models::Vector{ReferenceModel},
+    write_full_stats::Bool = true,
+)
     orig_dict = io_dictionary_reference()
     d_full = full_length(ref_stats)
     d = pca_length(ref_stats)
@@ -55,7 +60,6 @@ function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vec
     end
     io_dict = Dict(
         "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
-        "Gamma_full" => Base.setindex(orig_dict["Gamma_full"], ref_stats.Γ_full, :field),
         "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
         "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
         "P_pca" => Base.setindex(orig_dict["P_pca"], P_pca_full, :field),
@@ -65,6 +69,66 @@ function io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vec
         "config_name" => Base.setindex(orig_dict["config_name"], config_name, :field),
         "config_dz" => Base.setindex(orig_dict["config_dz"], config_dz, :field),
     )
+    if write_full_stats
+        io_dict["Gamma_full"] = Base.setindex(orig_dict["Gamma_full"], Array(ref_stats.Γ_full), :field)
+    end
+    return io_dict
+end
+
+function io_dictionary_val_reference()
+    io_dict = Dict(
+        "Gamma_val" => (; dims = ("out_val", "out_val"), group = "reference", type = Float64),
+        "Gamma_full_val" => (; dims = ("out_full_val", "out_full_val"), group = "reference", type = Float64),
+        "y_val" => (; dims = ("out_val",), group = "reference", type = Float64),
+        "y_full_val" => (; dims = ("out_full_val",), group = "reference", type = Float64),
+        "P_pca_val" => (; dims = ("out_full_val", "out_val"), group = "reference", type = Float64),
+        "num_vars_val" => (; dims = ("config_val",), group = "reference", type = Int16),
+        "var_dof_val" => (; dims = ("config_val",), group = "reference", type = Int16),
+        "config_pca_dim_val" => (; dims = ("config_val",), group = "reference", type = Int16),
+        "config_name_val" => (; dims = ("config_val",), group = "reference", type = String),
+        "config_dz_val" => (; dims = ("config_val",), group = "reference", type = Float64),
+    )
+    return io_dict
+end
+function io_dictionary_val_reference(
+    ref_stats::ReferenceStatistics,
+    ref_models::Vector{ReferenceModel},
+    write_full_stats::Bool = true,
+)
+    orig_dict = io_dictionary_val_reference()
+    d_full = full_length(ref_stats)
+    d = pca_length(ref_stats)
+    num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
+    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
+    config_name = [
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
+        for rm in ref_models
+    ]
+    config_dz = [get_dz(rm.y_dir) for rm in ref_models]
+    P_pca_full = zeros(d_full, d)
+    idx_row = 1
+    idx_col = 1
+    for P_pca in ref_stats.pca_vec
+        rows, cols = size(P_pca)
+        P_pca_full[idx_row:(idx_row + rows - 1), idx_col:(idx_col + cols - 1)] = P_pca
+        idx_row += rows
+        idx_col += cols
+    end
+    io_dict = Dict(
+        "Gamma_val" => Base.setindex(orig_dict["Gamma_val"], ref_stats.Γ, :field),
+        "y_val" => Base.setindex(orig_dict["y_val"], ref_stats.y, :field),
+        "y_full_val" => Base.setindex(orig_dict["y_full_val"], ref_stats.y_full, :field),
+        "P_pca_val" => Base.setindex(orig_dict["P_pca_val"], P_pca_full, :field),
+        "num_vars_val" => Base.setindex(orig_dict["num_vars_val"], num_vars, :field),
+        "var_dof_val" => Base.setindex(orig_dict["var_dof_val"], var_dof, :field),
+        "config_pca_dim_val" => Base.setindex(orig_dict["config_pca_dim_val"], config_pca_dim, :field),
+        "config_name_val" => Base.setindex(orig_dict["config_name_val"], config_name, :field),
+        "config_dz_val" => Base.setindex(orig_dict["config_dz_val"], config_dz, :field),
+    )
+    if write_full_stats
+        io_dict["Gamma_full_val"] = Base.setindex(orig_dict["Gamma_full_val"], Array(ref_stats.Γ_full), :field)
+    end
     return io_dict
 end
 

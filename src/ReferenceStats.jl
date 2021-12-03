@@ -1,5 +1,6 @@
 module ReferenceStats
 
+using SparseArrays
 using Statistics
 using Interpolations
 using LinearAlgebra
@@ -28,17 +29,17 @@ define a well-posed inverse problem.
 """
 Base.@kwdef struct ReferenceStatistics{FT <: Real}
     "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
-    y::Vector{FT} # yt
+    y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
-    Γ::Array{FT, 2}  # Γy
+    Γ::Array{FT, 2}
     "Vector (length: nSim) of normalizing factors (length: n_vars)"
-    norm_vec::Vector{Array{FT, 1}}  # pool_var_list
+    norm_vec::Vector{Array{FT, 1}}
     "Vector (length: nSim) of PCA projection matrices with leading eigenvectors as columns"
-    pca_vec::Vector{Union{Array{FT, 2}, UniformScaling}}  # P_pca_list
+    pca_vec::Vector{Union{Array{FT, 2}, UniformScaling}}
     "Full reference data vector, length: nSim * n_vars * n_zLevels"
-    y_full::Vector{FT}  # yt_big
+    y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
-    Γ_full::Array{FT, 2}  # yt_var_big
+    Γ_full::SparseMatrixCSC{FT, Int64}
 
     """
         ReferenceStatistics(
@@ -116,7 +117,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         end
 
         # Construct global observational covariance matrix, original space
-        Γ_full = cat(Γ_full_vec..., dims = (1, 2))
+        Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
 
         # Construct global observational covariance matrix, TSVD
         if tikhonov_mode == "relative"
