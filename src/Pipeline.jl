@@ -13,7 +13,6 @@ const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
 export init_calibration, ek_update, versioned_model_eval
@@ -368,6 +367,8 @@ function ek_update(
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
 
+    val_config = get(config, "validation", nothing)
+
     mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
     ref_stats = mod_evaluator.ref_stats
     ref_models = mod_evaluator.ref_models
@@ -383,30 +384,35 @@ function ek_update(
     end
 
     # Diagnostics IO
-    val_config = get(config, "validation", nothing)
     update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, batch_size, versions, val_config)
 
-    # Prepare updated EKP and ReferenceModelBatch if minibatching.
-    if !isnothing(batch_size)
-        ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
-        ekp, ref_models, ref_stats, ref_model_batch =
-            update_minibatch_inverse_problem(ref_model_batch, ekobj, batch_size, outdir_path, config)
-        rm(joinpath(outdir_path, "ref_model_batch.jld2"))
-        write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
-    else
-        ekp = ekobj
+    if iteration < N_iter
+        # Prepare updated EKP and ReferenceModelBatch if minibatching.
+        if !isnothing(batch_size)
+            ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
+            ekp, ref_models, ref_stats, ref_model_batch =
+                update_minibatch_inverse_problem(ref_model_batch, ekobj, batch_size, outdir_path, config)
+            rm(joinpath(outdir_path, "ref_model_batch.jld2"))
+            write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+        else
+            ekp = ekobj
+        end
+
+        # Write to file new EKP and ModelEvaluators
+        jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
+        write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration)
+
+        # Update validation ModelEvaluators
+        if !isnothing(val_config)
+            reg_config = config["regularization"]
+            update_validation(val_config, reg_config, ekobj, priors, versions, outdir_path, iteration)
+        end
     end
-
-    # Write to file new EKP and ModelEvaluators
-    jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
-    write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration)
-
-    # Update validation ModelEvaluators
-    if !isnothing(val_config)
-        reg_config = config["regularization"]
-        update_validation(val_config, reg_config, ekobj, priors, versions, outdir_path, iteration)
+    # Clean up
+    for version in versions
+        rm(scm_output_path(outdir_path, version))
+        !isnothing(val_config) ? rm(scm_val_output_path(outdir_path, version)) : nothing
     end
-
     return
 end
 
@@ -426,7 +432,6 @@ Outputs:
 function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
     # Find train/validation path
     scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
-    init_path(x) = validation ? scm_val_init_path(outdir_path, x) : scm_init_path(outdir_path, x)
     # Get array sizes with first file
     scm_outputs = load(scm_path(versions[1]))
     d = length(scm_outputs["g_scm_pca"])
@@ -438,9 +443,6 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
         scm_outputs = load(scm_path(version))
         g[:, ens_index] = scm_outputs["g_scm_pca"]
         g_full[:, ens_index] = scm_outputs["g_scm"]
-        # Clean up
-        rm(scm_path(version))
-        rm(init_path(version))
     end
     return g, g_full
 end
@@ -475,7 +477,9 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     model_evaluator = scm_args["model_evaluator"]
     # Eval
     sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, namelist_args = namelist_args)
+    # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+    rm(input_path)
 end
 
 """
