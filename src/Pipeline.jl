@@ -602,16 +602,18 @@ function init_diagnostics(
     val_ref_stats::Union{ReferenceStatistics, Nothing},
     validation::Bool = false,
 )
+    write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors, val_ref_stats)
     # Write reference
-    io_reference(diags, ref_stats, ref_models)
+    io_reference(diags, ref_stats, ref_models, write_full_stats)
     # Add diags, write first state diags
     init_iteration_io(diags)
     init_metrics(diags)
     init_ensemble_diags(diags, ekp, priors)
     init_particle_diags(diags, ekp, priors)
     if validation
-        init_val_diagnostics(diags)
+        write_full_stats = get_entry(config["validation"], "write_full_stats", true)
+        init_val_diagnostics(diags, val_ref_stats, val_ref_models, write_full_stats)
     end
 end
 

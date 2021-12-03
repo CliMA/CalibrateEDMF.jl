@@ -104,12 +104,26 @@ mutable struct NetCDFIO_Diags
             if !isnothing(val_ref_stats)
                 d_full_val = full_length(val_ref_stats)
                 d_val = pca_length(val_ref_stats)
+                C_val = length(val_ref_stats.pca_vec)
+                batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
+                batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val
+
                 out_val = Array(1:d_val)
                 out_full_val = Array(1:d_full_val)
+                configuration_val = Array(1:C_val)
+
                 NC.defDim(particle_grp, "out_full_val", d_full_val)
                 NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
                 NC.defDim(particle_grp, "out_val", d_val)
                 NC.defVar(particle_grp, "out_val", out_val, ("out_val",))
+
+                NC.defDim(reference_grp, "out_full_val", d_full_val)
+                NC.defVar(reference_grp, "out_full_val", out_full_val, ("out_full_val",))
+                NC.defDim(reference_grp, "out_val", d_val)
+                NC.defVar(reference_grp, "out_val", out_val, ("out_val",))
+                NC.defDim(reference_grp, "config_val", C_val)
+                NC.defVar(reference_grp, "config_val", configuration_val, ("config_val",))
+                NC.defDim(reference_grp, "batch_size_val", batch_size_val)
             end
 
             # Calibration metrics
@@ -191,8 +205,26 @@ function write_ref(diags::NetCDFIO_Diags, var_name::String, data)
     end
 end
 
-function io_reference(diags::NetCDFIO_Diags, ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel})
-    io_dict = io_dictionary_reference(ref_stats, ref_models)
+function io_reference(
+    diags::NetCDFIO_Diags,
+    ref_stats::ReferenceStatistics,
+    ref_models::Vector{ReferenceModel},
+    write_full_stats::Bool = true,
+)
+    io_dict = io_dictionary_reference(ref_stats, ref_models, write_full_stats)
+    for var in keys(io_dict)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
+        write_ref(diags, var, io_dict[var].field)
+    end
+end
+
+function io_val_reference(
+    diags::NetCDFIO_Diags,
+    ref_stats::ReferenceStatistics,
+    ref_models::Vector{ReferenceModel},
+    write_full_stats::Bool = true,
+)
+    io_dict = io_dictionary_val_reference(ref_stats, ref_models, write_full_stats)
     for var in keys(io_dict)
         add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
         write_ref(diags, var, io_dict[var].field)
@@ -240,7 +272,13 @@ function init_val_particle_diags(diags::NetCDFIO_Diags)
     init_io_dict(diags, io_dict)
 end
 
-function init_val_diagnostics(diags::NetCDFIO_Diags)
+function init_val_diagnostics(
+    diags::NetCDFIO_Diags,
+    val_ref_stats::ReferenceStatistics,
+    val_ref_models::Vector{ReferenceModel},
+    write_full_stats::Bool = true,
+)
+    io_val_reference(diags, val_ref_stats, val_ref_models, write_full_stats)
     init_val_metrics(diags)
     init_val_particle_diags(diags)
 end

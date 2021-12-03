@@ -67,7 +67,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 20
-    config["N_ens"] = 19
+    config["N_ens"] = 13
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
@@ -102,48 +102,62 @@ function get_reference_config(::ObsCampaigns)
     return config
 end
 
-
 function get_reference_config(::LesDrivenScm)
     config = Dict()
-    cfsite_numbers = (9, 11, 13, 15, 17, 19, 21, 23)
-    n_repeat = length(cfsite_numbers)
+    cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+    ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    # Add october data
+    cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
+    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+
+    n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], n_repeat)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
-    config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["y_names"] =
+        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_dir"] = ref_dirs
+    config["scm_suffix"] = suffixes
     config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
-    config["batch_size"] = 2
+    config["batch_size"] = 5
+    config["write_full_stats"] = false
     return config
 end
 
 function get_reference_config(::LesDrivenScmVal)
     config = Dict()
-    cfsite_numbers = (8, 10, 12, 14, 16, 18, 20, 22)
-    n_repeat = length(cfsite_numbers)
+    cfsite_numbers = (2, 4, 6, 8, 10, 12, 14, 18, 20, 22)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+    ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+
+    n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = repeat([["thetal_mean", "ql_mean", "qt_mean", "s_mean", "total_flux_s"]], n_repeat)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
-    config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    config["y_names"] =
+        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_dir"] = ref_dirs
+    config["scm_suffix"] = suffixes
     config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
-    config["batch_size"] = 2
+    # config["batch_size"] = 5
+    config["write_full_stats"] = true
     return config
 end
 
@@ -155,9 +169,9 @@ function get_prior_config()
         "detrainment_factor" => [bounded(0.01, 1.0)],
         "sorting_power" => [bounded(0.25, 4.0)],
         # mixing parameters
-        "tke_ed_coeff" => [bounded(0.01, 0.3)],
-        "tke_diss_coeff" => [bounded(0.01, 0.45)],
-        "static_stab_coeff" => [bounded(0.1, 0.7)],
+        # "tke_ed_coeff" => [bounded(0.01, 0.3)],
+        # "tke_diss_coeff" => [bounded(0.01, 0.45)],
+        # "static_stab_coeff" => [bounded(0.1, 0.7)],
         # momentum exchange parameters
         "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
         "pressure_normalmode_buoy_coeff1" => [bounded(0.01, 0.25)],
