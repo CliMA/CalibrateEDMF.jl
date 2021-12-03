@@ -1,9 +1,8 @@
 #!/bin/bash
 
-#SBATCH --time=1:00:00   # walltime
+#SBATCH --time=0:10:00   # walltime
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "ekp_call"   # job name
 
 config=${1?Error: no config file given}
