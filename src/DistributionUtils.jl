@@ -17,29 +17,40 @@ export logmean_and_logstd, mean_and_std_from_ln
     construct_priors(
         params::Dict{String, Vector{Constraint}};
         unconstrained_σ::Float64 = 1.0,
+        prior_mean::Union{Vector{Float64}, Nothing} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
     )
 
-Define a prior gaussian ParameterDistribution in unconstrained space
+Define a prior Gaussian ParameterDistribution in unconstrained space
 from a dictionary of constraints.
+
+This constructor assumes independent priors and the same unconstrained
+standard deviation for each parameter. Note that the standard deviation
+in unconstrained space is normalized with respect to the constrained
+interval width, so it automatically takes into account parameter scales.
+
+The constructor also allows passing a prior mean for each parameter in
+constrained space.
 
 Inputs:
  - params :: Dictionary of parameter names to constraints.
- - unconstrained_σ :: Standard deviation of the transformed gaussians.
+ - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space).
+ - prior_mean :: The mean value of the prior in constrained space. If not given,
+    the prior is selected to be 0 in unconstrained space.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
 Output:
- - The prior ParameterDistribution
+ - The prior ParameterDistribution.
 """
 function construct_priors(
     params::Dict{String, Vector{Constraint}};
     unconstrained_σ::Float64 = 1.0,
+    prior_mean::Union{Vector{Float64}, Nothing} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
 )
-
     # if parameter vectors found => flatten
     if any(1 .< [length(val) for val in collect(values(params))])
         u_names, constraints = flatten_param_dict(params)
@@ -49,8 +60,15 @@ function construct_priors(
     end
 
     n_param = length(u_names)
-    # All vars are approximately uniform in unconstrained space
-    distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
+
+    # All vars are approximated as Gaussian in unconstrained space.
+    if isnothing(prior_mean)
+        distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
+    else
+        @assert length(prior_mean) == n_param
+        uncons_prior_mean = [c[1].constrained_to_unconstrained(μ_cons) for (μ_cons, c) in zip(prior_mean, constraints)]
+        distributions = [Parameterized(Normal(uncons_μ, unconstrained_σ)) for uncons_μ in uncons_prior_mean]
+    end
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
     return ParameterDistribution(distributions, constraints, u_names)
 end

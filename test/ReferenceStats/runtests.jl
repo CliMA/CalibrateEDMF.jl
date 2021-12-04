@@ -11,8 +11,13 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
     # Reduce resolution and t_max to speed computation as well
     t_max = 4 * 3600.0
-    namelist_args =
-        [("time_stepping", "t_max", t_max), ("time_stepping", "dt", 10.0), ("grid", "dz", 100.0), ("grid", "nz", 30)]
+    namelist_args = [
+        ("time_stepping", "t_max", t_max),
+        ("time_stepping", "dt", 20.0),
+        ("grid", "dz", 150.0),
+        ("grid", "nz", 20),
+        ("stats_io", "frequency", 120.0),
+    ]
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean"]],
         :y_dir => scm_dirs,

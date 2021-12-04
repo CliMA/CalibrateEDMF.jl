@@ -35,12 +35,36 @@ namelist_args = config["scm"]["namelist_args"]
 # Generate "true" data
 run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = namelist_args)
 
+@testset "init_calibration_pmap" begin
+    ### Test pmap pipeline
+    prior_means = [Dict("entrainment_factor" => 0.15, "detrainment_factor" => 0.4), nothing]
+    batch_sizes = [1, nothing]
+    for (prior_mean, batch_size) in zip(prior_means, batch_sizes)
+        config["prior"]["prior_mean"] = prior_mean
+        config["reference"]["batch_size"] = batch_size
+        outdir_path = init_calibration(config; config_path = joinpath(test_dir, "config.jl"), mode = "pmap")
+
+        @test isdir(outdir_path)
+        @test isfile(joinpath(outdir_path, "prior.jld2"))
+        @test isfile(joinpath(outdir_path, "ekobj_iter_1.jld2"))
+        @test isfile(joinpath(outdir_path, "versions_1.txt"))
+        !isnothing(batch_size) ? (@test isfile(joinpath(outdir_path, "ref_model_batch.jld2"))) : nothing
+
+        versions = readlines(joinpath(outdir_path, "versions_1.txt"))
+        for i in 1:config["process"]["N_ens"]
+            @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
+        end
+        rm(outdir_path, recursive = true)
+    end
+end
+
 @testset "Pipeline" begin
 
     ###  Test HPC pipeline
     init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
     res_dir_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     res_dir = res_dir_list[1]
+
     # Check for output
     @test all(isdir.(config["reference"]["scm_parent_dir"]))
     @test length(res_dir_list) == 1
@@ -49,7 +73,6 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     @test isfile(joinpath(res_dir, "ekobj_iter_1.jld2"))
     @test isfile(joinpath(res_dir, "versions_1.txt"))
 
-    priors = deserialize_prior(load(joinpath(res_dir, "prior.jld2")))
     ekobj = load(ekobj_path(res_dir, 1))["ekp"]
     versions = readlines(joinpath(res_dir, "versions_1.txt"))
     for i in 1:config["process"]["N_ens"]
@@ -58,6 +81,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
 
     # Run one simulation and perturb results to emulate ensemble
     scm_args = load(scm_init_path(res_dir, versions[1]))
+    priors = deserialize_prior(load(joinpath(res_dir, "prior.jld2")))
     model_evaluator = scm_args["model_evaluator"]
     model_evaluator = precondition(model_evaluator, priors, namelist_args = namelist_args)
     sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator, namelist_args = namelist_args)
@@ -78,22 +102,6 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
         @test isfile(joinpath(res_dir, "scm_initializer_$(versions[i]).jld2"))
     end
     rm(res_dir, recursive = true)
-end
-
-@testset "Pipeline_julia" begin
-    ### Test pmap pipeline
-    outdir_path = init_calibration(config; config_path = joinpath(test_dir, "config.jl"), mode = "pmap")
-
-    @test isdir(outdir_path)
-    @test isfile(joinpath(outdir_path, "prior.jld2"))
-    @test isfile(joinpath(outdir_path, "ekobj_iter_1.jld2"))
-    @test isfile(joinpath(outdir_path, "versions_1.txt"))
-
-    versions = readlines(joinpath(outdir_path, "versions_1.txt"))
-    for i in 1:config["process"]["N_ens"]
-        @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
-    end
-    rm(outdir_path, recursive = true)
 end
 
 @testset "Pipeline_val_minibatch" begin

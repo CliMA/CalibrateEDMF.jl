@@ -17,8 +17,13 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     # Choose same SCM to speed computation
     data_dir = mktempdir()
     t_max = 2 * 3600.0
-    namelist_args =
-        [("time_stepping", "t_max", t_max), ("time_stepping", "dt", 10.0), ("grid", "dz", 100.0), ("grid", "nz", 30)]
+    namelist_args = [
+        ("time_stepping", "t_max", t_max),
+        ("time_stepping", "dt", 20.0),
+        ("grid", "dz", 150.0),
+        ("grid", "nz", 20),
+        ("stats_io", "frequency", 120.0),
+    ]
     scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean"]],
