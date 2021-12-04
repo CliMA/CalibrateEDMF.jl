@@ -53,7 +53,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
-    prior_μ = get_entry(config["prior"], "prior_mean", nothing)
+    prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
@@ -101,6 +101,12 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         y_ref_type,
     )
 
+    if !isnothing(prior_μ_dict)
+        @assert collect(keys(params)) == collect(keys(prior_μ_dict))
+        prior_μ = collect(values(prior_μ_dict))
+    else
+        prior_μ = nothing
+    end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
     # parameters are sampled in unconstrained space
     if algo_name == "Inversion" || algo_name == "Sampler"

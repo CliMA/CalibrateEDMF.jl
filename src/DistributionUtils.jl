@@ -66,7 +66,7 @@ function construct_priors(
         distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
     else
         @assert length(prior_mean) == n_param
-        uncons_prior_mean = [c.constrained_to_unconstrained(μ_cons) for (μ_cons, c) in zip(prior_mean, constraints)]
+        uncons_prior_mean = [c[1].constrained_to_unconstrained(μ_cons) for (μ_cons, c) in zip(prior_mean, constraints)]
         distributions = [Parameterized(Normal(uncons_μ, unconstrained_σ)) for uncons_μ in uncons_prior_mean]
     end
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
