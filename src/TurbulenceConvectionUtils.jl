@@ -12,7 +12,7 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export ModelEvaluator
 export run_SCM, run_SCM_handler, get_scm_namelist, run_reference_SCM
-export generate_scm_input, get_gcm_les_uuid
+export generate_scm_input, get_gcm_les_uuid, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
 
@@ -78,34 +78,17 @@ function run_SCM(
     namelist_args = nothing,
 ) where {FT <: Real}
 
-    g_scm = zeros(0)
-    g_scm_pca = zeros(0)
-    sim_dirs = String[]
-
     mkpath(joinpath(pwd(), "tmp"))
-    model_error = false
-    for (i, m) in enumerate(RM)
-        # create temporary directory to store SCM data in
-        tmpdir = mktempdir(joinpath(pwd(), "tmp"))
-
-        # run TurbulenceConvection.jl. Get output directory for simulation data
-        sim_dir, sim_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
-        model_error = model_error || sim_error
-        push!(sim_dirs, sim_dir)
-
-        g_scm_flow = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
-        # normalize
-        g_scm_flow = normalize_profile(g_scm_flow, length(m.y_names), RS.norm_vec[i])
-        append!(g_scm, g_scm_flow)
-
-        # perform PCA reduction
-        append!(g_scm_pca, RS.pca_vec[i]' * g_scm_flow)
-    end
+    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, namelist_args), enumerate(RM))
+    # Unpack
+    sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
+    g_scm = vcat(g_scm...)
+    g_scm_pca = vcat(g_scm_pca...)
+    model_error = any(sim_errors)
 
     # penalize nan-values in output
     any(isnan.(g_scm)) && warn("NaN-values in output data")
     g_scm[isnan.(g_scm)] .= 1e5
-
     g_scm_pca[isnan.(g_scm_pca)] .= 1e5
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
@@ -115,7 +98,6 @@ function run_SCM(
         return sim_dirs, g_scm, g_scm_pca
     end
 end
-
 function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = nothing) where {FT <: Real}
     return run_SCM(
         ME.param_cons,
@@ -125,6 +107,54 @@ function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = 
         error_check = error_check,
         namelist_args = namelist_args,
     )
+end
+
+"""
+    eval_single_ref_model(
+        m_index::IT,
+        m::ReferenceModel,
+        RS::ReferenceStatistics,
+        u::Vector{FT},
+        u_names::Vector{String},
+        namelist_args = nothing,
+    ) where {FT <: Real, IT <: Int}
+
+Runs the single-column model (SCM) under a single configuration
+(i.e., ReferenceModel) using a set of parameters u, and returns
+the forward model evaluation in both the original and the latent
+PCA space.
+
+Inputs:
+ - m_index       :: The index of the ReferenceModel within the overarching
+                    ref_models vector used to construct the ReferenceStatistics.
+ - m             :: A ReferenceModel.
+ - RS            :: reference statistics for simulation
+ - u             :: Values of parameters to be used in simulations.
+ - u_names       :: SCM names for parameters `u`.
+ - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+Outputs:
+ - sim_dir     ::  Simulation output directory.
+ - g_scm       :: Forward model evaluation in original output space.
+ - g_scm_pca   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+ - model_error :: Whether the simulation errored with the requested configuration.
+"""
+function eval_single_ref_model(
+    m_index::IT,
+    m::ReferenceModel,
+    RS::ReferenceStatistics,
+    u::Vector{FT},
+    u_names::Vector{String},
+    namelist_args = nothing,
+) where {FT <: Real, IT <: Int}
+    # create temporary directory to store SCM data in
+    tmpdir = mktempdir(joinpath(pwd(), "tmp"))
+    # run TurbulenceConvection.jl. Get output directory for simulation data
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
+    g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
+    g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+    # perform PCA reduction
+    g_scm_pca = RS.pca_vec[m_index]' * g_scm
+    return sim_dir, g_scm, g_scm_pca, model_error
 end
 
 """
