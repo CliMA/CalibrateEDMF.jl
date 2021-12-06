@@ -38,6 +38,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
+    l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
     save_eki_data = get_entry(out_config, "save_eki_data", true)
@@ -50,6 +51,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     N_iter = proc_config["N_iter"]
     algo_name = get_entry(proc_config, "algorithm", "Inversion")
     Δt = get_entry(proc_config, "Δt", 1.0)
+    augmented = get_entry(proc_config, "augmented", false)
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
@@ -112,11 +114,18 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     if algo_name == "Inversion" || algo_name == "Sampler"
         algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
-        ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+        if augmented
+            ekobj = generate_tekp(initial_params, ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+        else
+            ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+        end
     elseif algo_name == "Unscented"
-        α = get_entry(proc_config, "alpha_uki", 1.0)
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), α, 1)
-        ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 1)
+        if augmented
+            ekobj = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+        else
+            ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+        end
     end
 
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
@@ -160,9 +169,8 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         open("$(job_id).txt", "w") do io
             write(io, "$(outdir_path)\n")
         end
-    elseif mode == "pmap"
-        return outdir_path
     end
+    return outdir_path
 end
 
 function get_ref_model_kwargs(ref_config::Dict{Any, Any})
@@ -376,6 +384,7 @@ function ek_update(
     algo_name = get_entry(proc_config, "algorithm", "Inversion")
     Δt = get_entry(proc_config, "Δt", 1.0)
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
+    augmented = get_entry(proc_config, "augmented", false)
 
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
@@ -387,7 +396,11 @@ function ek_update(
     ref_models = mod_evaluator.ref_models
 
     # Advance EKP
-    g, g_full = get_ensemble_g_eval(outdir_path, versions)
+    if augmented
+        g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors)
+    else
+        g, g_full = get_ensemble_g_eval(outdir_path, versions)
+    end
     # Scale artificial timestep by batch size
     Δt_scaled = Δt / length(ref_models)
     if isa(ekobj.process, Inversion)
@@ -458,6 +471,43 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
         g_full[:, ens_index] = scm_outputs["g_scm"]
     end
     return g, g_full
+end
+
+"""
+    get_ensemble_g_eval_aug(outdir_path::String, versions::Vector{String}, priors::ParameterDistribution)
+
+Recovers forward model evaluations from the particle ensemble stored in jld2 files,
+and augments the projected output state with the input parameters in unconstrained form
+to enable regularization.
+
+Inputs:
+ - outdir_path  :: Path to output directory.
+ - versions     :: Version identifiers of the files containing forward model evaluations.
+ - priors       :: Parameter priors, used to transform between constrained and unconstrained spaces.
+Outputs:
+ - g_aug        :: Forward model evaluations in the reduced space of the inverse problem, augmented with
+                    the unconstrained input parameters.
+ - g_full       :: Forward model evaluations in the original physical space.
+"""
+function get_ensemble_g_eval_aug(outdir_path::String, versions::Vector{String}, priors::ParameterDistribution)
+    # Find train/validation path
+    scm_path(x) = scm_output_path(outdir_path, x)
+    # Get array sizes with first file
+    scm_outputs = load(scm_path(versions[1]))
+    d = length(scm_outputs["g_scm_pca"])
+    d_aug = d + length(scm_outputs["model_evaluator"].param_cons)
+    d_full = length(scm_outputs["g_scm"])
+    N_ens = length(versions)
+    g_aug = zeros(d_aug, N_ens)
+    g_full = zeros(d_full, N_ens)
+    for (ens_index, version) in enumerate(versions)
+        scm_outputs = load(scm_path(version))
+        g_aug[1:d, ens_index] = scm_outputs["g_scm_pca"]
+        g_full[:, ens_index] = scm_outputs["g_scm"]
+        θ = transform_constrained_to_unconstrained(priors, scm_outputs["model_evaluator"].param_cons)
+        g_aug[(d + 1):d_aug, ens_index] = θ
+    end
+    return g_aug, g_full
 end
 
 """
@@ -535,25 +585,35 @@ function update_minibatch_inverse_problem(
 
     ref_config = config["reference"]
     reg_config = config["regularization"]
-    kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
+    proc_config = config["process"]
 
+    augmented = get_entry(proc_config, "augmented", false)
+    l2_reg = get_entry(reg_config, "l2_reg", nothing)
+    kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
-    if isa(ekp_old.process, Inversion) || isa(ekp_old.process, Sampler)
-        ekp = generate_ekp(get_u_final(ekp_old), ref_stats, ekp_old.process, outdir_path = outdir_path)
-    elseif isa(ekp_old.process, Unscented)
+    process = ekp_old.process
+
+    if isa(process, Inversion) || isa(process, Sampler)
+        if augmented
+            ekp = generate_tekp(
+                get_u_final(ekp_old),
+                ref_stats,
+                priors,
+                process,
+                outdir_path = outdir_path,
+                l2_reg = l2_reg,
+            )
+        else
+            ekp = generate_ekp(get_u_final(ekp_old), ref_stats, process, outdir_path = outdir_path)
+        end
+    elseif isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
-        proc_config = config["process"]
-        prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
-        prior_μ = !isnothing(prior_μ_dict) ? collect(values(prior_μ_dict)) : nothing
-        α = get_entry(proc_config, "alpha_uki", 1.0)
-        algo = Unscented(
-            ekp_old.process.u_mean[end],
-            ekp_old.process.uu_cov[end],
-            α,
-            1,
-            prior_mean = vcat(get_mean(priors)...),
-        )
-        ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+        algo = Unscented(process.u_mean[end], process.uu_cov[end], 1.0, 1, prior_mean = vcat(get_mean(priors)...))
+        if augmented
+            ekp = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+        else
+            ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+        end
     else
         throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
     end

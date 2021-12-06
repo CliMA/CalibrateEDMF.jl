@@ -327,9 +327,11 @@ function io_particle_diags_eval(
     mse_full::Vector{FT},
     g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
+    # Dimension of the outputs - not augmented
+    d = length(diags.ensemble_grp["out"])
     # Write eval diagnostics to file
     if !isnothing(g_full)
-        io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full)
+        io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d)
     else
         io_dict = io_dictionary_particle_eval(ekp, mse_full)
     end
