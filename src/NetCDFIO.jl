@@ -58,6 +58,7 @@ mutable struct NetCDFIO_Diags
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)
+            f = length(ref_stats.norm_vec[1])
             batch_size = get_entry(config["reference"], "batch_size", length(ref_stats.pca_vec))
             batch_size = isnothing(batch_size) ? length(ref_stats.pca_vec) : batch_size
 
@@ -65,6 +66,7 @@ mutable struct NetCDFIO_Diags
             out = Array(1:d)
             out_full = Array(1:d_full)
             configuration = Array(1:C)
+            field = Array(1:f)
             param = priors.names
 
             # Ensemble diagnostics (over all particles)
@@ -86,6 +88,8 @@ mutable struct NetCDFIO_Diags
             NC.defVar(reference_grp, "out", out, ("out",))
             NC.defDim(reference_grp, "config", C)
             NC.defVar(reference_grp, "config", configuration, ("config",))
+            NC.defDim(reference_grp, "config_field", f)
+            NC.defVar(reference_grp, "config_field", field, ("config_field",))
             NC.defDim(reference_grp, "batch_size", batch_size)
 
             # Particle diagnostics
@@ -105,12 +109,14 @@ mutable struct NetCDFIO_Diags
                 d_full_val = full_length(val_ref_stats)
                 d_val = pca_length(val_ref_stats)
                 C_val = length(val_ref_stats.pca_vec)
+                f_val = length(val_ref_stats.norm_vec[1])
                 batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
                 batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val
 
                 out_val = Array(1:d_val)
                 out_full_val = Array(1:d_full_val)
                 configuration_val = Array(1:C_val)
+                field_val = Array(1:f_val)
 
                 NC.defDim(particle_grp, "out_full_val", d_full_val)
                 NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
@@ -123,6 +129,8 @@ mutable struct NetCDFIO_Diags
                 NC.defVar(reference_grp, "out_val", out_val, ("out_val",))
                 NC.defDim(reference_grp, "config_val", C_val)
                 NC.defVar(reference_grp, "config_val", configuration_val, ("config_val",))
+                NC.defDim(reference_grp, "config_field_val", f_val)
+                NC.defVar(reference_grp, "config_field_val", field_val, ("config_field_val",))
                 NC.defDim(reference_grp, "batch_size_val", batch_size_val)
             end
 

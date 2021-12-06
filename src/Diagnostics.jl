@@ -30,6 +30,7 @@ function io_dictionary_reference()
         "config_pca_dim" => (; dims = ("config",), group = "reference", type = Int16),
         "config_name" => (; dims = ("config",), group = "reference", type = String),
         "config_dz" => (; dims = ("config",), group = "reference", type = Float64),
+        "norm_factor" => (; dims = ("config", "config_field"), group = "reference", type = Float64),
     )
     return io_dict
 end
@@ -48,7 +49,7 @@ function io_dictionary_reference(
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
         for rm in ref_models
     ]
-    config_dz = [get_dz(rm.y_dir) for rm in ref_models]
+    config_dz = [get_dz(rm.scm_dir) for rm in ref_models]
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1
@@ -72,6 +73,9 @@ function io_dictionary_reference(
     if write_full_stats
         io_dict["Gamma_full"] = Base.setindex(orig_dict["Gamma_full"], Array(ref_stats.Γ_full), :field)
     end
+    if all([length(norm_vec) == length(ref_stats.norm_vec[1]) for norm_vec in ref_stats.norm_vec])
+        io_dict["norm_factor"] = Base.setindex(orig_dict["norm_factor"], hcat(ref_stats.norm_vec...)', :field)
+    end
     return io_dict
 end
 
@@ -87,6 +91,7 @@ function io_dictionary_val_reference()
         "config_pca_dim_val" => (; dims = ("config_val",), group = "reference", type = Int16),
         "config_name_val" => (; dims = ("config_val",), group = "reference", type = String),
         "config_dz_val" => (; dims = ("config_val",), group = "reference", type = Float64),
+        "norm_factor_val" => (; dims = ("config_val", "config_field_val"), group = "reference", type = Float64),
     )
     return io_dict
 end
@@ -105,7 +110,7 @@ function io_dictionary_val_reference(
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
         for rm in ref_models
     ]
-    config_dz = [get_dz(rm.y_dir) for rm in ref_models]
+    config_dz = [get_dz(rm.scm_dir) for rm in ref_models]
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1
@@ -128,6 +133,9 @@ function io_dictionary_val_reference(
     )
     if write_full_stats
         io_dict["Gamma_full_val"] = Base.setindex(orig_dict["Gamma_full_val"], Array(ref_stats.Γ_full), :field)
+    end
+    if all([length(norm_vec) == length(ref_stats.norm_vec[1]) for norm_vec in ref_stats.norm_vec])
+        io_dict["norm_factor_val"] = Base.setindex(orig_dict["norm_factor_val"], hcat(ref_stats.norm_vec...)', :field)
     end
     return io_dict
 end
