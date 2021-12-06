@@ -2,6 +2,7 @@ module Diagnostics
 
 using NCDatasets
 using Statistics
+using LinearAlgebra
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_sigma_ensemble
@@ -282,6 +283,8 @@ function io_dictionary_ensemble()
         "phi_mean" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
         "u_cov" => (; dims = ("param", "param", "iteration"), group = "ensemble_diags", type = Float64),
         "phi_cov" => (; dims = ("param", "param", "iteration"), group = "ensemble_diags", type = Float64),
+        "phi_low_unc" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
+        "phi_upp_unc" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
     )
     return io_dict
 end
@@ -291,6 +294,11 @@ function io_dictionary_ensemble(ekp::EnsembleKalmanProcess, priors::ParameterDis
     u_cov = get_u_cov(ekp)
     # The estimator of the mean is valid in unconstrained space, so we must transform the mean.
     ϕ_mean = transform_unconstrained_to_constrained(priors, u_mean)
+    # Transform uncertainty bands to constrained space
+    u_low = u_mean .- sqrt.(diag(u_cov))
+    u_upp = u_mean .+ sqrt.(diag(u_cov))
+    ϕ_low = transform_unconstrained_to_constrained(priors, u_low)
+    ϕ_upp = transform_unconstrained_to_constrained(priors, u_upp)
     # The covariance of ϕ is not the transformed covariance, this is just a linear approximator.
     ϕ_cov = get_ϕ_cov(ekp, priors)
     io_dict = Dict(
@@ -298,6 +306,8 @@ function io_dictionary_ensemble(ekp::EnsembleKalmanProcess, priors::ParameterDis
         "phi_mean" => Base.setindex(orig_dict["phi_mean"], ϕ_mean, :field),
         "u_cov" => Base.setindex(orig_dict["u_cov"], u_cov, :field),
         "phi_cov" => Base.setindex(orig_dict["phi_cov"], ϕ_cov, :field),
+        "phi_low_unc" => Base.setindex(orig_dict["phi_low_unc"], ϕ_low, :field),
+        "phi_upp_unc" => Base.setindex(orig_dict["phi_upp_unc"], ϕ_upp, :field),
     )
     return io_dict
 end
