@@ -12,8 +12,8 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
 using TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc, "integration_tests", "utils", "main.jl"))
-include(joinpath(tc, "integration_tests", "utils", "generate_namelist.jl"))
+include(joinpath(tc, "driver", "main.jl"))
+include(joinpath(tc, "driver", "generate_namelist.jl"))
 include(joinpath(tc, "src", "name_aliases.jl"))
 
 """
