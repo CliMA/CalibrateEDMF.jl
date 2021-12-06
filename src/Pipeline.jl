@@ -9,7 +9,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.NetCDFIO
-const src_dir = dirname(pathof(CalibrateEDMF))
+src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
@@ -114,7 +114,8 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
     elseif algo_name == "Unscented"
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 1)
+        α = get_entry(proc_config, "alpha_uki", 1.0)
+        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), α, 1)
         ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
     end
 
@@ -398,7 +399,7 @@ function ek_update(
         if !isnothing(batch_size)
             ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
             ekp, ref_models, ref_stats, ref_model_batch =
-                update_minibatch_inverse_problem(ref_model_batch, ekobj, batch_size, outdir_path, config)
+                update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
             rm(joinpath(outdir_path, "ref_model_batch.jld2"))
             write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
         else
@@ -493,6 +494,7 @@ end
     update_minibatch_inverse_problem(
         rm_batch::ReferenceModelBatch,
         ekp_old::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
         batch_size::Integer,
         outdir_path::String,
         config::Dict{Any, Any},
@@ -516,6 +518,7 @@ Outputs:
 function update_minibatch_inverse_problem(
     rm_batch::ReferenceModelBatch,
     ekp_old::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
     batch_size::Integer,
     outdir_path::String,
     config::Dict{Any, Any},
@@ -533,8 +536,18 @@ function update_minibatch_inverse_problem(
     if isa(ekp_old.process, Inversion) || isa(ekp_old.process, Sampler)
         ekp = generate_ekp(get_u_final(ekp_old), ref_stats, ekp_old.process, outdir_path = outdir_path)
     elseif isa(ekp_old.process, Unscented)
-        # α == 1.0 to have a consistent reconstructed Unscented Kalman Process
-        algo = Unscented(ekp_old.process.u_mean[end], ekp_old.process.uu_cov[end], 1.0, 1)
+        # Reconstruct UKI using regularization toward the prior
+        proc_config = config["process"]
+        prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
+        prior_μ = !isnothing(prior_μ_dict) ? collect(values(prior_μ_dict)) : nothing
+        α = get_entry(proc_config, "alpha_uki", 1.0)
+        algo = Unscented(
+            ekp_old.process.u_mean[end],
+            ekp_old.process.uu_cov[end],
+            α,
+            1,
+            prior_mean = vcat(get_mean(priors)...),
+        )
         ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
     else
         throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
