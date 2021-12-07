@@ -170,7 +170,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
-    return Dict(
+    rm_kwargs = Dict(
         :y_names => ref_config["y_names"],
         # Reference path specification
         :y_dir => ref_config["y_dir"],
@@ -185,6 +185,11 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
     )
+    n_RM = length(rm_kwargs[:case_name])
+    for (k, v) in pairs(rm_kwargs)
+        @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
+    end
+    return rm_kwargs
 end
 
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
