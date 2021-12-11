@@ -12,11 +12,13 @@ jobs:
   test:
     name: ci ${{ matrix.version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      OPENBLAS_NUM_THREADS: 1
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.6.0'
+          - '1.7.0'
         os:
           - ubuntu-latest
           - macOS-latest

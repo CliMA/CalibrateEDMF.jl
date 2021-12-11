@@ -13,7 +13,8 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     t_max = 4 * 3600.0
     namelist_args = [
         ("time_stepping", "t_max", t_max),
-        ("time_stepping", "dt", 20.0),
+        ("time_stepping", "dt_max", 30.0),
+        ("time_stepping", "dt_min", 20.0),
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
         ("stats_io", "frequency", 120.0),

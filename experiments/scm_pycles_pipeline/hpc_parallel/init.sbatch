@@ -7,7 +7,7 @@
 #SBATCH -J "ekp_init"   # job name
 
 #julia package management
-module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1
+module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
 config=${1?Error: no config file given}

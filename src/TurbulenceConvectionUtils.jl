@@ -204,7 +204,8 @@ function run_reference_SCM(
         default_t_max = namelist["time_stepping"]["t_max"]
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
-            namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt"]
+            namelist["time_stepping"]["adapt_dt"] = false
+            namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt_min"]
         end
         namelist["meta"]["uuid"] = uuid(m)
         namelist["output"]["output_root"] = dirname(output_dir)

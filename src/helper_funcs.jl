@@ -12,8 +12,8 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 # TurbulenceConvection.jl
 using TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc, "integration_tests", "utils", "main.jl"))
-include(joinpath(tc, "integration_tests", "utils", "generate_namelist.jl"))
+include(joinpath(tc, "driver", "main.jl"))
+include(joinpath(tc, "driver", "generate_namelist.jl"))
 include(joinpath(tc, "src", "name_aliases.jl"))
 
 """
@@ -210,7 +210,7 @@ Given directory to standard LES or SCM output, fetch path to stats file.
 function get_stats_path(dir)
     stats = joinpath(dir, "stats")
     try
-        stat_files = glob(relpath(joinpath(stats, "*.nc")))
+        stat_files = glob(relpath(abspath(joinpath(stats, "*.nc"))))
         @assert length(stat_files) == 1
         return stat_files[1]
     catch e
@@ -221,7 +221,7 @@ function get_stats_path(dir)
                 if length(stat_files) == 1
                     return stat_files[1]
                 else
-                    @error "No unique stats file found at $dir."
+                    @error "No unique stats file found at $dir. The search returned $(length(stat_files)) results."
                 end
             catch f
                 if isa(f, Base.IOError)
