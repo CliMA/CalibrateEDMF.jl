@@ -53,10 +53,10 @@ end
 function get_regularization_config()
     config = Dict()
     config["perform_PCA"] = true # Performs PCA on data
-    config["variance_loss"] = 1.0e-3 # Variance truncation level in PCA
+    config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
-    config["tikhonov_noise"] = 2.0 # Tikhonov regularization
+    config["tikhonov_noise"] = 1.0e-4 # Tikhonov regularization
     config["dim_scaling"] = false # Dimensional scaling of the loss
     return config
 end

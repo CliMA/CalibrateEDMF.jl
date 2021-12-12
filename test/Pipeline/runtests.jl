@@ -13,7 +13,7 @@ using EnsembleKalmanProcesses.Observations
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 import TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc, "integration_tests", "utils", "parameter_set.jl"))
+include(joinpath(tc, "driver", "parameter_set.jl"))
 src = dirname(pathof(CalibrateEDMF))
 test_dir = joinpath(dirname(src), "test", "Pipeline")
 include(joinpath(src, "helper_funcs.jl"))
