@@ -3,7 +3,7 @@
 using ArgParse
 using CalibrateEDMF
 using CalibrateEDMF.Pipeline
-const src_dir = dirname(pathof(CalibrateEDMF))
+src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 using JLD2
 
