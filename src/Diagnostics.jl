@@ -236,7 +236,7 @@ function io_dictionary_particle_eval()
 end
 function io_dictionary_particle_eval(
     ekp::EnsembleKalmanProcess,
-    g_full::Array{FT, 2},
+    g_full::Matrix{FT},
     mse_full::Vector{FT},
 ) where {FT <: Real}
     orig_dict = io_dictionary_particle_eval()
@@ -261,7 +261,7 @@ function io_dictionary_val_particle_eval()
     )
     return io_dict
 end
-function io_dictionary_val_particle_eval(g::Array{FT, 2}, g_full::Array{FT, 2}, mse_full::Vector{FT}) where {FT <: Real}
+function io_dictionary_val_particle_eval(g::Matrix{FT}, g_full::Matrix{FT}, mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => Base.setindex(orig_dict["val_g"], g', :field),

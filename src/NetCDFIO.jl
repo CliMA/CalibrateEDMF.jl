@@ -309,8 +309,8 @@ end
 function io_val_particle_diags(
     diags::NetCDFIO_Diags,
     mse_full::Vector{FT},
-    g::Union{Array{FT, 2}, Nothing} = nothing,
-    g_full::Union{Array{FT, 2}, Nothing} = nothing,
+    g::Union{Matrix{FT}, Nothing} = nothing,
+    g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     # Write eval diagnostics to file
     if !isnothing(g_full)
@@ -325,7 +325,7 @@ function io_particle_diags_eval(
     diags::NetCDFIO_Diags,
     ekp::EnsembleKalmanProcess,
     mse_full::Vector{FT},
-    g_full::Union{Array{FT, 2}, Nothing} = nothing,
+    g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     # Write eval diagnostics to file
     if !isnothing(g_full)
@@ -350,7 +350,7 @@ function io_diagnostics(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     mse_full::Vector{FT},
-    g_full::Union{Array{FT, 2}, Nothing} = nothing,
+    g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     open_files(diags)
     # Eval diagnostics
@@ -366,8 +366,8 @@ end
 function io_val_diagnostics(
     diags::NetCDFIO_Diags,
     mse_full::Vector{FT},
-    g::Union{Array{FT, 2}, Nothing} = nothing,
-    g_full::Union{Array{FT, 2}, Nothing} = nothing,
+    g::Union{Matrix{FT}, Nothing} = nothing,
+    g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     open_files(diags)
     io_val_metrics(diags, mse_full)
