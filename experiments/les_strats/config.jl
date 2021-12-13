@@ -11,7 +11,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.ModelTypes
-const src_dir = dirname(pathof(CalibrateEDMF))
+src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
@@ -104,13 +104,25 @@ end
 
 function get_reference_config(::LesDrivenScm)
     config = Dict()
+
+    # AMIP data: July
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
     suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    # Add october data
+    # AMIP data: October
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
+    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    # AMIP4K data: July
+    cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
+    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    # AMIP4K data: October
+    cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip4K")
     append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
     append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
 
@@ -137,7 +149,7 @@ end
 function get_reference_config(::LesDrivenScmVal)
     config = Dict()
     cfsite_numbers = (2, 4, 6, 8, 10, 12, 14, 18, 20, 22)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
     suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
@@ -165,18 +177,64 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.01, 0.3)],
-        "detrainment_factor" => [bounded(0.01, 1.0)],
-        "sorting_power" => [bounded(0.25, 4.0)],
-        # mixing parameters
+        "entrainment_factor" => [bounded(0.0, 1.0)],
+        "detrainment_factor" => [bounded(0.0, 1.0)],
+        "sorting_power" => [bounded(0.0, 4.0)],
+        # "turbulent_entrainment_factor" => [bounded(0.0, 0.03)],
+        # "entrainment_sigma" => [bounded(5.0, 15.0)],
+        # "entrainment_scale" => [bounded(0.001, 0.007)],
+
+        # diffusion parameters
         # "tke_ed_coeff" => [bounded(0.01, 0.3)],
         # "tke_diss_coeff" => [bounded(0.01, 0.45)],
         # "static_stab_coeff" => [bounded(0.1, 0.7)],
+
         # momentum exchange parameters
-        "pressure_normalmode_adv_coeff" => [bounded(0.0, 0.5)],
-        "pressure_normalmode_buoy_coeff1" => [bounded(0.01, 0.25)],
-        "pressure_normalmode_drag_coeff" => [bounded(5.0, 15.0)],
+        "pressure_normalmode_adv_coeff" => [bounded(0.0, 1.0)],
+        "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 1.0)],
+        "pressure_normalmode_drag_coeff" => [bounded(0.0, 50.0)],
     )
+    # TC.jl prior mean
+    config["prior_mean"] = Dict(
+        # entrainment parameters
+        "entrainment_factor" => 0.13,
+        "detrainment_factor" => 0.51,
+        "sorting_power" => 2.0,
+        # "turbulent_entrainment_factor" => 0.015,
+        # "entrainment_sigma" => 10.0,
+        # "entrainment_scale" => 0.004,
+
+        # diffusion parameters
+        # "tke_ed_coeff" => 0.14,
+        # "tke_diss_coeff" => 0.22,
+        # "static_stab_coeff" => 0.4,
+
+        # momentum exchange parameters
+        "pressure_normalmode_adv_coeff" => 0.1,
+        "pressure_normalmode_buoy_coeff1" => 0.12,
+        "pressure_normalmode_drag_coeff" => 10.0,
+    )
+    # Worse prior to test training
+    # config["prior_mean"] = Dict(
+    # entrainment parameters
+    # "entrainment_factor" => 0.4,
+    # "detrainment_factor" => 0.7,
+    # "sorting_power" => 1.0,
+    # "turbulent_entrainment_factor" => 0.015,
+    # "entrainment_sigma" => 10.0,
+    # "entrainment_scale" => 0.004,
+
+    # diffusion parameters
+    # "tke_ed_coeff" => 0.14,
+    # "tke_diss_coeff" => 0.22,
+    # "static_stab_coeff" => 0.4,
+
+    # momentum exchange parameters
+    # "pressure_normalmode_adv_coeff" => 0.5,
+    # "pressure_normalmode_buoy_coeff1" => 0.5,
+    # "pressure_normalmode_drag_coeff" => 25.0,
+    # )
+
     # config["unconstrained_σ"] = 1.0
     # Tight initial prior for Unscented
     config["unconstrained_σ"] = 0.1
@@ -185,6 +243,12 @@ end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] = [("time_stepping", "dt_min", 2.0), ("grid", "dz", 50.0), ("grid", "nz", 80)]
+    config["namelist_args"] = [
+        ("time_stepping", "dt_min", 2.0),
+        ("time_stepping", "dt_max", 10.0),
+        ("stats_io", "frequency", 60.0),
+        ("grid", "dz", 50.0),
+        ("grid", "nz", 80),
+    ]
     return config
 end

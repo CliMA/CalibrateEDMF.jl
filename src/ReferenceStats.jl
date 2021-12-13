@@ -119,17 +119,19 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         # Construct global observational covariance matrix, original space
         Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
 
-        # Construct global observational covariance matrix, TSVD
+        # Scale by number of dimensions (averaging loss per dimension)
+        Γ_vec = dim_scaling ? map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
+        # Construct global observational covariance matrix, PCA
+        Γ = cat(Γ_vec..., dims = (1, 2))
+        # Condition global covariance matrix, PCA
         if tikhonov_mode == "relative"
             @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
             tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
-            Γ_vec = map(x -> x + tikhonov_noise * maximum(diag(x)) * I, Γ_vec)
+            Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
         else
-            Γ_vec = map(x -> x + tikhonov_noise * I, Γ_vec)
+            Γ = Γ + tikhonov_noise * I
         end
-        # Scale by number of dimensions
-        Γ_vec = dim_scaling ? map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
-        Γ = cat(Γ_vec..., dims = (1, 2))
+
         @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
 
         return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
