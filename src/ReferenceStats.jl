@@ -31,11 +31,11 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
     y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
-    Γ::Array{FT, 2}
+    Γ::Matrix{FT}
     "Vector (length: nSim) of normalizing factors (length: n_vars)"
-    norm_vec::Vector{Array{FT, 1}}
+    norm_vec::Vector{Vector{FT}}
     "Vector (length: nSim) of PCA projection matrices with leading eigenvectors as columns"
-    pca_vec::Vector{Union{Array{FT, 2}, UniformScaling}}
+    pca_vec::Vector{Union{Matrix{FT}, UniformScaling}}
     "Full reference data vector, length: nSim * n_vars * n_zLevels"
     y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
@@ -89,9 +89,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     ) where {FT <: Real}
         # Init arrays
         y = FT[]
-        Γ_vec = Array{FT, 2}[]
+        Γ_vec = Matrix{FT}[]
         y_full = FT[]
-        Γ_full_vec = Array{FT, 2}[]
+        Γ_full_vec = Matrix{FT}[]
         pca_vec = []
         norm_vec = Vector[]
 
@@ -311,11 +311,7 @@ function get_profile(
 end
 
 """
-    get_time_covariance(
-        m::ReferenceModel,
-        var_names::Vector{String};
-        z_scm::Union{Array{Float64, 1}, Nothing} = nothing,
-    )
+    get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
@@ -349,12 +345,12 @@ end
 
 """
     generate_ekp(
-        u::Array{Float64, 2},
+        u::Matrix{FT},
         ref_stats::ReferenceStatistics,
         algo;
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    )
+    ) where {FT <: AbstractFloat}
 
 Generates, and possible writes to file, an EnsembleKalmanProcess
 from a parameter ensemble and reference statistics.
@@ -370,12 +366,12 @@ Output:
  - The generated EnsembleKalmanProcess.
 """
 function generate_ekp(
-    u::Array{Float64, 2},
+    u::Matrix{FT},
     ref_stats::ReferenceStatistics,
     algo;
     outdir_path::String = pwd(),
     to_file::Bool = true,
-)
+) where {FT <: AbstractFloat}
     ekp = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
