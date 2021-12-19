@@ -18,7 +18,7 @@ include("helper_funcs.jl")
 export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA
-export generate_ekp
+export generate_ekp, generate_tekp
 
 
 """
@@ -388,6 +388,98 @@ function generate_ekp(
     to_file::Bool = true,
 )
     ekp = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo)
+    if to_file
+        jldsave(ekobj_path(outdir_path, 1); ekp)
+    end
+    return ekp
+end
+
+"""
+    generate_tekp(
+        u::Matrix{FT},
+        ref_stats::ReferenceStatistics,
+        priors::ParameterDistribution,
+        algo;
+        l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
+        outdir_path::String = pwd(),
+        to_file::Bool = true,
+    ) where {FT <: AbstractFloat}
+
+Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
+from a parameter ensemble and reference statistics.
+
+Tikhonov regularization is implemented through output state augmentation
+with the input parameter vector. The input L2 regularization hyperparameter
+should be interpreted as the inverse of the variance of our prior belief in
+the magnitude of the parameters.
+
+Inputs:
+ - u :: An ensemble of parameter vectors.
+ - ref_stats :: ReferenceStatistics defining the inverse problem.
+ - priors :: Parameter priors used for L2 (i.e., Tikhonov) regularization
+ - algo :: Type of EnsembleKalmanProcess algorithm used to evolve the ensemble.
+ - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
+ - outdir_path :: Output path.
+ - to_file :: Whether to write the serialized prior to a JLD2 file.
+
+Output:
+ - The generated augmented EnsembleKalmanProcess.
+"""
+function generate_tekp(
+    u::Matrix{FT},
+    ref_stats::ReferenceStatistics,
+    priors::ParameterDistribution,
+    algo;
+    l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
+    outdir_path::String = pwd(),
+    to_file::Bool = true,
+) where {FT <: AbstractFloat}
+    # Augment system with prior
+    μ = vcat(get_mean(priors)...)
+    y_aug = vcat([ref_stats.y, μ]...)
+
+    if isa(l2_reg, Float64) && l2_reg > 0.0
+        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
+    elseif isa(l2_reg, Matrix{Float64})
+        Γ_θ = inv(l2_reg)
+    else
+        Γ_θ = get_cov(priors)
+    end
+
+    Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
+    Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
+
+    ekp = EnsembleKalmanProcess(u, y_aug, Γ_aug, algo)
+    if to_file
+        jldsave(ekobj_path(outdir_path, 1); ekp)
+    end
+    return ekp
+end
+
+function generate_tekp(
+    ref_stats::ReferenceStatistics,
+    priors::ParameterDistribution,
+    algo::Unscented;
+    l2_reg::Union{Float64, Matrix{Float64}, Nothing} = nothing,
+    outdir_path::String = pwd(),
+    to_file::Bool = true,
+)
+    # Augment system with prior
+    μ = vcat(get_mean(priors)...)
+    y_aug = vcat([ref_stats.y, μ]...)
+
+    if isa(l2_reg, Float64) && l2_reg > 0.0
+        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
+    elseif isa(l2_reg, Matrix{Float64})
+        Γ_θ = inv(l2_reg)
+    else
+        Γ_θ = get_cov(priors)
+    end
+
+    Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
+    Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
+
+    ekp = EnsembleKalmanProcess(y_aug, Γ_aug, algo)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end

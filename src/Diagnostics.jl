@@ -238,10 +238,11 @@ function io_dictionary_particle_eval(
     ekp::EnsembleKalmanProcess,
     g_full::Matrix{FT},
     mse_full::Vector{FT},
-) where {FT <: Real}
+    d::IT,
+) where {FT <: Real, IT <: Integer}
     orig_dict = io_dictionary_particle_eval()
     io_dict = Dict(
-        "g" => Base.setindex(orig_dict["g"], get_g_final(ekp)', :field),
+        "g" => Base.setindex(orig_dict["g"], get_g_final(ekp)'[:, 1:d], :field),
         "g_full" => Base.setindex(orig_dict["g_full"], g_full', :field),
         "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
     )

@@ -52,12 +52,18 @@ end
 
 function get_regularization_config()
     config = Dict()
+    # Regularization of observations: mean and covariance
     config["perform_PCA"] = true # Performs PCA on data
     config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 1.0e-4 # Tikhonov regularization
     config["dim_scaling"] = false # Dimensional scaling of the loss
+
+    # Parameter regularization: L2 regularization with respect to prior mean
+    # Set to `nothing` or `0.0` to use prior covariance as regularizer.
+    # To turn off regularization, set config["process"]["augmented"] to false.
+    config["l2_reg"] = nothing
     return config
 end
 
@@ -67,7 +73,10 @@ function get_process_config()
     config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
-    config["Δt"] = 1.0 # Artificial time stepper of the EKI.
+    # Artificial time stepper of the EKI.
+    config["Δt"] = 1.0
+    # Whether to augment the outputs with the parameters for regularization
+    config["augmented"] = false
     return config
 end
 
