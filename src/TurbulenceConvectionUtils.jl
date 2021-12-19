@@ -338,17 +338,15 @@ function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where 
 end
 
 """
-    generate_scm_input(model_evaluator::ModelEvaluator, outdir_path::String = pwd())
+    generate_scm_input(
+        model_evaluators::Vector{ModelEvaluator{FT}},
+        outdir_path::String = pwd(),
+    ) where {FT <: AbstractFloat}
 
-Generates all data necessary to initialize a SCM evaluation
-at the given parameter vector `u`.
+Writes to file a set of ModelEvaluator used to initialize SCM
+evaluations at different parameter vectors, as well as their
+assigned numerical version.
 """
-function generate_scm_input(model_evaluator::ModelEvaluator, outdir_path::String = pwd())
-    # Generate version
-    version = rand(11111:99999)
-    jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
-    return version
-end
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
     outdir_path::String = pwd(),
@@ -414,6 +412,9 @@ end
         priors,
         ref_models::Vector{ReferenceModel},
         ref_stats::ReferenceStatistics,
+        namelist_args = nothing;
+        counter::Integer = 0,
+        max_counter::Integer = 10,
     ) where {FT <: Real}
 
 Substitute parameter vector `param` by a parameter vector drawn
@@ -425,6 +426,9 @@ Inputs:
  - priors      :: Priors from which the parameters were drawn.
  - ref_models  :: Vector of ReferenceModels to check stability for.
  - ref_stats   :: ReferenceStatistics of the ReferenceModels.
+ - namelist_args :: Arguments passed to the TC.jl namelist.
+ - counter :: Accumulator tracking number of recursive calls to preconditioner.
+ - max_counter :: Maximum number of recursive calls to the preconditioner.
 Outputs:
  - new_param  :: A new parameter vector drawn from the prior, conditioned on
   simulations being stable (in unconstrained space).
@@ -434,7 +438,9 @@ function precondition(
     priors,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
-    namelist_args = nothing,
+    namelist_args = nothing;
+    counter::Integer = 0,
+    max_counter::Integer = 10,
 ) where {FT <: Real}
     param_names = priors.names
     # Wrapper around SCM
@@ -443,13 +449,22 @@ function precondition(
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
-    if model_error
+    if model_error && counter < max_counter
         message = ["Unstable parameter vector found: \n"]
         append!(message, ["$param_name = $param \n" for (param_name, param) in zip(param_names, param_cons)])
         @warn join(message)
         @warn "Sampling new parameter vector from prior..."
-        new_param =
-            precondition(vec(construct_initial_ensemble(priors, 1)), priors, ref_models, ref_stats, namelist_args)
+        new_param = precondition(
+            vec(construct_initial_ensemble(priors, 1)),
+            priors,
+            ref_models,
+            ref_stats,
+            namelist_args,
+            counter = counter + 1,
+            max_counter = max_counter,
+        )
+    elseif model_error
+        throw(OverflowError("Number of recursive calls to preconditioner exceeded $(max_counter). Terminating."))
     else
         new_param = param
         @info "Preconditioning finished."
