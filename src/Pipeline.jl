@@ -539,7 +539,10 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     model_evaluator = scm_args["model_evaluator"]
     # Eval
-    sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, namelist_args = namelist_args)
+    sim_dirs, g_scm, g_scm_pca = run_SCM(
+        model_evaluator, namelist_args = namelist_args,
+        particle_failure_fixer = particle_failure_fixer,
+    )
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
     rm(input_path)
