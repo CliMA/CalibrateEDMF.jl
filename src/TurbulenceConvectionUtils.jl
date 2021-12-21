@@ -7,6 +7,7 @@ using ..ReferenceModels
 using ..ReferenceStats
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_initial_ensemble
 using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
@@ -88,7 +89,7 @@ function run_SCM(
     model_error = any(sim_errors)
 
     # penalize nan-values in output
-    any(isnan.(g_scm)) && warn("NaN-values in output data")
+    any(isnan.(g_scm)) && @warn("NaN-values in output data")
     if particle_failure_fixer == "cond_success_update"
         nothing
     elseif particle_failure_fixer == "high_loss"
