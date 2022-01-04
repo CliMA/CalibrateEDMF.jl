@@ -47,3 +47,17 @@ end
     @test μ_log ≈ μ_log2
 
 end
+
+@testset "Vectors" begin
+    foo_constraint = [bounded(0.1, 1.0)]
+    bar_constraint = [bounded(0.2, 2.0)]
+    vect_constraint = [repeat([bounded(-1.0, 1.0)], 2)..., bounded(-0.5, 0.5)]
+
+    params = Dict("foo" => foo_constraint, "bar" => bar_constraint, "vect" => vect_constraint)
+    flattened_names, flattened_values = DistributionUtils.flatten_param_dict(params)
+    @test flattened_names == ["bar", "vect_{1}", "vect_{2}", "vect_{3}", "foo"]
+    @test flattened_values[1] == bar_constraint
+    @test flattened_values[2][1] == vect_constraint[1]
+    @test flattened_values[4][1] == vect_constraint[3]
+    @test flattened_values[5] == foo_constraint
+end
