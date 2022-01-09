@@ -80,8 +80,8 @@ For parameter names that correspond to vectors, assign unique name to each vecto
 Inputs:
     param_dict :: Dictionary of parameter names to constraints.
 Outputs:
-    u_names :: vector of parameter names
-    constraints :: vector of constraints
+    u_names :: Vector{String} :: vector of parameter names
+    constraints :: Vector{Vector{Constraint}} :: vector of constraints
 """
 function flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
 
@@ -95,7 +95,7 @@ function flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
             end
         else
             push!(u_names, param)
-            push!(constraints, [value])
+            push!(constraints, value)
         end
     end
     return (u_names, constraints)

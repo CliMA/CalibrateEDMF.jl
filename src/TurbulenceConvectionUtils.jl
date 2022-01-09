@@ -77,7 +77,7 @@ function run_SCM(
     RS::ReferenceStatistics;
     error_check::Bool = false,
     namelist_args = nothing,
-    particle_failure_fixer = "high_loss",
+    failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
@@ -90,13 +90,9 @@ function run_SCM(
 
     # penalize nan-values in output
     any(isnan.(g_scm)) && @warn("NaN-values in output data")
-    if particle_failure_fixer == "cond_success_update"
-        nothing
-    elseif particle_failure_fixer == "high_loss"
+    if failure_handler == "high_loss"
         g_scm[isnan.(g_scm)] .= 1e5
         g_scm_pca[isnan.(g_scm_pca)] .= 1e5
-    else
-        @warn("No known particle failure handler used")
     end
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
@@ -107,8 +103,10 @@ function run_SCM(
     end
 end
 function run_SCM(
-    ME::ModelEvaluator; error_check::Bool = false, namelist_args = nothing,
-    particle_failure_fixer = nothing,
+    ME::ModelEvaluator;
+    error_check::Bool = false,
+    namelist_args = nothing,
+    failure_handler = "high_loss",
 ) where {FT <: Real}
     return run_SCM(
         ME.param_cons,
@@ -117,7 +115,7 @@ function run_SCM(
         ME.ref_stats,
         error_check = error_check,
         namelist_args = namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
+        failure_handler = failure_handler,
     )
 end
 

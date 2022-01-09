@@ -77,7 +77,7 @@ function get_process_config()
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
     config["augmented"] = false
-    config["particle_failure_fixer"] = "cond_success_update"
+    config["failure_handler"] = "sample_succ_gauss"
     return config
 end
 

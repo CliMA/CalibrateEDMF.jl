@@ -10,10 +10,11 @@ include(joinpath(@__DIR__, "helper_funcs.jl"))
 export run_SCM_parallel, eval_single_ref_model, versioned_model_eval_parallel
 
 function run_SCM_parallel(
-    ME::ModelEvaluator; 
-    error_check::Bool = false, namelist_args = nothing,
-    particle_failure_fixer = "high_loss",
-    ) where {FT <: Real}
+    ME::ModelEvaluator;
+    error_check::Bool = false,
+    namelist_args = nothing,
+    failure_handler = "high_loss",
+) where {FT <: Real}
     return run_SCM_parallel(
         ME.param_cons,
         ME.param_names,
@@ -21,7 +22,7 @@ function run_SCM_parallel(
         ME.ref_stats,
         error_check = error_check,
         namelist_args = namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
+        failure_handler = failure_handler,
     )
 end
 
@@ -32,7 +33,7 @@ function run_SCM_parallel(
     RS::ReferenceStatistics;
     error_check::Bool = false,
     namelist_args = nothing,
-    particle_failure_fixer = "high_loss",
+    failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
@@ -45,13 +46,9 @@ function run_SCM_parallel(
 
     # penalize nan-values in output
     any(isnan.(g_scm)) && @warn("NaN-values in output data")
-    if particle_failure_fixer == "cond_success_update"
-        nothing
-    elseif particle_failure_fixer == "high_loss"
+    if failure_handler == "high_loss"
         g_scm[isnan.(g_scm)] .= 1e5
         g_scm_pca[isnan.(g_scm_pca)] .= 1e5
-    else
-        @warn("No known particle failure handler used")
     end
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
@@ -103,12 +100,11 @@ function versioned_model_eval_parallel(
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     model_evaluator = scm_args["model_evaluator"]
     # Eval
-    particle_failure_fixer = get_entry(config["process"], "particle_failure_fixer", "high_loss")
+    failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
 
-    sim_dirs, g_scm, g_scm_pca = run_SCM_parallel(
-        model_evaluator, namelist_args = namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
-    )
+    sim_dirs, g_scm, g_scm_pca =
+        run_SCM_parallel(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
+
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
     rm(input_path)
