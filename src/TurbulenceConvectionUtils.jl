@@ -77,7 +77,7 @@ function run_SCM(
     RS::ReferenceStatistics;
     error_check::Bool = false,
     namelist_args = nothing,
-    particle_failure_fixer = "high_loss",
+    failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
@@ -90,13 +90,9 @@ function run_SCM(
 
     # penalize nan-values in output
     any(isnan.(g_scm)) && @warn("NaN-values in output data")
-    if particle_failure_fixer == "cond_success_update"
-        nothing
-    elseif particle_failure_fixer == "high_loss"
+    if failure_handler == "high_loss"
         g_scm[isnan.(g_scm)] .= 1e5
         g_scm_pca[isnan.(g_scm_pca)] .= 1e5
-    else
-        @warn("No known particle failure handler used")
     end
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
@@ -107,8 +103,10 @@ function run_SCM(
     end
 end
 function run_SCM(
-    ME::ModelEvaluator; error_check::Bool = false, namelist_args = nothing,
-    particle_failure_fixer = nothing,
+    ME::ModelEvaluator;
+    error_check::Bool = false,
+    namelist_args = nothing,
+    failure_handler = "high_loss",
 ) where {FT <: Real}
     return run_SCM(
         ME.param_cons,
@@ -117,7 +115,7 @@ function run_SCM(
         ME.ref_stats,
         error_check = error_check,
         namelist_args = namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
+        failure_handler = failure_handler,
     )
 end
 
@@ -457,13 +455,7 @@ function precondition(
     namelist_args = nothing;
     counter::Integer = 0,
     max_counter::Integer = 10,
-    particle_failure_fixer = nothing,
 ) where {FT <: Real}
-    # We don't do 
-    if particle_failure_fixer == "cond_success_update"
-        @info "Preconditioning not applicable for particle_failure_fixer=$particle_failure_fixer."
-        return param
-    end
     param_names = priors.names
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) =
@@ -508,17 +500,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(
-    ME::ModelEvaluator, priors; 
-    namelist_args = nothing,
-    particle_failure_fixer = nothing,
-)
+function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(
-        u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
-    )
+    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.ref_models, ME.ref_stats)
