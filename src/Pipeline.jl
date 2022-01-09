@@ -14,6 +14,7 @@ include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble!
 # Experimental fail-safe EKP update
 include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
 
@@ -547,6 +548,8 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     scm_args = load(input_path)
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
+    # Check consistent failure method for given algorithm
+    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] == "Inversion" : true
     model_evaluator = scm_args["model_evaluator"]
     # Eval
     sim_dirs, g_scm, g_scm_pca =

@@ -163,11 +163,13 @@ function io_dictionary_metrics()
 end
 function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_metrics()
+    # Filter NaNs for statistics
+    mse_filt = filter(!isnan, mse_full)
     io_dict = Dict(
         "loss_mean_g" => Base.setindex(orig_dict["loss_mean_g"], get_error(ekp)[end], :field),
-        "mse_full_mean" => Base.setindex(orig_dict["mse_full_mean"], mean(mse_full), :field),
-        "mse_full_min" => Base.setindex(orig_dict["mse_full_min"], minimum(mse_full), :field),
-        "mse_full_max" => Base.setindex(orig_dict["mse_full_max"], maximum(mse_full), :field),
+        "mse_full_mean" => Base.setindex(orig_dict["mse_full_mean"], mean(mse_filt), :field),
+        "mse_full_min" => Base.setindex(orig_dict["mse_full_min"], minimum(mse_filt), :field),
+        "mse_full_max" => Base.setindex(orig_dict["mse_full_max"], maximum(mse_filt), :field),
     )
     return io_dict
 end
@@ -182,10 +184,12 @@ function io_dictionary_val_metrics()
 end
 function io_dictionary_val_metrics(mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_val_metrics()
+    # Filter NaNs for statistics
+    mse_filt = filter(!isnan, mse_full)
     io_dict = Dict(
-        "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(mse_full), :field),
-        "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(mse_full), :field),
-        "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(mse_full), :field),
+        "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(mse_filt), :field),
+        "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(mse_filt), :field),
+        "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(mse_filt), :field),
     )
     return io_dict
 end

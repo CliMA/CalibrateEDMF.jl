@@ -45,11 +45,11 @@ function run_SCM_parallel(
     model_error = any(sim_errors)
 
     # penalize nan-values in output
-    any(isnan.(g_scm)) && @warn("NaN-values in output data")
-    if failure_handler == "high_loss"
-        g_scm[isnan.(g_scm)] .= 1e5
-        g_scm_pca[isnan.(g_scm_pca)] .= 1e5
+    if model_error && failure_handler == "high_loss"
+        g_scm .= 1e5
+        g_scm_pca .= 1e5
     end
+
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
     if error_check
@@ -71,8 +71,12 @@ function eval_single_ref_model(
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
-    g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
-    g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+    if model_error
+        g_scm = fill(NaN, length(get_height(sim_dir)) * length(m.y_names))
+    else
+        g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
+        g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+    end
     # perform PCA reduction
     g_scm_pca = RS.pca_vec[m_index]' * g_scm
     return sim_dir, g_scm, g_scm_pca, model_error

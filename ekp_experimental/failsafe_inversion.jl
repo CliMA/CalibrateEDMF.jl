@@ -10,39 +10,56 @@ using EnsembleKalmanProcesses.ParameterDistributionStorage
 using EnsembleKalmanProcesses.DataStorage
 
 """
-     split_indices_by_success(output)
-Obtain the successful/failed particle split. Failure, if any isnan present in the output along dimension 1.
+     split_indices_by_success(g::Array{FT, 2}) where {FT <: Real}
+
+Returns the successful/failed particle indices given a matrix with output vectors stored as columns.
+Failures are defined for particles containing at least one NaN output element.
 """
 function split_indices_by_success(g::Array{FT, 2}) where {FT <: Real}
     failed_ens = [i for i = 1:size(g, 2) if any(isnan.(g[:, i]))]
     successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
     if length(failed_ens) > length(successful_ens)
         @warn string(
-            "More than 50% of runs produced NaN.",
-            "\nIterating... \nbut consider increasing model stability.",
+            "More than 50% of runs produced NaNs ($(length(failed_ens))/$(size(g, 2))).",
+            "\nIterating... but consider increasing model stability.",
             "\nThis will affect optimization result.",
         )
     end
-
     return successful_ens, failed_ens
 end
 
+"""
+     update_successful_ens(
+        u::Array{FT, 2},
+        g::Array{FT, 2},
+        y::Array{FT, 2},
+        obs_noise_cov::Matrix{FT},
+    ) where {FT <: Real}
+
+Returns the updated parameter vectors for the successful ensemble, ignoring failed particles.
+"""
 function update_successful_ens(
     u::Array{FT, 2},
     g::Array{FT, 2},
-    y::Vector{FT},
+    y::Array{FT, 2},
     obs_noise_cov::Matrix{FT},
 ) where {FT <: Real}
-    #update successful ones
-    cov_ug = cov(u, g, dims = 2, corrected = false)
-    cov_gg = cov(g, g, dims = 2, corrected = false)
 
+    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
+    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_par × N_obs]
+
+    # N_obs × N_obs \ [N_obs × N_ens]
+    # --> tmp is [N_obs × N_ens]
     tmp = (cov_gg + obs_noise_cov) \ (y - g)
-    return u + (cov_ug * tmp) # [N_par × N_ens]    
+    return u + (cov_ug * tmp) # [N_par × N_ens]  
 end
 
-function update_failed_ens(u_old_fail::Array{FT, 2}, u_succ::Array{FT, 2}, failure_handler::String) where {FT <: Real}
+"""
+     update_failed_ens(u_old_fail::Array{FT, 2}, u_succ::Array{FT, 2}, failure_handler::String) where {FT <: Real}
 
+Returns the updated parameter vectors for the failed ensemble, using a given failure handling method.
+"""
+function update_failed_ens(u_old_fail::Array{FT, 2}, u_succ::Array{FT, 2}, failure_handler::String) where {FT <: Real}
     if failure_handler == "sample_succ_gauss"
         cov_u_new = cov(u_succ, u_succ, dims = 2)
         mean_u_new = mean(u_succ, dims = 2)
@@ -51,7 +68,6 @@ function update_failed_ens(u_old_fail::Array{FT, 2}, u_succ::Array{FT, 2}, failu
         throw(ArgumentError("Failure handler $failure_handler not recognized."))
     end
 end
-
 
 """
     update_ensemble!(ekp::EnsembleKalmanProcess{FT, IT, <:Inversion}, g::Array{FT,2} cov_threshold::FT=0.01, Δt_new=nothing) where {FT, IT}
@@ -81,10 +97,7 @@ function update_ensemble!(
     u = deepcopy(get_u_final(ekp))
     u_old = deepcopy(u)
     N_obs = size(g, 1)
-
     cov_init = cov(u, dims = 2)
-    cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
-    cov_gg = cov(g, g, dims = 2, corrected = false) # [N_obs × N_obs]
 
     if !isnothing(Δt_new)
         push!(ekp.Δt, Δt_new)
@@ -104,12 +117,9 @@ function update_ensemble!(
 
     # No explicit failure handling
     if length(failed_ens) == 0 || isnothing(failure_handler)
-        # N_obs × N_obs \ [N_obs × N_ens]
-        # --> tmp is [N_obs × N_ens]
-        tmp = (cov_gg + scaled_obs_noise_cov) \ (y - g)
-        u += (cov_ug * tmp) # [N_par × N_ens]
+        u = update_successful_ens(u, g, y, scaled_obs_noise_cov)
 
-    # Failure handling
+        # Failure handling
     elseif isa(failure_handler, String)
         u[:, successful_ens] = update_successful_ens(
             u[:, successful_ens],
@@ -117,13 +127,12 @@ function update_ensemble!(
             y[:, successful_ens],
             scaled_obs_noise_cov,
         )
-
         u[:, failed_ens] = update_failed_ens(
             u[:, failed_ens],       # NB: at t^n
             u[:, successful_ens],   # NB: at t^{n+1}
             failure_handler,
         )
-        @info ("Particle failure(s) detected. Handler used: $failure_handler.")
+        println("Particle failure(s) detected. Handler used: $failure_handler.")
     end
 
     # store new parameters (and model outputs)

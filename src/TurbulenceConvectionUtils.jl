@@ -49,8 +49,11 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         RM::Vector{ReferenceModel},
-        RS::ReferenceStatistics,
-    ) where FT<:Real
+        RS::ReferenceStatistics;
+        error_check::Bool = false,
+        namelist_args = nothing,
+        failure_handler = "high_loss",
+    ) where {FT <: Real}
 
 Run the single-column model (SCM) using a set of parameters u 
 and return the value of outputs defined in y_names, possibly 
@@ -58,12 +61,13 @@ after normalization and projection onto lower dimensional
 space using PCA.
 
 Inputs:
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - RM            :: Vector of `ReferenceModel`s
- - RS            :: reference statistics for simulation
- - error_check   :: Returns as an additional argument whether the SCM call errored.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+ - u               :: Values of parameters to be used in simulations.
+ - u_names         :: SCM names for parameters `u`.
+ - RM              :: Vector of `ReferenceModel`s
+ - RS              :: reference statistics for simulation
+ - error_check     :: Returns as an additional argument whether the SCM call errored.
+ - namelist_args   :: Additional arguments passed to the TurbulenceConvection namelist.
+ - failure_handler :: Method used to handle failed simulations.
 Outputs:
  - sim_dirs    :: Vector of simulation output directories
  - g_scm       :: Vector of model evaluations concatenated for all flow configurations.
@@ -86,14 +90,13 @@ function run_SCM(
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
     g_scm_pca = vcat(g_scm_pca...)
-    model_error = any(sim_errors)
 
-    # penalize nan-values in output
-    any(isnan.(g_scm)) && @warn("NaN-values in output data")
-    if failure_handler == "high_loss"
-        g_scm[isnan.(g_scm)] .= 1e5
-        g_scm_pca[isnan.(g_scm_pca)] .= 1e5
+    model_error = any(sim_errors)
+    if model_error && failure_handler == "high_loss"
+        g_scm .= 1e5
+        g_scm_pca .= 1e5
     end
+
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
     if error_check
@@ -455,13 +458,7 @@ function precondition(
     namelist_args = nothing;
     counter::Integer = 0,
     max_counter::Integer = 10,
-    particle_failure_fixer = nothing,
 ) where {FT <: Real}
-    # We don't do 
-    if particle_failure_fixer == "cond_success_update"
-        @info "Preconditioning not applicable for particle_failure_fixer=$particle_failure_fixer."
-        return param
-    end
     param_names = priors.names
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) =
@@ -474,7 +471,7 @@ function precondition(
         append!(message, ["$param_name = $param \n" for (param_name, param) in zip(param_names, param_cons)])
         @warn join(message)
         @warn "Sampling new parameter vector from prior..."
-        new_param = precondition(
+        return precondition(
             vec(construct_initial_ensemble(priors, 1)),
             priors,
             ref_models,
@@ -486,11 +483,9 @@ function precondition(
     elseif model_error
         throw(OverflowError("Number of recursive calls to preconditioner exceeded $(max_counter). Terminating."))
     else
-        new_param = param
         @info "Preconditioning finished."
+        return param
     end
-    new_param = param
-    return new_param
 end
 
 """
@@ -506,17 +501,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(
-    ME::ModelEvaluator, priors; 
-    namelist_args = nothing,
-    particle_failure_fixer = nothing,
-)
+function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(
-        u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args,
-        particle_failure_fixer = particle_failure_fixer,
-    )
+    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.ref_models, ME.ref_stats)
