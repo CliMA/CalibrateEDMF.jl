@@ -14,6 +14,9 @@ include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble!
+# Experimental fail-safe EKP update
+include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
 
 export init_calibration, ek_update, versioned_model_eval
 
@@ -404,7 +407,14 @@ function ek_update(
     # Scale artificial timestep by batch size
     Δt_scaled = Δt / length(ref_models)
     if isa(ekobj.process, Inversion)
-        update_ensemble!(ekobj, g, Δt_new = Δt_scaled, deterministic_forward_map = deterministic_forward_map)
+        failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+        update_ensemble!(
+            ekobj,
+            g,
+            Δt_new = Δt_scaled,
+            deterministic_forward_map = deterministic_forward_map,
+            failure_handler = failure_handler,
+        )
     else
         update_ensemble!(ekobj, g)
     end
@@ -537,9 +547,13 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     # Load inputs
     scm_args = load(input_path)
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
+    # Check consistent failure method for given algorithm
+    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] == "Inversion" : true
     model_evaluator = scm_args["model_evaluator"]
     # Eval
-    sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, namelist_args = namelist_args)
+    sim_dirs, g_scm, g_scm_pca =
+        run_SCM(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
     rm(input_path)

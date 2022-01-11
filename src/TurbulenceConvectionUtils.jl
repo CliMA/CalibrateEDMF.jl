@@ -7,6 +7,7 @@ using ..ReferenceModels
 using ..ReferenceStats
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributionStorage
+import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_initial_ensemble
 using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
@@ -48,8 +49,11 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         RM::Vector{ReferenceModel},
-        RS::ReferenceStatistics,
-    ) where FT<:Real
+        RS::ReferenceStatistics;
+        error_check::Bool = false,
+        namelist_args = nothing,
+        failure_handler = "high_loss",
+    ) where {FT <: Real}
 
 Run the single-column model (SCM) using a set of parameters u 
 and return the value of outputs defined in y_names, possibly 
@@ -57,12 +61,13 @@ after normalization and projection onto lower dimensional
 space using PCA.
 
 Inputs:
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - RM            :: Vector of `ReferenceModel`s
- - RS            :: reference statistics for simulation
- - error_check   :: Returns as an additional argument whether the SCM call errored.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+ - u               :: Values of parameters to be used in simulations.
+ - u_names         :: SCM names for parameters `u`.
+ - RM              :: Vector of `ReferenceModel`s
+ - RS              :: reference statistics for simulation
+ - error_check     :: Returns as an additional argument whether the SCM call errored.
+ - namelist_args   :: Additional arguments passed to the TurbulenceConvection namelist.
+ - failure_handler :: Method used to handle failed simulations.
 Outputs:
  - sim_dirs    :: Vector of simulation output directories
  - g_scm       :: Vector of model evaluations concatenated for all flow configurations.
@@ -76,6 +81,7 @@ function run_SCM(
     RS::ReferenceStatistics;
     error_check::Bool = false,
     namelist_args = nothing,
+    failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
@@ -84,12 +90,13 @@ function run_SCM(
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
     g_scm_pca = vcat(g_scm_pca...)
-    model_error = any(sim_errors)
 
-    # penalize nan-values in output
-    any(isnan.(g_scm)) && warn("NaN-values in output data")
-    g_scm[isnan.(g_scm)] .= 1e5
-    g_scm_pca[isnan.(g_scm_pca)] .= 1e5
+    model_error = any(sim_errors)
+    if model_error && failure_handler == "high_loss"
+        g_scm .= 1e5
+        g_scm_pca .= 1e5
+    end
+
     @info "Length of g_scm (full): $(length(g_scm))"
     @info "Length of g_scm (pca) : $(length(g_scm_pca))"
     if error_check
@@ -98,7 +105,12 @@ function run_SCM(
         return sim_dirs, g_scm, g_scm_pca
     end
 end
-function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = nothing) where {FT <: Real}
+function run_SCM(
+    ME::ModelEvaluator;
+    error_check::Bool = false,
+    namelist_args = nothing,
+    failure_handler = "high_loss",
+) where {FT <: Real}
     return run_SCM(
         ME.param_cons,
         ME.param_names,
@@ -106,6 +118,7 @@ function run_SCM(ME::ModelEvaluator; error_check::Bool = false, namelist_args = 
         ME.ref_stats,
         error_check = error_check,
         namelist_args = namelist_args,
+        failure_handler = failure_handler,
     )
 end
 
@@ -150,8 +163,12 @@ function eval_single_ref_model(
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
-    g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
-    g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+    if model_error
+        g_scm = fill(NaN, length(get_height(sim_dir)) * length(m.y_names))
+    else
+        g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
+        g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+    end
     # perform PCA reduction
     g_scm_pca = RS.pca_vec[m_index]' * g_scm
     return sim_dir, g_scm, g_scm_pca, model_error
@@ -454,7 +471,7 @@ function precondition(
         append!(message, ["$param_name = $param \n" for (param_name, param) in zip(param_names, param_cons)])
         @warn join(message)
         @warn "Sampling new parameter vector from prior..."
-        new_param = precondition(
+        return precondition(
             vec(construct_initial_ensemble(priors, 1)),
             priors,
             ref_models,
@@ -466,10 +483,9 @@ function precondition(
     elseif model_error
         throw(OverflowError("Number of recursive calls to preconditioner exceeded $(max_counter). Terminating."))
     else
-        new_param = param
         @info "Preconditioning finished."
+        return param
     end
-    return new_param
 end
 
 """
