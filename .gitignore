@@ -25,3 +25,9 @@ Manifest.toml
 
 # editor settings
 .vscode
+
+# simulation setup/results
+*.out
+results_*
+*.in
+*.nc
