@@ -406,8 +406,8 @@ function ek_update(
     end
     # Scale artificial timestep by batch size
     Δt_scaled = Δt / length(ref_models)
+    failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     if isa(ekobj.process, Inversion)
-        failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
         update_ensemble!(
             ekobj,
             g,
@@ -415,6 +415,8 @@ function ek_update(
             deterministic_forward_map = deterministic_forward_map,
             failure_handler = failure_handler,
         )
+    elseif isa(ekobj.process, Unscented)
+        update_ensemble!(ekobj, g, failure_handler = failure_handler)
     else
         update_ensemble!(ekobj, g)
     end
@@ -549,7 +551,7 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
     # Check consistent failure method for given algorithm
-    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] == "Inversion" : true
+    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] != "Sampler" : true
     model_evaluator = scm_args["model_evaluator"]
     # Eval
     sim_dirs, g_scm, g_scm_pca =
