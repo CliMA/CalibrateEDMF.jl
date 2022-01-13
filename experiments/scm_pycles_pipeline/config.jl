@@ -44,8 +44,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["save_eki_data"] = true  # eki output
-    config["save_ensemble_data"] = false  # .nc-files from each ensemble run
     config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
