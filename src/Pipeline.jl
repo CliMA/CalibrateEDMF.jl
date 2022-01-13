@@ -44,8 +44,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
-    save_eki_data = get_entry(out_config, "save_eki_data", true)
-    save_ensemble_data = get_entry(out_config, "save_ensemble_data", false)
     overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
     outdir_root = get_entry(out_config, "outdir_root", pwd())
 
