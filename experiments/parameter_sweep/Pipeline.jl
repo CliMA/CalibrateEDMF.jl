@@ -1,4 +1,4 @@
-module Pipeline
+module ParameterSweepPipeline
 
 using Random
 using JLD2

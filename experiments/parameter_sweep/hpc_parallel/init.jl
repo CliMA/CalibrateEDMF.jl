@@ -2,7 +2,8 @@
 
 using ArgParse
 using CalibrateEDMF
-using CalibrateEDMF.Pipeline
+include("../Pipeline.jl")
+using ParameterSweepPipeline
 
 s = ArgParseSettings()
 @add_arg_table s begin
