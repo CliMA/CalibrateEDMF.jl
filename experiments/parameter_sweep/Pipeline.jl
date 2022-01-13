@@ -15,7 +15,7 @@ include(joinpath(src_dir, "helper_funcs.jl"))
 using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 
-export init_calibration, ek_update, versioned_model_eval
+export init_sweep, versioned_model_eval
 
 """
     init_calibration(job_id::String, config::Dict{Any, Any})
