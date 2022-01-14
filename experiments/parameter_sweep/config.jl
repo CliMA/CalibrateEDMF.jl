@@ -64,7 +64,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 4
-    # config["N_ens"] = 5
+    config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.

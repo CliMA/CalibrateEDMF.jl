@@ -83,9 +83,13 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     priors = construct_priors(params, outdir_path = outdir_path)
     # parameters are sampled in unconstrained space
 
-    params_cons_i = get_value(N_ens²,params, constrainst) # get the 100x2 sets of parameter values with reperitions
-    # @warn size(params_cons_i)
-    # println(size(params_cons_i))
+    
+    params_keys =  collect(keys(params))
+    param_1 = get_entry(config["prior"]["constraints"], params_keys[1], nothing)
+    param_2 = get_entry(config["prior"]["constraints"], params_keys[2], nothing)
+    params_cons_i = vec(collect(Iterators.product(param_1,param_2))) # check maybe traspost
+    @info(params_cons_i)
+    # convert to list of lists
     params = [c[:] for c in eachcol(params_cons_i)] # ?? make sure the shape of params_cons_i is correct
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path)
@@ -158,15 +162,13 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     )
 end
 
+
 "Create the calibration output directory and copy the config file into it"
 function create_output_dir(
     ref_stats::ReferenceStatistics,
     outdir_root::String,
-    algo_name::String,
-    Δt::FT,
     n_param::IT,
     N_ens::IT,
-    N_iter::IT,
     batch_size::Union{IT, Nothing},
     config_path::Union{String, Nothing},
     y_ref_type,
@@ -175,7 +177,7 @@ function create_output_dir(
     d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
+        "results_sweep_p$(n_param)_e$(N_ens)_$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
