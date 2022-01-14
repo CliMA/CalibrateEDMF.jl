@@ -269,15 +269,15 @@ function get_profile(
 )
 
     t = nc_fetch(sim_dir, "t")
-    dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
+    dt = length(t) > 1 ? mean(diff(t)) : 0.0
     y = zeros(0)
 
     # Check that times are contained in simulation output
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
     # If simulation does not contain values for ti or tf, return high value (penalization)
-    if Δt_start > dt
+    if t[end] < ti
         @warn string(
-            "Note: Δt_start > dt, which means that simulation stopped before reaching the requested t_start.",
+            "Note: t_end < ti, which means that simulation stopped before reaching the requested t_start.",
             "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
             "Defaulting to penalized profiles...",
         )
@@ -289,9 +289,9 @@ function get_profile(
     end
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
-        if Δt_end > dt
+        if t[end] < tf - dt
             @warn string(
-                "Note: Δt_end > dt, which means that simulation stopped before reaching the requested t_end.",
+                "Note: t_end < tf - dt, which means that simulation stopped before reaching the requested t_end.",
                 "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
                 "Defaulting to penalized profiles...",
             )

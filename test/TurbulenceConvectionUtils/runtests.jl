@@ -1,3 +1,4 @@
+using JSON
 using Test
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
@@ -40,4 +41,51 @@ end
     res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
 
     @test model_error
+end
+
+@testset "Namelist modification" begin
+
+    namelist_compare_entries = ["microphysics", "thermodynamics", "time_stepping", "grid", "stats_io", "turbulence"]
+    # Choose same SCM to speed computation
+    data_dir = mktempdir()
+    scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
+    case_name = "Bomex"
+    t_max = 2 * 3600.0
+
+    kwargs_ref_model = Dict(
+        :y_names => [["u_mean", "v_mean"]],
+        :y_dir => scm_dirs,
+        :scm_dir => scm_dirs,
+        :case_name => [case_name],
+        :t_start => [t_max - 3600],
+        :t_end => [t_max],
+        :Σ_t_start => [t_max - 2.0 * 3600],
+        :Σ_t_end => [t_max],
+    )
+    ref_models = construct_reference_models(kwargs_ref_model)
+    run_reference_SCM.(ref_models, run_single_timestep = true)
+
+    # ensure namelist generated with `run_reference_SCM` matches default namelist
+    init_namelist_path = namelist_directory(scm_dir(ref_models[1]), ref_models[1])
+    default_namelist = TurbulenceConvectionUtils.NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
+    reference_namelist = JSON.parsefile(init_namelist_path)
+
+    for (ind, entry) in enumerate(namelist_compare_entries)
+        @test default_namelist[entry] == reference_namelist[entry]
+    end
+
+    # ensure namelist in a `run_SCM_handler` call is modified as expected
+    u = [0.15, 0.52]
+    u_names = ["entrainment_factor", "detrainment_factor"]
+    res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names)
+
+    run_scm_namelist_path = namelist_directory(res_dir, ref_models[1])
+    run_scm_namelist = JSON.parsefile(run_scm_namelist_path)
+    expected_run_scm_namelist = deepcopy(default_namelist)
+    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["entrainment_factor"] = 0.15
+    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["detrainment_factor"] = 0.52
+
+    for (ind, entry) in enumerate(namelist_compare_entries)
+        @test expected_run_scm_namelist[entry] == run_scm_namelist[entry]
+    end
 end

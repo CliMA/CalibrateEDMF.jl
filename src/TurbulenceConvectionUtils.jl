@@ -219,6 +219,7 @@ function run_reference_SCM(
             end
         end
         default_t_max = namelist["time_stepping"]["t_max"]
+        default_adapt_dt = namelist["time_stepping"]["adapt_dt"]
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
             namelist["time_stepping"]["adapt_dt"] = false
@@ -239,6 +240,7 @@ function run_reference_SCM(
         if run_single_timestep
             # reset t_max to default and overwrite stored namelist file
             namelist["time_stepping"]["t_max"] = default_t_max
+            namelist["time_stepping"]["adapt_dt"] = default_adapt_dt
             open(namelist_directory(output_dir, m), "w") do io
                 JSON.print(io, namelist, 4)
             end
