@@ -5,7 +5,7 @@ using JLD2
 include("helper_funcs.jl")
 
 export ReferenceModel, ReferenceModelBatch
-export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ
+export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export data_directory, namelist_directory
 export construct_reference_models, construct_ref_model_batch
@@ -39,6 +39,8 @@ Base.@kwdef struct ReferenceModel
     Σ_t_start::Real
     "End time for computing covariance statistics over"
     Σ_t_end::Real
+    "Number of observed vertical locations, if not the native grid"
+    n_obs::Union{Integer, Nothing}
 end  # ReferenceModel struct
 
 """
@@ -69,12 +71,13 @@ function ReferenceModel(
     Σ_dir::Union{String, Nothing} = nothing,
     Σ_t_start::Union{Real, Nothing} = nothing,
     Σ_t_end::Union{Real, Nothing} = nothing,
+    n_obs::Union{Integer, Nothing} = nothing,
 )
     Σ_dir = isnothing(Σ_dir) ? y_dir : Σ_dir
     Σ_t_start = isnothing(Σ_t_start) ? t_start : Σ_t_start
     Σ_t_end = isnothing(Σ_t_end) ? t_end : Σ_t_end
 
-    ReferenceModel(y_names, y_dir, Σ_dir, scm_dir, case_name, t_start, t_end, Σ_t_start, Σ_t_end)
+    ReferenceModel(y_names, y_dir, Σ_dir, scm_dir, case_name, t_start, t_end, Σ_t_start, Σ_t_end, n_obs)
 end
 
 """
@@ -105,16 +108,23 @@ function ReferenceModel(
     Σ_dir::Union{String, Nothing} = nothing,
     Σ_t_start::Union{Real, Nothing} = nothing,
     Σ_t_end::Union{Real, Nothing} = nothing,
+    n_obs::Union{Integer, Nothing} = nothing,
 )
     scm_dir = data_directory(scm_parent_dir, case_name, scm_suffix)
     args = (y_names, y_dir, scm_dir, case_name, t_start, t_end)
-    return ReferenceModel(args..., Σ_dir = Σ_dir, Σ_t_start = Σ_t_start, Σ_t_end = Σ_t_end)
+    return ReferenceModel(args..., Σ_dir = Σ_dir, Σ_t_start = Σ_t_start, Σ_t_end = Σ_t_end, n_obs = n_obs)
 end
 
 get_t_start(m::ReferenceModel) = m.y_t_start
 get_t_end(m::ReferenceModel) = m.y_t_end
 get_t_start_Σ(m::ReferenceModel) = m.Σ_t_start
 get_t_end_Σ(m::ReferenceModel) = m.Σ_t_end
+
+"Returns the observed vertical locations for a reference model"
+function get_z_obs(m::ReferenceModel)
+    z_scm = get_height(scm_dir(m))
+    return isnothing(m.n_obs) ? z_scm : Array(LinRange(z_scm[1], z_scm[end], m.n_obs))
+end
 
 y_dir(m::ReferenceModel) = m.y_dir
 Σ_dir(m::ReferenceModel) = m.Σ_dir
@@ -162,6 +172,7 @@ function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::
                 Σ_dir = get(kw, :Σ_dir, nothing),
                 Σ_t_start = get(kw, :Σ_t_start, nothing),
                 Σ_t_end = get(kw, :Σ_t_end, nothing),
+                n_obs = get(kw, :n_obs, nothing),
             ),
         )
     end
@@ -182,10 +193,10 @@ Outputs:
 """
 function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
     t = nc_fetch(y_dir(m), "t")
-    t_end = t[end] - Δt + get_t_end(m)
-    Σ_t_end = t[end] - Δt + get_t_end_Σ(m)
     t_start = t[end] - Δt + get_t_start(m)
+    t_end = t[end] - Δt + get_t_end(m)
     Σ_t_start = t[end] - Δt + get_t_start_Σ(m)
+    Σ_t_end = t[end] - Δt + get_t_end_Σ(m)
 
     @assert t_start >= 0 "t_start must be positive after time shift, but $t_start was given."
     @assert Σ_t_start >= 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
@@ -196,14 +207,15 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
 
     return ReferenceModel(
         m.y_names,
-        y_dir(m),
-        scm_dir(m),
+        m.y_dir,
+        m.Σ_dir,
+        m.scm_dir,
         m.case_name,
         t_start,
-        t_end;
-        Σ_dir = Σ_dir(m),
-        Σ_t_start = Σ_t_start,
-        Σ_t_end = Σ_t_end,
+        t_end,
+        Σ_t_start,
+        Σ_t_end,
+        m.n_obs,
     )
 end
 

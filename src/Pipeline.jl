@@ -179,6 +179,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
+    n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
     rm_kwargs = Dict(
         :y_names => ref_config["y_names"],
         # Reference path specification
@@ -193,6 +194,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :t_end => ref_config["t_end"],
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
+        :n_obs => n_obs,
     )
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)

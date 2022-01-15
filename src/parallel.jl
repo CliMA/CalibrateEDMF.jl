@@ -72,9 +72,9 @@ function eval_single_ref_model(
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
     if model_error
-        g_scm = fill(NaN, length(get_height(sim_dir)) * length(m.y_names))
+        g_scm = fill(NaN, length(get_z_obs(m)) * length(m.y_names))
     else
-        g_scm = get_profile(m, sim_dir, z_scm = get_height(sim_dir))
+        g_scm = get_profile(m, sim_dir, z_scm = get_z_obs(m))
         g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
     end
     # perform PCA reduction
