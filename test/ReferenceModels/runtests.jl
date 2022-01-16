@@ -21,6 +21,7 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     @test get_t_start_Σ(ref_model) == 0.0
     @test get_t_end(ref_model) == 10.0
     @test get_t_end_Σ(ref_model) == 10.0
+    @test_throws Exception get_z_obs(ref_model)
 end
 
 @testset "ReferenceModelBatch" begin
@@ -50,7 +51,7 @@ end
 @testset "ReferenceModel handlers" begin
     # Choose same SCM to speed computation
     data_dir = mktempdir()
-    scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
+    scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
     # Reduce resolution and t_max to speed computation as well
     t_max = 4 * 3600.0
     namelist_args = [
@@ -62,25 +63,40 @@ end
         ("stats_io", "frequency", 720.0),
     ]
     kwargs_ref_model = Dict(
-        :y_names => [["u_mean", "v_mean"]],
+        :y_names => [["u_mean", "v_mean"], ["thetal_mean"]],
         :y_dir => scm_dirs,
         :scm_dir => scm_dirs,
-        :case_name => ["Bomex"],
-        :t_start => [t_max - 3600],
+        :case_name => repeat(["Bomex"], 2),
+        :t_start => repeat([t_max - 3600], 2),
         :t_end => [t_max, t_max],
-        :Σ_t_start => [t_max - 2.0 * 3600],
-        :Σ_t_end => [t_max - 0.5 * 3600],
+        :Σ_t_start => repeat([t_max - 2.0 * 3600], 2),
+        :Σ_t_end => repeat([t_max - 0.5 * 3600], 2),
+        :n_obs => [nothing, 15],
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
     Δt = 3.0 * 3600
     ref_model = time_shift_reference_model(ref_models[1], Δt)
+    z = get_z_obs(ref_model)
 
-    @test get_t_start(ref_model) == t_max - Δt + 3.0 * 3600
-    @test get_t_start_Σ(ref_model) == t_max - Δt + 2.0 * 3600
-    @test get_t_end_Σ(ref_model) == t_max - Δt + 3.5 * 3600
-    @test get_t_end(ref_model) == t_max - Δt + 4.0 * 3600
+    @test get_t_start(ref_model) == t_max - Δt + (t_max - 3600)
+    @test get_t_end(ref_model) == t_max - Δt + t_max
+    @test get_t_start_Σ(ref_model) == t_max - Δt + (t_max - 2.0 * 3600)
+    @test get_t_end_Σ(ref_model) == t_max - Δt + (t_max - 0.5 * 3600)
+    @test length(z) == 20
+    @test z[2] - z[1] ≈ 150
 
     Δt = 2 * t_max
     @test_throws AssertionError time_shift_reference_model(ref_models[1], Δt)
+
+    ref_model = ref_models[2]
+    z = get_z_obs(ref_model)
+
+    @test get_t_start(ref_model) == t_max - 3600
+    @test get_t_end(ref_model) == t_max
+    @test get_t_start_Σ(ref_model) == t_max - 2.0 * 3600
+    @test get_t_end_Σ(ref_model) == t_max - 0.5 * 3600
+    @test length(z) == 15
+    @test z[2] - z[1] ≈ 150.0 * (20 - 1) / (15 - 1)
+
 end

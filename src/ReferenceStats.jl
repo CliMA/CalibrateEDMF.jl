@@ -98,8 +98,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            z_scm = get_height(scm_dir(model))
-            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = z_scm)
+            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
@@ -282,7 +281,7 @@ function get_profile(
             "Defaulting to penalized profiles...",
         )
         for i in 1:length(var_names)
-            var_ = get_height(sim_dir)
+            var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
             append!(y, 1.0e5 * ones(length(var_[:])))
         end
         return y
@@ -296,7 +295,7 @@ function get_profile(
                 "Defaulting to penalized profiles...",
             )
             for i in 1:length(var_names)
-                var_ = get_height(sim_dir)
+                var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
                 append!(y, 1.0e5 * ones(length(var_[:])))
             end
             return y
