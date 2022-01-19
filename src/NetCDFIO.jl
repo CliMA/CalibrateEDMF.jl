@@ -15,7 +15,7 @@ export NetCDFIO_Diags
 export open_files, close_files, write_iteration
 export init_iteration_io, init_particle_diags, init_metrics, init_ensemble_diags
 export init_val_diagnostics
-export io_reference, io_diagnostics, io_val_diagnostics
+export io_prior, io_reference, io_diagnostics, io_val_diagnostics
 
 
 mutable struct NetCDFIO_Diags
@@ -79,6 +79,11 @@ mutable struct NetCDFIO_Diags
             NC.defVar(ensemble_grp, "param", param, ("param",))
             NC.defDim(ensemble_grp, "iteration", Inf)
             NC.defVar(ensemble_grp, "iteration", Int16, ("iteration",))
+
+            # Parameter prior diagnostics
+            prior_grp = NC.defGroup(root_grp, "prior")
+            NC.defDim(prior_grp, "param", p)
+            NC.defVar(prior_grp, "param", param, ("param",))
 
             # Reference model and stats diagnostics
             reference_grp = NC.defGroup(root_grp, "reference")
@@ -205,6 +210,24 @@ function write_current_dict(diags::NetCDFIO_Diags, io_dict)
     end
 end
 
+function init_io_dict(diags::NetCDFIO_Diags, io_dict)
+    for var in keys(io_dict)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
+    end
+end
+
+function io_prior(diags::NetCDFIO_Diags, prior::ParameterDistribution)
+    io_dict = io_dictionary_prior(prior)
+    for var in keys(io_dict)
+        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
+        NC.Dataset(diags.filepath, "a") do root_grp
+            prior_grp = root_grp.group["prior"]
+            var_val = prior_grp[var]
+            var_val .= io_dict[var].field
+        end
+    end
+end
+
 function write_ref(diags::NetCDFIO_Diags, var_name::String, data)
     NC.Dataset(diags.filepath, "a") do root_grp
         reference_grp = root_grp.group["reference"]
@@ -236,12 +259,6 @@ function io_val_reference(
     for var in keys(io_dict)
         add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
         write_ref(diags, var, io_dict[var].field)
-    end
-end
-
-function init_io_dict(diags::NetCDFIO_Diags, io_dict)
-    for var in keys(io_dict)
-        add_field(diags, var; dims = io_dict[var].dims, group = io_dict[var].group, type = io_dict[var].type)
     end
 end
 
@@ -296,8 +313,8 @@ function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full:
     write_current_dict(diags, io_dict)
 end
 
-function io_val_metrics(diags::NetCDFIO_Diags, mse_full::Vector{FT}) where {FT <: Real}
-    io_dict = io_dictionary_val_metrics(mse_full)
+function io_val_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+    io_dict = io_dictionary_val_metrics(ekp, mse_full)
     write_current_dict(diags, io_dict)
 end
 
@@ -367,12 +384,13 @@ end
 
 function io_val_diagnostics(
     diags::NetCDFIO_Diags,
+    ekp::EnsembleKalmanProcess,
     mse_full::Vector{FT},
     g::Union{Matrix{FT}, Nothing} = nothing,
     g_full::Union{Matrix{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     open_files(diags)
-    io_val_metrics(diags, mse_full)
+    io_val_metrics(diags, ekp, mse_full)
     io_val_particle_diags(diags, mse_full, g, g_full)
     close_files(diags)
 end

@@ -705,7 +705,8 @@ function init_diagnostics(
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors, val_ref_stats)
-    # Write reference
+    # Write prior and reference diagnostics
+    io_prior(diags, priors)
     io_reference(diags, ref_stats, ref_models, write_full_stats)
     # Add diags, write first state diags
     init_iteration_io(diags)
@@ -746,7 +747,7 @@ function update_diagnostics(
 ) where {FT <: Real}
 
     if !isnothing(val_config)
-        update_val_diagnostics(outdir_path, versions, val_config)
+        update_val_diagnostics(outdir_path, ekp, versions, val_config)
     end
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
@@ -759,6 +760,7 @@ end
 
 function update_val_diagnostics(
     outdir_path::String,
+    ekp::EnsembleKalmanProcess,
     versions::Union{Vector{Int}, Vector{String}},
     val_config::Dict{Any, Any},
 ) where {FT <: Real}
@@ -770,9 +772,9 @@ function update_val_diagnostics(
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
     if isnothing(batch_size)
-        io_val_diagnostics(diags, mse_full, g, g_full)
+        io_val_diagnostics(diags, ekp, mse_full, g, g_full)
     else
-        io_val_diagnostics(diags, mse_full)
+        io_val_diagnostics(diags, ekp, mse_full)
     end
 end
 

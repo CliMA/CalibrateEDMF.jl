@@ -215,17 +215,11 @@ Failsafe construct_mean `x_mean` from ensemble `x`.
 """
 function construct_failsafe_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
+    x::Union{Matrix{FT}, Vector{FT}},
     successful_indices::Union{Vector{IT}, Vector{Any}},
 ) where {FT <: AbstractFloat, IT <: Int}
-    N_x, N_ens = size(x)
-
-    @assert(uki.N_ens == N_ens)
-
-    x_mean = zeros(FT, N_x)
 
     mean_weights = deepcopy(uki.process.mean_weights)
-
     # Rescale weights to sum to unity if center did not fail
     if 1 in successful_indices
         mean_weights = mean_weights ./ sum(mean_weights[successful_indices])
@@ -233,10 +227,15 @@ function construct_failsafe_mean(
     else
         mean_weights .= 1 / length(successful_indices)
     end
-    for i in 1:N_ens
-        if i in successful_indices
-            x_mean += mean_weights[i] * x[:, i]
-        end
+
+    if isa(x, Matrix{FT})
+        N_x, N_ens = size(x)
+        @assert uki.N_ens == N_ens
+        x_mean = Array((mean_weights[successful_indices]' * x[:, successful_indices]')')
+        @assert length(x_mean) == N_x
+    else
+        @assert uki.N_ens == length(x)
+        x_mean = mean_weights[successful_indices]' * x[successful_indices]
     end
 
     return x_mean
@@ -247,11 +246,10 @@ Failsafe construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_failsafe_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
-    x_mean::Array{FT},
+    x::Union{Matrix{FT}, Vector{FT}},
+    x_mean::Union{Vector{FT}, FT},
     successful_indices::Union{Vector{IT}, Vector{Any}},
 ) where {FT <: AbstractFloat, IT <: Int}
-    N_ens, N_x = uki.N_ens, size(x_mean, 1)
 
     cov_weights = deepcopy(uki.process.cov_weights)
 
@@ -261,14 +259,24 @@ function construct_failsafe_cov(
     succ_weight_sum = sum(cov_weights[sum_indices])
     cov_weights[2:end] = cov_weights[2:end] .* (orig_weight_sum / succ_weight_sum)
 
-    xx_cov = zeros(FT, N_x, N_x)
+    if isa(x, Matrix{FT})
+        @assert isa(x_mean, Vector{FT})
+        N_ens, N_x = uki.N_ens, size(x_mean, 1)
+        xx_cov = zeros(FT, N_x, N_x)
 
-    for i in 1:N_ens
-        if i in successful_indices
-            xx_cov .+= cov_weights[i] * (x[:, i] - x_mean) * (x[:, i] - x_mean)'
+        for i in 1:N_ens
+            if i in successful_indices
+                xx_cov .+= cov_weights[i] * (x[:, i] - x_mean) * (x[:, i] - x_mean)'
+            end
+        end
+    else
+        xx_cov = FT(0)
+        for i in 1:(uki.N_ens)
+            if i in successful_indices
+                xx_cov += cov_weights[i] * (x[i] - x_mean) * (x[i] - x_mean)
+            end
         end
     end
-
     return xx_cov
 end
 
@@ -310,7 +318,7 @@ function update_ensemble!(
     failure_handler::Union{String, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
-    if !(size(g_in)[2] == uki.N_ens)
+    if !(size(g_in, 2) == uki.N_ens)
         throw(DimensionMismatch("ensemble size in EnsembleKalmanProcess and g_in do not match, try transposing or check ensemble size"))
     end
 
@@ -324,4 +332,36 @@ function update_ensemble!(
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
     return u_p
+end
+
+"""
+construct_mean `x_mean` from ensemble `x`.
+"""
+function construct_mean(
+    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    x::Vector{FT},
+) where {FT <: AbstractFloat, IT <: Int}
+
+    @assert(uki.N_ens == length(x))
+    return uki.process.mean_weights' * x
+end
+
+"""
+construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
+"""
+function construct_cov(
+    uki::EnsembleKalmanProcess{FT, IT, Unscented},
+    x::Vector{FT},
+    x_mean::FT,
+) where {FT <: AbstractFloat, IT <: Int}
+
+    @assert(uki.N_ens == length(x))
+    cov_weights = uki.process.cov_weights
+    xx_cov = FT(0)
+
+    for i in 1:(uki.N_ens)
+        xx_cov += cov_weights[i] * (x[i] - x_mean) * (x[i] - x_mean)
+    end
+
+    return xx_cov
 end
