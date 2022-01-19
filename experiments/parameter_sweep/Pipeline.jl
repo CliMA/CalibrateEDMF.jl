@@ -48,18 +48,13 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     proc_config = config["process"]
     N_ens = proc_config["N_ens"]
     N_ens² = N_ens*N_ens
-    # N_iter = proc_config["N_iter"]
-    # algo_name = get_entry(proc_config, "algorithm", "Inversion")
-    # Δt = get_entry(proc_config, "Δt", 1.0)
+    N_iter = proc_config["N_iter"]
 
     constraints = config["prior"]["constraints"]
     # unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
     # prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
-
-    # val_config = get(config, "validation", nothing)
-
     # Dimensionality
     n_param = sum(map(length, collect(values(constraints))))
 
@@ -81,20 +76,14 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     )
 
     priors = construct_priors(constraints, outdir_path = outdir_path)
-    # parameters are sampled in unconstrained space
-
-    
     constraints_keys =  collect(keys(constraints))
-    # bounds_1 = get_entry(config["prior"]["constraints"], constraints_keys[1], nothing)
-    # bounds_2 = get_entry(config["prior"]["constraints"], constraints_keys[2], nothing)
     lower_bounds_1 = constraints[constraints_keys[1]][1].constrained_to_unconstrained.lower_bound
     lower_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.lower_bound
     upper_bounds_1 = constraints[constraints_keys[1]][1].constrained_to_unconstrained.upper_bound
     upper_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.upper_bound
     constraints_1 = LinRange(lower_bounds_1, upper_bounds_1, N_iter) 
     constraints_2 = LinRange(lower_bounds_2, upper_bounds_2, N_iter)
-    params = vec(collect(Iterators.product(constraints_1,constraints_2))) # check maybe traspost
-    # convert to list of lists
+    params = vec(collect(Iterators.product(constraints_1,constraints_2)))
     mod_evaluators = [ModelEvaluator([param...], get_name(priors), ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
