@@ -28,9 +28,6 @@ function run_calibrate(config; return_ekobj = false)
 
     perform_PCA = config["regularization"]["perform_PCA"]
 
-    save_eki_data = config["output"]["save_eki_data"]
-    save_ensemble_data = config["output"]["save_ensemble_data"]
-
     init_dict = init_calibration(config, mode = "pmap")
     ekobj = init_dict["ekobj"]
     algo = ekobj.process
@@ -89,56 +86,49 @@ function run_calibrate(config; return_ekobj = false)
                 g_big_arr[k, :, :] = hcat(g_big_list[k]...)'
             end
         end
-        if save_eki_data
-            # Save calibration process information to JLD2 file
-            save(
-                joinpath(outdir_path, "calibration_results_iter_$i.jld2"),
-                "ekp_u",
-                transform_unconstrained_to_constrained(priors, get_u(ekobj)),
-                "ekp_g",
-                get_g(ekobj),
-                "truth_mean",
-                ekobj.obs_mean,
-                "truth_cov",
-                ekobj.obs_noise_cov,
-                "ekp_err",
-                ekobj.err,
-                "truth_mean_big",
-                ref_stats.y_full,
-                "truth_cov_big",
-                ref_stats.Γ_full,
-                "P_pca",
-                ref_stats.pca_vec,
-                "pool_var",
-                ref_stats.norm_vec,
-                "g_big",
-                g_big_list,
-                "g_big_arr",
-                g_big_arr,
-                "norm_err",
-                norm_err_list,
-                "norm_err_arr",
-                norm_err_arr,
-                "phi_params",
-                phi_params_arr,
-            )
-            npzwrite(joinpath(outdir_path, "y_mean.npy"), ekobj.obs_mean)
-            npzwrite(joinpath(outdir_path, "Gamma_y.npy"), ekobj.obs_noise_cov)
-            npzwrite(joinpath(outdir_path, "y_mean_big.npy"), ref_stats.y_full)
-            npzwrite(joinpath(outdir_path, "Gamma_y_big.npy"), ref_stats.Γ_full)
-            npzwrite(joinpath(outdir_path, "phi_params.npy"), phi_params_arr)
-            npzwrite(joinpath(outdir_path, "norm_err.npy"), norm_err_arr)
-            npzwrite(joinpath(outdir_path, "g_big.npy"), g_big_arr)
-            for (l, P_pca) in enumerate(ref_stats.pca_vec)
-                npzwrite(string(outdir_path, "/P_pca_", ref_models[l].case_name, ".npy"), P_pca)
-                npzwrite(string(outdir_path, "/pool_var_", ref_models[l].case_name, ".npy"), ref_stats.norm_vec[l])
-            end
-        end
 
-        if save_ensemble_data
-            eki_iter_path = joinpath(outdir_path, "EKI_iter_$i")
-            mkpath(eki_iter_path)
-            save_full_ensemble_data(eki_iter_path, sim_dirs_arr, ref_models)
+        # Save calibration process information to JLD2 file
+        save(
+            joinpath(outdir_path, "calibration_results_iter_$i.jld2"),
+            "ekp_u",
+            transform_unconstrained_to_constrained(priors, get_u(ekobj)),
+            "ekp_g",
+            get_g(ekobj),
+            "truth_mean",
+            ekobj.obs_mean,
+            "truth_cov",
+            ekobj.obs_noise_cov,
+            "ekp_err",
+            ekobj.err,
+            "truth_mean_big",
+            ref_stats.y_full,
+            "truth_cov_big",
+            ref_stats.Γ_full,
+            "P_pca",
+            ref_stats.pca_vec,
+            "pool_var",
+            ref_stats.norm_vec,
+            "g_big",
+            g_big_list,
+            "g_big_arr",
+            g_big_arr,
+            "norm_err",
+            norm_err_list,
+            "norm_err_arr",
+            norm_err_arr,
+            "phi_params",
+            phi_params_arr,
+        )
+        npzwrite(joinpath(outdir_path, "y_mean.npy"), ekobj.obs_mean)
+        npzwrite(joinpath(outdir_path, "Gamma_y.npy"), ekobj.obs_noise_cov)
+        npzwrite(joinpath(outdir_path, "y_mean_big.npy"), ref_stats.y_full)
+        npzwrite(joinpath(outdir_path, "Gamma_y_big.npy"), ref_stats.Γ_full)
+        npzwrite(joinpath(outdir_path, "phi_params.npy"), phi_params_arr)
+        npzwrite(joinpath(outdir_path, "norm_err.npy"), norm_err_arr)
+        npzwrite(joinpath(outdir_path, "g_big.npy"), g_big_arr)
+        for (l, P_pca) in enumerate(ref_stats.pca_vec)
+            npzwrite(string(outdir_path, "/P_pca_", ref_models[l].case_name, ".npy"), P_pca)
+            npzwrite(string(outdir_path, "/pool_var_", ref_models[l].case_name, ".npy"), ref_stats.norm_vec[l])
         end
     end
     # EKP results: Has the ensemble collapsed toward the truth?

@@ -11,13 +11,16 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
     # Reduce resolution and t_max to speed computation as well
     t_max = 4 * 3600.0
+    dt_max = 30.0
+    dt_min = 20.0
+    io_frequency = 120.0
     namelist_args = [
         ("time_stepping", "t_max", t_max),
-        ("time_stepping", "dt_max", 30.0),
-        ("time_stepping", "dt_min", 20.0),
+        ("time_stepping", "dt_max", dt_max),
+        ("time_stepping", "dt_min", dt_min),
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
-        ("stats_io", "frequency", 120.0),
+        ("stats_io", "frequency", io_frequency),
     ]
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean"]],
@@ -29,6 +32,24 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
+
+    # Test penalty behavior of ReferenceStatistics.get_profile
+
+    # if simulation lines up with ti, tf => no penalty
+    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max)
+    @test maximum(y) < 1e4
+    # if simulation end within dt margin => no penalty
+    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency)
+    @test maximum(y) < 1e4
+    # if simulation end outside of dt margin => penalty
+    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency + dt_max)
+    @test all(y .> 1e4)
+    # if simulation end after ti  => no penalty
+    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = t_max - 0.01, tf = t_max)
+    @test maximum(y) < 1e4
+    # if simulation end before ti  => penalty
+    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = t_max + 0.01, tf = t_max)
+    @test all(y .> 1e4)
 
     # Test only tikhonov vs PCA and tikhonov
     pca_list = [false, true]

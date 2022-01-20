@@ -44,8 +44,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
-    save_eki_data = get_entry(out_config, "save_eki_data", true)
-    save_ensemble_data = get_entry(out_config, "save_ensemble_data", false)
     overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
     outdir_root = get_entry(out_config, "outdir_root", pwd())
 
@@ -181,6 +179,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
+    n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
     rm_kwargs = Dict(
         :y_names => ref_config["y_names"],
         # Reference path specification
@@ -195,6 +194,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :t_end => ref_config["t_end"],
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
+        :n_obs => n_obs,
     )
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)
@@ -406,8 +406,8 @@ function ek_update(
     end
     # Scale artificial timestep by batch size
     Δt_scaled = Δt / length(ref_models)
+    failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     if isa(ekobj.process, Inversion)
-        failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
         update_ensemble!(
             ekobj,
             g,
@@ -415,6 +415,8 @@ function ek_update(
             deterministic_forward_map = deterministic_forward_map,
             failure_handler = failure_handler,
         )
+    elseif isa(ekobj.process, Unscented)
+        update_ensemble!(ekobj, g, failure_handler = failure_handler)
     else
         update_ensemble!(ekobj, g)
     end
@@ -549,7 +551,7 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
     # Check consistent failure method for given algorithm
-    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] == "Inversion" : true
+    @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] != "Sampler" : true
     model_evaluator = scm_args["model_evaluator"]
     # Eval
     sim_dirs, g_scm, g_scm_pca =
@@ -703,7 +705,8 @@ function init_diagnostics(
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors, val_ref_stats)
-    # Write reference
+    # Write prior and reference diagnostics
+    io_prior(diags, priors)
     io_reference(diags, ref_stats, ref_models, write_full_stats)
     # Add diags, write first state diags
     init_iteration_io(diags)
@@ -744,7 +747,7 @@ function update_diagnostics(
 ) where {FT <: Real}
 
     if !isnothing(val_config)
-        update_val_diagnostics(outdir_path, versions, val_config)
+        update_val_diagnostics(outdir_path, ekp, versions, val_config)
     end
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
@@ -757,6 +760,7 @@ end
 
 function update_val_diagnostics(
     outdir_path::String,
+    ekp::EnsembleKalmanProcess,
     versions::Union{Vector{Int}, Vector{String}},
     val_config::Dict{Any, Any},
 ) where {FT <: Real}
@@ -768,9 +772,9 @@ function update_val_diagnostics(
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
     if isnothing(batch_size)
-        io_val_diagnostics(diags, mse_full, g, g_full)
+        io_val_diagnostics(diags, ekp, mse_full, g, g_full)
     else
-        io_val_diagnostics(diags, mse_full)
+        io_val_diagnostics(diags, ekp, mse_full)
     end
 end
 

@@ -126,6 +126,7 @@ end
 @testset "Pipeline_with_validation" begin
 
     config["reference"]["batch_size"] = 1
+    config["reference"]["n_obs"] = [10]
     config["process"]["algorithm"] = "Unscented"
     config["validation"] = config["reference"]
     config["validation"]["batch_size"] = 1

@@ -98,8 +98,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            z_scm = get_height(scm_dir(model))
-            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = z_scm)
+            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
@@ -269,34 +268,34 @@ function get_profile(
 )
 
     t = nc_fetch(sim_dir, "t")
-    dt = length(t) > 1 ? abs(t[2] - t[1]) : 0.0
+    dt = length(t) > 1 ? mean(diff(t)) : 0.0
     y = zeros(0)
 
     # Check that times are contained in simulation output
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
     # If simulation does not contain values for ti or tf, return high value (penalization)
-    if Δt_start > dt
+    if t[end] < ti
         @warn string(
-            "Note: Δt_start > dt, which means that simulation stopped before reaching the requested t_start.",
+            "Note: t_end < ti, which means that simulation stopped before reaching the requested t_start.",
             "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
             "Defaulting to penalized profiles...",
         )
         for i in 1:length(var_names)
-            var_ = get_height(sim_dir)
+            var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
             append!(y, 1.0e5 * ones(length(var_[:])))
         end
         return y
     end
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
-        if Δt_end > dt
+        if t[end] < tf - dt
             @warn string(
-                "Note: Δt_end > dt, which means that simulation stopped before reaching the requested t_end.",
+                "Note: t_end < tf - dt, which means that simulation stopped before reaching the requested t_end.",
                 "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
                 "Defaulting to penalized profiles...",
             )
             for i in 1:length(var_names)
-                var_ = get_height(sim_dir)
+                var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
                 append!(y, 1.0e5 * ones(length(var_[:])))
             end
             return y

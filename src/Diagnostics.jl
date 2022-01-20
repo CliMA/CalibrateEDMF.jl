@@ -7,6 +7,7 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 using EnsembleKalmanProcesses.ParameterDistributionStorage
 import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_sigma_ensemble
 import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, construct_cov
+include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
 
 using ..ReferenceModels
 using ..ReferenceStats
@@ -16,7 +17,7 @@ const NC = NCDatasets
 export io_dictionary_ensemble, io_dictionary_reference, io_dictionary_metrics
 export io_dictionary_particle_state, io_dictionary_particle_eval
 export io_dictionary_val_metrics, io_dictionary_val_particle_eval
-export io_dictionary_val_reference
+export io_dictionary_val_reference, io_dictionary_prior
 
 """Reference diagnostics dictionary."""
 function io_dictionary_reference()
@@ -142,6 +143,59 @@ function io_dictionary_val_reference(
 end
 
 """
+    io_dictionary_prior()
+
+Parameter prior diagnostics dictionary.
+
+Elements:
+ - u_mean_prior :: Prior mean in unconstrained parameter space.
+ - phi_mean_prior :: Prior mean in constrained parameter space.
+ - u_var_prior :: Diagonal of the prior covariance in unconstrained space.
+ - phi_low_unc_prior :: Lower uncertainty bound (μ-1σ_prior) of prior in constrained space.
+ - phi_upp_unc_prior :: Upper uncertainty bound (μ+1σ_prior) of prior in constrained space.
+ - phi_low_std_prior :: Lower standard bound (μ-1) of prior in constrained space.
+ - phi_upp_std_prior :: Upper standard bound (μ+1) of prior in constrained space.
+"""
+function io_dictionary_prior()
+    io_dict = Dict(
+        "u_mean_prior" => (; dims = ("param",), group = "prior", type = Float64),
+        "phi_mean_prior" => (; dims = ("param",), group = "prior", type = Float64),
+        "u_var_prior" => (; dims = ("param", "param"), group = "prior", type = Float64),
+        "phi_low_unc_prior" => (; dims = ("param",), group = "prior", type = Float64),
+        "phi_upp_unc_prior" => (; dims = ("param",), group = "prior", type = Float64),
+        "phi_low_std_prior" => (; dims = ("param",), group = "prior", type = Float64),
+        "phi_upp_std_prior" => (; dims = ("param",), group = "prior", type = Float64),
+    )
+    return io_dict
+end
+function io_dictionary_prior(priors::ParameterDistribution)
+    orig_dict = io_dictionary_prior()
+    u_mean = [mean(pd.distribution) for pd in priors.distributions]
+    u_var = [var(pd.distribution) for pd in priors.distributions]
+    # The estimator of the mean is valid in unconstrained space, so we must transform the mean.
+    ϕ_mean = transform_unconstrained_to_constrained(priors, u_mean)
+    # Transform prior uncertainty bands to constrained space
+    u_low = u_mean .- sqrt.(u_var)
+    u_upp = u_mean .+ sqrt.(u_var)
+    ϕ_low = transform_unconstrained_to_constrained(priors, u_low)
+    ϕ_upp = transform_unconstrained_to_constrained(priors, u_upp)
+    # Transform standard uncertainty bands (1σ in unconstrained space) to constrained space
+    ϕ_low_std = transform_unconstrained_to_constrained(priors, u_mean .- 1.0)
+    ϕ_upp_std = transform_unconstrained_to_constrained(priors, u_mean .+ 1.0)
+
+    io_dict = Dict(
+        "u_mean_prior" => Base.setindex(orig_dict["u_mean_prior"], u_mean, :field),
+        "phi_mean_prior" => Base.setindex(orig_dict["phi_mean_prior"], ϕ_mean, :field),
+        "u_var_prior" => Base.setindex(orig_dict["u_var_prior"], u_var, :field),
+        "phi_low_unc_prior" => Base.setindex(orig_dict["phi_low_unc_prior"], ϕ_low, :field),
+        "phi_upp_unc_prior" => Base.setindex(orig_dict["phi_upp_unc_prior"], ϕ_upp, :field),
+        "phi_low_std_prior" => Base.setindex(orig_dict["phi_low_std_prior"], ϕ_low_std, :field),
+        "phi_upp_std_prior" => Base.setindex(orig_dict["phi_upp_std_prior"], ϕ_upp_std, :field),
+    )
+    return io_dict
+end
+
+"""
     io_dictionary_metrics()
 
 Scalar metrics dictionary.
@@ -151,6 +205,7 @@ Elements:
  - mse_full_mean :: Ensemble mean of MSE(g_full, y_full).
  - mse_full_min :: Ensemble min of MSE(g_full, y_full).
  - mse_full_max :: Ensemble max of MSE(g_full, y_full).
+ - mse_full_var :: Variance estimate of MSE(g_full, y_full), empirical (EKI/EKS) or quadrature (UKI).
 """
 function io_dictionary_metrics()
     io_dict = Dict(
@@ -158,6 +213,7 @@ function io_dictionary_metrics()
         "mse_full_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "mse_full_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
     )
     return io_dict
 end
@@ -165,11 +221,13 @@ function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT})
     orig_dict = io_dictionary_metrics()
     # Filter NaNs for statistics
     mse_filt = filter(!isnan, mse_full)
+    mse_full_var = get_metric_var(ekp, mse_full)
     io_dict = Dict(
         "loss_mean_g" => Base.setindex(orig_dict["loss_mean_g"], get_error(ekp)[end], :field),
         "mse_full_mean" => Base.setindex(orig_dict["mse_full_mean"], mean(mse_filt), :field),
         "mse_full_min" => Base.setindex(orig_dict["mse_full_min"], minimum(mse_filt), :field),
         "mse_full_max" => Base.setindex(orig_dict["mse_full_max"], maximum(mse_filt), :field),
+        "mse_full_var" => Base.setindex(orig_dict["mse_full_var"], mse_full_var, :field),
     )
     return io_dict
 end
@@ -179,17 +237,20 @@ function io_dictionary_val_metrics()
         "val_mse_full_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_mse_full_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
     )
     return io_dict
 end
-function io_dictionary_val_metrics(mse_full::Vector{FT}) where {FT <: Real}
+function io_dictionary_val_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_val_metrics()
     # Filter NaNs for statistics
     mse_filt = filter(!isnan, mse_full)
+    mse_full_var = get_metric_var(ekp, mse_full)
     io_dict = Dict(
         "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(mse_filt), :field),
         "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(mse_filt), :field),
         "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(mse_filt), :field),
+        "val_mse_full_var" => Base.setindex(orig_dict["val_mse_full_var"], mse_full_var, :field),
     )
     return io_dict
 end
@@ -374,6 +435,21 @@ function get_ϕ_cov(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
         u = get_u_final(ekp)
         ϕ = transform_unconstrained_to_constrained(priors, u)
         return cov(ϕ, dims = 2)
+    end
+end
+
+function get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {FT <: Real}
+    if isa(ekp.process, Unscented)
+        if any(isnan.(metric))
+            succ_ens = [i for i = 1:length(metric) if !isnan(metric[i])]
+            metric_mean = construct_failsafe_mean(ekp, metric, succ_ens)
+            return construct_failsafe_cov(ekp, metric, metric_mean, succ_ens)
+        else
+            metric_mean = construct_mean(ekp, metric)
+            return construct_cov(ekp, metric, metric_mean)
+        end
+    else
+        return var(filter(!isnan, metric))
     end
 end
 
