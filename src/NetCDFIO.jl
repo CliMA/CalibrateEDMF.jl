@@ -265,6 +265,17 @@ function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, 
     close_files(diags)
 end
 
+function init_particle_diags(diags::NetCDFIO_Diags, ϕ::Matrix{FT}, priors::ParameterDistribution)
+    io_dict = io_dictionary_particle_eval()
+    init_io_dict(diags, io_dict)
+    io_dict = io_dictionary_particle_state(ϕ, priors)
+    init_io_dict(diags, io_dict)
+    # Write initial particle_state to file.
+    open_files(diags)
+    write_current_dict(diags, io_dict)
+    close_files(diags)
+end
+
 function init_metrics(diags::NetCDFIO_Diags)
     io_dict = io_dictionary_metrics()
     init_io_dict(diags, io_dict)
