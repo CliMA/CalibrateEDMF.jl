@@ -214,8 +214,13 @@ function run_reference_SCM(
         # Set optional namelist args
         if !isnothing(namelist_args)
             for namelist_arg in namelist_args
-                group, name, val = namelist_arg
-                namelist[group][name] = val
+                keys = namelist_arg[1:end-1]
+                value = namelist_arg[end]
+                subdict = namelist
+                for k in keys[1:end-1]
+                    subdict = subdict[k]
+                end
+                subdict[keys[end]] = value
             end
         end
         default_t_max = namelist["time_stepping"]["t_max"]
@@ -287,8 +292,13 @@ function run_SCM_handler(
     # Set optional namelist args
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
-            group, name, val = namelist_arg
-            namelist[group][name] = val
+            keys = namelist_arg[1:end-1]
+            value = namelist_arg[end]
+            subdict = namelist
+            for k in keys[1:end-1]
+                subdict = subdict[k]
+            end
+            subdict[keys[end]] = value
         end
     end
 
