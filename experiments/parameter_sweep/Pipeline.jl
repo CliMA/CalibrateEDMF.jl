@@ -81,7 +81,7 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     lower_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.lower_bound
     upper_bounds_1 = constraints[constraints_keys[1]][1].constrained_to_unconstrained.upper_bound
     upper_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.upper_bound
-    constraints_1 = LinRange(lower_bounds_1, upper_bounds_1, N_iter) 
+    constraints_1 = LinRange(lower_bounds_1, upper_bounds_1, N_iter)
     constraints_2 = LinRange(lower_bounds_2, upper_bounds_2, N_iter)
     params = vec(collect(Iterators.product(constraints_1,constraints_2)))
     mod_evaluators = [ModelEvaluator([param...], get_name(priors), ref_models, ref_stats) for param in params]
@@ -95,7 +95,7 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
         outdir_path,
         io_ref_models,
         io_ref_stats,
-        ekobj,
+        ϕ,
         priors,
         val_ref_models,
         val_ref_stats,
@@ -305,20 +305,20 @@ function init_diagnostics(
     outdir_path::String,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
-    ekp::EnsembleKalmanProcess,
+    ϕ::Matrix{FT},
     priors::ParameterDistribution,
     val_ref_models::Union{Vector{ReferenceModel}, Nothing},
     val_ref_stats::Union{ReferenceStatistics, Nothing},
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
-    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors, val_ref_stats)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ϕ, priors, val_ref_stats)
     # Write reference
     io_reference(diags, ref_stats, ref_models, write_full_stats)
     # Add diags, write first state diags
     init_iteration_io(diags)
-    init_metrics(diags)
-    init_ensemble_diags(diags, ekp, priors)
-    init_particle_diags(diags, ekp, priors)
+    # init_metrics(diags)
+    # init_ensemble_diags(diags, ϕ, priors)
+    init_particle_diags(diags, ϕ, priors)
 end
 
 """
