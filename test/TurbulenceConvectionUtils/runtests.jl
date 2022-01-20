@@ -45,7 +45,7 @@ end
 
 @testset "Namelist modification" begin
 
-    namelist_compare_entries = ["microphysics", "thermodynamics", "time_stepping", "grid", "stats_io", "turbulence"]
+    namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "turbulence", "grid", "thermodynamics"]
     # Choose same SCM to speed computation
     data_dir = mktempdir()
     scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
@@ -70,22 +70,36 @@ end
     default_namelist = TurbulenceConvectionUtils.NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
     reference_namelist = JSON.parsefile(init_namelist_path)
 
-    for (ind, entry) in enumerate(namelist_compare_entries)
+    for entry in namelist_compare_entries
         @test default_namelist[entry] == reference_namelist[entry]
     end
 
     # ensure namelist in a `run_SCM_handler` call is modified as expected
     u = [0.15, 0.52]
     u_names = ["entrainment_factor", "detrainment_factor"]
-    res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names)
+    # Test namelist modification for different nesting levels
+    namelist_args = (
+        ("thermodynamics", "quadrature_type", "gaussian"),
+        ("grid", "dz", 150.0),
+        ("grid", "nz", 20),
+        ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.0),
+        ("turbulence", "EDMF_PrognosticTKE", "stochastic", "detr_lognormal_var", 0.2),
+    )
+
+    res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
 
     run_scm_namelist_path = namelist_directory(res_dir, ref_models[1])
     run_scm_namelist = JSON.parsefile(run_scm_namelist_path)
     expected_run_scm_namelist = deepcopy(default_namelist)
     expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["entrainment_factor"] = 0.15
     expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["detrainment_factor"] = 0.52
+    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_adv_coeff"] = 0.0
+    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["stochastic"]["detr_lognormal_var"] = 0.2
+    expected_run_scm_namelist["thermodynamics"]["quadrature_type"] = "gaussian"
+    expected_run_scm_namelist["grid"]["nz"] = 20
+    expected_run_scm_namelist["grid"]["dz"] = 150.0
 
-    for (ind, entry) in enumerate(namelist_compare_entries)
+    for entry in namelist_compare_entries
         @test expected_run_scm_namelist[entry] == run_scm_namelist[entry]
     end
 end
