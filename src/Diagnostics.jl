@@ -219,7 +219,7 @@ function io_dictionary_particle_state(ekp::EnsembleKalmanProcess, priors::Parame
     return io_dict
 end
 
-function io_dictionary_particle_state(ϕ::Matrix{FT}, priors::ParameterDistribution)
+function io_dictionary_particle_state(ϕ::Matrix{FT}, priors::ParameterDistribution) where{FT}
     orig_dict = io_dictionary_particle_state()
     io_dict =
         Dict("phi" => Base.setindex(orig_dict["phi"], ϕ', :field))

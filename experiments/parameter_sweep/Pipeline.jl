@@ -81,9 +81,10 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     lower_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.lower_bound
     upper_bounds_1 = constraints[constraints_keys[1]][1].constrained_to_unconstrained.upper_bound
     upper_bounds_2 = constraints[constraints_keys[2]][1].constrained_to_unconstrained.upper_bound
-    constraints_1 = LinRange(lower_bounds_1, upper_bounds_1, N_iter)
-    constraints_2 = LinRange(lower_bounds_2, upper_bounds_2, N_iter)
-    params = vec(collect(Iterators.product(constraints_1,constraints_2)))
+    vals_param_1 = LinRange(lower_bounds_1, upper_bounds_1, N_iter)
+    vals_param_2 = LinRange(lower_bounds_2, upper_bounds_2, N_iter)
+    params = vec(collect(Iterators.product(vals_param_1, vals_param_2)))
+    ϕ = hcat([collect(elem) for elem in params]...)
     mod_evaluators = [ModelEvaluator([param...], get_name(priors), ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
@@ -210,7 +211,7 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
 end
 
 """
-   versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
+   versioned_model_eval(version::Union{String, Int}, outdir_path::String, config::Dict{Any, Any})
 
 Performs or omits a model evaluation given the parsed mode and provided config,
  and writes to file the model output.
@@ -218,21 +219,12 @@ Performs or omits a model evaluation given the parsed mode and provided config,
 Inputs:
  - version       :: The version associated with the ModelEvaluator to be used.
  - outdir_path   :: The path to the results directory of the calibration process.
- - mode          :: Whether the ModelEvaluator is used for training or validation.
  - config        :: The general configuration dictionary.
 """
-function versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
-    @assert mode in ["train", "validation"]
+function versioned_model_eval(version::Union{String, Int}, outdir_path::String, config::Dict{Any, Any})
     # Omits validation if unsolicited
-    if mode == "validation" && isnothing(get(config, "validation", nothing))
-        return
-    elseif mode == "validation"
-        input_path = scm_val_init_path(outdir_path, version)
-        output_path = scm_val_output_path(outdir_path, version)
-    else
-        input_path = scm_init_path(outdir_path, version)
-        output_path = scm_output_path(outdir_path, version)
-    end
+    input_path = scm_init_path(outdir_path, version)
+    output_path = scm_output_path(outdir_path, version)
     # Load inputs
     scm_args = load(input_path)
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
@@ -257,7 +249,7 @@ end
 Creates and writes to file the ModelEvaluators for the current particle ensemble.
 
 Inputs:
- - ekp         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
+ - ϕ           :: The parameter values.
  - priors      :: The parameter priors.
  - ref_models  :: The ReferenceModels defining the new model evaluations.
  - ref_stats   :: The ReferenceStatistics corresponding to passed ref_models.
@@ -265,15 +257,14 @@ Inputs:
  - iteration   :: The current process iteration.
 """
 function write_model_evaluators(
-    ekp::EnsembleKalmanProcess,
+    ϕ::Matrix{FT},
     priors::ParameterDistribution,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
     outdir_path::String,
     iteration::Int,
-)
-    params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
-    params = [c[:] for c in eachcol(params_cons_i)]
+) where{FT}
+    params = [c[:] for c in eachcol(ϕ)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
@@ -286,7 +277,7 @@ end
         config::Dict{Any, Any},
         outdir_path::String,
         ref_stats::ReferenceStatistics,
-        ekp::EnsembleKalmanProcess,
+        ϕ:: parameter values,
         priors::ParameterDistribution,
     )
 
@@ -309,7 +300,7 @@ function init_diagnostics(
     priors::ParameterDistribution,
     val_ref_models::Union{Vector{ReferenceModel}, Nothing},
     val_ref_stats::Union{ReferenceStatistics, Nothing},
-)
+) where{FT}
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ϕ, priors, val_ref_stats)
     # Write reference
