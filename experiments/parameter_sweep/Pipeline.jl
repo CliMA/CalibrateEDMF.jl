@@ -88,7 +88,6 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
-
     # Diagnostics IO - I need to create a new init_diagnostics that not require ekobj, val_ref_models, val_ref_stats
     # new SweepDiagnostic.jl in src
     init_diagnostics(
