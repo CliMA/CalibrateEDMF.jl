@@ -342,3 +342,29 @@ function get_entry(dict, key, default)
         get(dict, key, default)
     end
 end
+
+"""
+    change_entry!(dict, keys_and_value)
+
+Changes the entry of a nested dictionary, giving a tuple of all its keys and the new value
+
+Inputs:
+ - dict           :: Parent dictionary with an arbitrary number of nested dictionaries. 
+ - keys_and_value :: Tuple of keys from the parent dictionary to the entry to be modified,
+                     and the value to use to modify it.
+"""
+function change_entry!(dict, keys_and_value)
+    function get_last_nested_dict(dict, keys)
+        if length(keys) > 1
+            return get_last_nested_dict(dict[keys[1]], keys[2:end])
+        else
+            return dict
+        end
+    end
+    # Unpack
+    value = keys_and_value[end]
+    keys = keys_and_value[1:(end - 1)]
+    # Modify entry
+    last_dict = get_last_nested_dict(dict, keys)
+    last_dict[keys[end]] = value
+end

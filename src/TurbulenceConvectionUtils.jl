@@ -214,8 +214,7 @@ function run_reference_SCM(
         # Set optional namelist args
         if !isnothing(namelist_args)
             for namelist_arg in namelist_args
-                group, name, val = namelist_arg
-                namelist[group][name] = val
+                change_entry!(namelist, namelist_arg)
             end
         end
         default_t_max = namelist["time_stepping"]["t_max"]
@@ -269,6 +268,7 @@ Inputs:
  - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 Outputs:
  - output_dirs   :: directory containing output data from the SCM run.
+ - model_error   :: Boolean specifying whether the simulation failed.
 """
 function run_SCM_handler(
     m::ReferenceModel,
@@ -287,8 +287,7 @@ function run_SCM_handler(
     # Set optional namelist args
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
-            group, name, val = namelist_arg
-            namelist[group][name] = val
+            change_entry!(namelist, namelist_arg)
         end
     end
 

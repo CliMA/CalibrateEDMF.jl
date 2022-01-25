@@ -704,7 +704,8 @@ function init_diagnostics(
     validation::Bool = false,
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
-    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ekp, priors, val_ref_stats)
+    N_ens = size(get_u_final(ekp), 2)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, N_ens, priors, val_ref_stats)
     # Write prior and reference diagnostics
     io_prior(diags, priors)
     io_reference(diags, ref_stats, ref_models, write_full_stats)
