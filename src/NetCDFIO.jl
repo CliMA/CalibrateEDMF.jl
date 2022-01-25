@@ -30,10 +30,10 @@ mutable struct NetCDFIO_Diags
         config::Dict{Any, Any},
         outdir_path::String,
         ref_stats::ReferenceStatistics,
-        ekp::EnsembleKalmanProcess,
+        N_ens::IT,
         priors::ParameterDistribution,
         val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
-    )
+    ) where {IT <: Integer}
 
         # Initialize properties with valid type:
         tmp = tempname()
@@ -54,7 +54,7 @@ mutable struct NetCDFIO_Diags
         NC.Dataset(filepath, "c") do root_grp
 
             # Fetch dimensionality
-            p, N_ens = size(get_u_final(ekp))
+            p = get_total_dimension(priors)
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)

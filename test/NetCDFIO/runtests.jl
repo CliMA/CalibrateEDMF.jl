@@ -48,7 +48,8 @@ using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
     config["reference"] = Dict()
     priors = construct_priors(config["prior"]["constraints"])
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
-    diags = NetCDFIO_Diags(config, data_dir, ref_stats, ekp, priors)
+    N_ens = size(get_u_final(ekp), 2)
+    diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)
 
     # Test constructor
     @test isa(diags, NetCDFIO_Diags)
