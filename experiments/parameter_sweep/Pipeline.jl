@@ -96,6 +96,7 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
         outdir_path,
         io_ref_models,
         io_ref_stats,
+        N_ens,
         ϕ,
         priors,
     )
@@ -275,6 +276,7 @@ end
         config::Dict{Any, Any},
         outdir_path::String,
         ref_stats::ReferenceStatistics,
+        N_ens::number of ensemble members,
         ϕ:: parameter values,
         priors::ParameterDistribution,
     )
@@ -294,13 +296,14 @@ function init_diagnostics(
     outdir_path::String,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
+    N_ens::Int64,
     ϕ::Matrix{FT},
     priors::ParameterDistribution,
     #val_ref_models::Union{Vector{ReferenceModel}, Nothing},
     #val_ref_stats::Union{ReferenceStatistics, Nothing},
 ) where{FT}
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
-    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, ϕ, priors, nothing)
+    diags = NetCDFIO_Diags(config, outdir_path, ref_stats, N_ens, priors, nothing)
     # Write reference
     # io_reference(diags, ref_stats, ref_models, write_full_stats)
     # Add diags, write first state diags
