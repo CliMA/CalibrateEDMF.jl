@@ -2,6 +2,7 @@ module Pipeline
 
 using Random
 using JLD2
+import Dates
 
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
@@ -239,9 +240,11 @@ function create_output_dir(
 ) where {FT <: Real, IT <: Integer}
     # Output path
     d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
+    now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM")
+    suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
+        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
