@@ -96,7 +96,7 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
         outdir_path,
         io_ref_models,
         io_ref_stats,
-        N_ens,
+        N_ens²,
         ϕ,
         priors,
     )

@@ -95,7 +95,7 @@ end
 function io_dictionary_particle_state(ϕ::Array{FT, 2}, priors::ParameterDistribution)
     orig_dict = io_dictionary_particle_state()
     io_dict =
-        Dict("phi" => Base.setindex(orig_dict["phi"], ϕ', :field))
+        Dict("phi" => Base.setindex(orig_dict["phi"], ϕ, :field))
     return io_dict
 end
 
