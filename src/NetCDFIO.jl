@@ -2,8 +2,8 @@ module NetCDFIO
 
 using NCDatasets
 using Statistics
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 
 using ..ReferenceModels
 using ..ReferenceStats
@@ -54,7 +54,7 @@ mutable struct NetCDFIO_Diags
         NC.Dataset(filepath, "c") do root_grp
 
             # Fetch dimensionality
-            p = get_total_dimension(priors)
+            p = ndims(priors)
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)
