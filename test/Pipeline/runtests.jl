@@ -40,9 +40,9 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
 
     # Different configurations
     prior_means = [
-        Dict("entrainment_factor" => 0.15, "detrainment_factor" => 0.4),
+        Dict("entrainment_factor" => [0.15], "detrainment_factor" => [0.4]),
         nothing,
-        Dict("entrainment_factor" => 0.1, "detrainment_factor" => 0.2),
+        Dict("entrainment_factor" => [0.1], "detrainment_factor" => [0.2]),
     ]
     batch_sizes = [nothing, 1, nothing]
     augments = [true, true, false]
