@@ -1,5 +1,9 @@
 using JSON
 using Test
+
+import StaticArrays
+const SA = StaticArrays
+
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
 
@@ -83,7 +87,7 @@ end
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
         ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.0),
-        ("turbulence", "EDMF_PrognosticTKE", "stochastic", "detr_lognormal_var", 0.2),
+        ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
     )
 
     res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
@@ -94,7 +98,8 @@ end
     expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["entrainment_factor"] = 0.15
     expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["detrainment_factor"] = 0.52
     expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_adv_coeff"] = 0.0
-    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["stochastic"]["detr_lognormal_var"] = 0.2
+    expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["general_stochastic_ent_params"] =
+        SA.SVector(0.2, 0.2, 0.01, 0.02)
     expected_run_scm_namelist["thermodynamics"]["quadrature_type"] = "gaussian"
     expected_run_scm_namelist["grid"]["nz"] = 20
     expected_run_scm_namelist["grid"]["dz"] = 150.0
