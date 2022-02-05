@@ -8,7 +8,7 @@ using Glob
 using JSON
 using Random
 # EKP modules
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 # TurbulenceConvection.jl
 using TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))

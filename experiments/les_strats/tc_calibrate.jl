@@ -10,9 +10,9 @@
 @everywhere const src_dir = dirname(pathof(CalibrateEDMF))
 @everywhere include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
-@everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+@everywhere using EnsembleKalmanProcesses
 @everywhere using EnsembleKalmanProcesses.Observations
-@everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
+@everywhere using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 using NPZ
 

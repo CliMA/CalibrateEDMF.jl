@@ -8,8 +8,8 @@ using Glob
 using Random
 using JLD2
 # EKP modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
 using ..ModelTypes
 using ..LESUtils
@@ -434,7 +434,7 @@ function generate_tekp(
     to_file::Bool = true,
 ) where {FT <: AbstractFloat}
     # Augment system with prior
-    μ = vcat(get_mean(priors)...)
+    μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
     if isa(l2_reg, Float64) && l2_reg > 0.0
@@ -442,7 +442,7 @@ function generate_tekp(
     elseif isa(l2_reg, Matrix{Float64})
         Γ_θ = inv(l2_reg)
     else
-        Γ_θ = get_cov(priors)
+        Γ_θ = cov(priors)
     end
 
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
@@ -464,7 +464,7 @@ function generate_tekp(
     to_file::Bool = true,
 )
     # Augment system with prior
-    μ = vcat(get_mean(priors)...)
+    μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
     if isa(l2_reg, Float64) && l2_reg > 0.0
@@ -472,7 +472,7 @@ function generate_tekp(
     elseif isa(l2_reg, Matrix{Float64})
         Γ_θ = inv(l2_reg)
     else
-        Γ_θ = get_cov(priors)
+        Γ_θ = cov(priors)
     end
 
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]

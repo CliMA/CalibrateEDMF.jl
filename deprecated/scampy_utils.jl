@@ -9,7 +9,7 @@ using Glob
 using JSON
 using Random
 # EKP modules
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 

@@ -1,7 +1,7 @@
 using Test
 using Distributions
 using CalibrateEDMF.DistributionUtils
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 
 @testset "Priors" begin
     tmpdir = mktempdir()

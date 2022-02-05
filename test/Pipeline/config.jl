@@ -13,9 +13,8 @@ using CalibrateEDMF.TurbulenceConvectionUtils
 const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 
 # Cases defined as structs for quick access to default configs
