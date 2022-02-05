@@ -13,9 +13,9 @@ using CalibrateEDMF.NetCDFIO
 src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble!
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
 include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
 
@@ -57,7 +57,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
-    prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
+    prior_μ = get_entry(config["prior"], "prior_mean", nothing)
 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
@@ -105,16 +105,15 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         y_ref_type,
     )
 
-    if !isnothing(prior_μ_dict)
-        @assert collect(keys(params)) == collect(keys(prior_μ_dict))
-        prior_μ = collect(values(prior_μ_dict))
+    if !isnothing(prior_μ)
+        @assert collect(keys(params)) == collect(keys(prior_μ))
     else
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
     # parameters are sampled in unconstrained space
     if algo_name == "Inversion" || algo_name == "Sampler"
-        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
+        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(mean(priors)...), cov(priors))
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
             ekobj = generate_tekp(initial_params, ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
@@ -122,7 +121,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
             ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
         end
     elseif algo_name == "Unscented"
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 1)
+        algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
         if augmented
             ekobj = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
         else
@@ -627,7 +626,13 @@ function update_minibatch_inverse_problem(
         end
     elseif isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
-        algo = Unscented(process.u_mean[end], process.uu_cov[end], 1.0, 1, prior_mean = vcat(get_mean(priors)...))
+        algo = Unscented(
+            process.u_mean[end],
+            process.uu_cov[end],
+            α_reg = 1.0,
+            update_freq = 1,
+            prior_mean = vcat(mean(priors)...),
+        )
         if augmented
             ekp = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
         else

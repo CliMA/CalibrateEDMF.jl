@@ -8,9 +8,8 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
 tc = dirname(dirname(pathof(TurbulenceConvection)))
 include(joinpath(tc, "driver", "parameter_set.jl"))
@@ -40,9 +39,9 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
 
     # Different configurations
     prior_means = [
-        Dict("entrainment_factor" => 0.15, "detrainment_factor" => 0.4),
+        Dict("entrainment_factor" => [0.15], "detrainment_factor" => [0.4]),
         nothing,
-        Dict("entrainment_factor" => 0.1, "detrainment_factor" => 0.2),
+        Dict("entrainment_factor" => [0.1], "detrainment_factor" => [0.2]),
     ]
     batch_sizes = [nothing, 1, nothing]
     augments = [true, true, false]

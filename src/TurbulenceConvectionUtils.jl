@@ -6,8 +6,8 @@ using Random
 using ..ReferenceModels
 using ..ReferenceStats
 # EKP modules
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_initial_ensemble
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: construct_initial_ensemble
 using TurbulenceConvection
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
@@ -453,7 +453,7 @@ Outputs:
 """
 function precondition(
     param::Vector{FT},
-    priors,
+    priors::ParameterDistribution,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
     namelist_args = nothing;

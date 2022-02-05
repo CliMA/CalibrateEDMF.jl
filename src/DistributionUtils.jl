@@ -7,7 +7,7 @@ module DistributionUtils
 
 using Distributions
 using JLD2
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 
 export construct_priors, deserialize_prior
 export logmean_and_logstd, mean_and_std_from_ln
@@ -47,13 +47,13 @@ Output:
 function construct_priors(
     params::Dict{String, Vector{Constraint}};
     unconstrained_σ::Float64 = 1.0,
-    prior_mean::Union{Vector{Float64}, Nothing} = nothing,
+    prior_mean::Union{Dict{String, Vector{Float64}}, Nothing} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
 )
     # if parameter vectors found => flatten
     if any(1 .< [length(val) for val in collect(values(params))])
-        u_names, constraints = flatten_param_dict(params)
+        u_names, constraints = flatten_config_dict(params)
     else
         u_names = collect(keys(params))
         constraints = collect(values(params))
@@ -65,40 +65,47 @@ function construct_priors(
     if isnothing(prior_mean)
         distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
     else
+        if any(1 .< [length(val) for val in collect(values(prior_mean))])
+            u_names_mean, prior_mean = flatten_config_dict(prior_mean)
+            @assert u_names_mean == u_names
+        else
+            prior_mean = collect(values(prior_mean))
+        end
         @assert length(prior_mean) == n_param
-        uncons_prior_mean = [c[1].constrained_to_unconstrained(μ_cons) for (μ_cons, c) in zip(prior_mean, constraints)]
-        distributions = [Parameterized(Normal(uncons_μ, unconstrained_σ)) for uncons_μ in uncons_prior_mean]
+        uncons_prior_mean =
+            [c[1].constrained_to_unconstrained(μ_cons[1]) for (μ_cons, c) in zip(prior_mean, constraints)]
+        distributions = [Parameterized(Normal(uncons_μ[1], unconstrained_σ)) for uncons_μ in uncons_prior_mean]
     end
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
     return ParameterDistribution(distributions, constraints, u_names)
 end
 
 """
-    flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
+    flatten_config_dict(param_dict::Dict{String, Vector{T}})
 
-For parameter names that correspond to vectors, assign unique name to each vector component.
+For parameter names that correspond to vectors, assign a unique name to each vector component and treat as independent parameter.
 Inputs:
     param_dict :: Dictionary of parameter names to constraints.
 Outputs:
     u_names :: Vector{String} :: vector of parameter names
-    constraints :: Vector{Vector{Constraint}} :: vector of constraints
+    values :: Vector{Vector{T}} :: vector
 """
-function flatten_param_dict(param_dict::Dict{String, Vector{Constraint}})
+function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
 
     u_names = Vector{String}()
-    constraints = Vector{Vector{Constraint}}()
+    values = Vector{Vector{T}}()
     for (param, value) in param_dict
         if length(value) > 1
             for j in 1:length(value)
                 push!(u_names, "$(param)_{$j}")
-                push!(constraints, [value[j]])
+                push!(values, [value[j]])
             end
         else
             push!(u_names, param)
-            push!(constraints, value)
+            push!(values, value)
         end
     end
-    return (u_names, constraints)
+    return (u_names, values)
 end
 
 """
