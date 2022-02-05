@@ -15,8 +15,6 @@ src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.Observations
-using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 
 # Cases defined as structs for quick access to default configs
@@ -68,7 +66,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 4
-    config["N_ens"] = 5
+    config["N_ens"] = 10
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     # Artificial time stepper of the EKI.

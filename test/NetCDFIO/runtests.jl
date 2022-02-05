@@ -7,8 +7,9 @@ using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.NetCDFIO
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.NetCDFIO
+import CalibrateEDMF.NetCDFIO: open_files, close_files, write_iteration, init_iteration_io
 
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -66,10 +67,10 @@ using EnsembleKalmanProcesses.ParameterDistributions
     end
 
     # Test iteration-dependent diagnostics
-    init_iteration_io(diags)
-    open_files(diags)
-    write_iteration(diags)
-    close_files(diags)
+    CalibrateEDMF.NetCDFIO.init_iteration_io(diags)
+    CalibrateEDMF.NetCDFIO.open_files(diags)
+    CalibrateEDMF.NetCDFIO.write_iteration(diags)
+    CalibrateEDMF.NetCDFIO.close_files(diags)
     NC.Dataset(diags.filepath, "r") do root_grp
         ensemble_grp = root_grp.group["ensemble_diags"]
         @test length(ensemble_grp["iteration"]) == 2

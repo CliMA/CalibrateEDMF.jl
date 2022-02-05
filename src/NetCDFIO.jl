@@ -161,7 +161,7 @@ mutable struct NetCDFIO_Diags
     end
 end
 
-function open_files(diags)
+function open_files(diags::NetCDFIO_Diags)
     diags.root_grp = NC.Dataset(diags.filepath, "a")
     diags.ensemble_grp = diags.root_grp.group["ensemble_diags"]
     diags.particle_grp = diags.root_grp.group["particle_diags"]
