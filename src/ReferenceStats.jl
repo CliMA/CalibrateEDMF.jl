@@ -208,7 +208,7 @@ Outputs:
  - y_var_pca        :: Projection of y_var on principal subspace.
  - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
-function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
+function obs_PCA(y_mean::Vector{FT}, y_var::Matrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
     eig = eigen(y_var)
     eigvals, eigvecs = eig # eigvecs is matrix with eigvecs as cols
     # Get index of leading eigenvalues, eigvals are ordered from low to high in julia
@@ -225,27 +225,13 @@ function obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
 end
 
 
-function get_profile(m::ReferenceModel, sim_dir::String; z_scm::Union{Vector{Float64}, Nothing} = nothing)
-    get_profile(m, sim_dir, m.y_names, z_scm = z_scm)
-end
-
-
-function get_profile(
-    m::ReferenceModel,
-    sim_dir::String,
-    y_names::Vector{String};
-    z_scm::Union{Vector{Float64}, Nothing} = nothing,
-)
-    get_profile(sim_dir, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
-end
-
 """
     get_profile(
         sim_dir::String,
         var_names::Vector{String};
         ti::Real = 0.0,
         tf = nothing,
-        z_scm::Union{Vector{Float64}, Nothing} = nothing,
+        z_scm::Union{Vector{FT}, Nothing} = nothing,
     )
 
 Get profiles for variables var_names, interpolated to
@@ -264,8 +250,8 @@ function get_profile(
     var_names::Vector{String};
     ti::Real = 0.0,
     tf::Union{Real, Nothing} = nothing,
-    z_scm::Union{Vector{Float64}, Nothing} = nothing,
-)
+    z_scm::Union{Vector{T}, T} = nothing,
+) where {T}
 
     t = nc_fetch(sim_dir, "t")
     dt = length(t) > 1 ? mean(diff(t)) : 0.0
@@ -311,6 +297,20 @@ function get_profile(
     return y
 end
 
+function get_profile(m::ReferenceModel, sim_dir::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
+    get_profile(m, sim_dir, m.y_names, z_scm = z_scm)
+end
+
+
+function get_profile(
+    m::ReferenceModel,
+    sim_dir::String,
+    y_names::Vector{String};
+    z_scm::Union{Vector{T}, T} = nothing,
+) where {T}
+    get_profile(sim_dir, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
+end
+
 """
     get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
 
@@ -351,7 +351,7 @@ end
         algo;
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    ) where {FT <: AbstractFloat}
+    ) where {FT <: Real}
 
 Generates, and possible writes to file, an EnsembleKalmanProcess
 from a parameter ensemble and reference statistics.
@@ -372,7 +372,7 @@ function generate_ekp(
     algo;
     outdir_path::String = pwd(),
     to_file::Bool = true,
-) where {FT <: AbstractFloat}
+) where {FT <: Real}
     ekp = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
@@ -402,7 +402,7 @@ end
         l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    ) where {FT <: AbstractFloat}
+    ) where {FT <: Real}
 
 Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
 from a parameter ensemble and reference statistics.
@@ -432,15 +432,15 @@ function generate_tekp(
     l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
-) where {FT <: AbstractFloat}
+) where {FT <: Real}
     # Augment system with prior
     μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
-    if isa(l2_reg, Float64) && l2_reg > 0.0
-        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
-    elseif isa(l2_reg, Matrix{Float64})
+    if isa(l2_reg, Matrix{FT})
         Γ_θ = inv(l2_reg)
+    elseif !isnothing(l2_reg) && l2_reg > 0.0
+        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
     else
         Γ_θ = cov(priors)
     end
@@ -459,18 +459,18 @@ function generate_tekp(
     ref_stats::ReferenceStatistics,
     priors::ParameterDistribution,
     algo::Unscented;
-    l2_reg::Union{Float64, Matrix{Float64}, Nothing} = nothing,
+    l2_reg::Union{T, Matrix{T}} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
-)
+) where {T}
     # Augment system with prior
     μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
-    if isa(l2_reg, Float64) && l2_reg > 0.0
-        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
-    elseif isa(l2_reg, Matrix{Float64})
+    if isa(l2_reg, Matrix{T})
         Γ_θ = inv(l2_reg)
+    elseif !isnothing(l2_reg) && l2_reg > 0.0
+        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
     else
         Γ_θ = cov(priors)
     end

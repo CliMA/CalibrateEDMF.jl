@@ -11,12 +11,12 @@ using EnsembleKalmanProcesses.DataContainers
 import EnsembleKalmanProcesses: update_ensemble_prediction!, construct_mean, construct_cov
 
 """
-     split_indices_by_success(g::Array{FT, 2}) where {FT <: Real}
+     split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
 
 Returns the successful/failed particle indices given a matrix with output vectors stored as columns.
 Failures are defined for particles containing at least one NaN output element.
 """
-function split_indices_by_success(g::Array{FT, 2}) where {FT <: Real}
+function split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
     failed_ens = [i for i = 1:size(g, 2) if any(isnan.(g[:, i]))]
     successful_ens = filter(x -> !(x in failed_ens), collect(1:size(g, 2)))
     if length(failed_ens) > length(successful_ens)
@@ -40,10 +40,10 @@ end
 Returns the updated parameter vectors for the successful ensemble, ignoring failed particles.
 """
 function update_successful_ens(
-    u::Array{FT, 2},
-    g::Array{FT, 2},
-    y::Array{FT, 2},
-    obs_noise_cov::Matrix{FT},
+    u::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
+    y::AbstractMatrix{FT},
+    obs_noise_cov::Union{AbstractMatrix{FT}, UniformScaling{FT}},
 ) where {FT <: Real}
 
     cov_ug = cov(u, g, dims = 2, corrected = false) # [N_par × N_obs]
@@ -60,9 +60,20 @@ end
 
 Returns the updated parameter vectors for the failed ensemble, using a given failure handling method.
 """
-function update_failed_ens(u_old_fail::Array{FT, 2}, u_succ::Array{FT, 2}, failure_handler::String) where {FT <: Real}
+function update_failed_ens(
+    u_old_fail::AbstractMatrix{FT},
+    u_succ::AbstractMatrix{FT},
+    failure_handler::String,
+) where {FT <: Real}
     if failure_handler == "sample_succ_gauss"
         cov_u_new = cov(u_succ, u_succ, dims = 2)
+        if det(cov_u_new) < eps(FT)
+            @warn string(
+                "Sample covariance matrix over successful ensemble is singular.",
+                "\n Appplying variance inflation.",
+            )
+            cov_u_new = cov_u_new + (10 * eps(FT))^(1 / size(cov_u_new, 1)) * I
+        end
         mean_u_new = mean(u_succ, dims = 2)
         return rand(MvNormal(mean_u_new[:], cov_u_new), size(u_old_fail, 2))
     else
@@ -76,7 +87,7 @@ Updates the ensemble according to which type of Process we have. Model outputs `
 """
 function update_ensemble!(
     ekp::EnsembleKalmanProcess{FT, IT, Inversion},
-    g::Array{FT, 2};
+    g::AbstractMatrix{FT};
     cov_threshold::FT = 0.01,
     Δt_new = nothing,
     deterministic_forward_map = true,
@@ -159,8 +170,8 @@ end
 
 function update_ensemble_analysis!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    u_p::Matrix{FT},
-    g::Matrix{FT},
+    u_p::AbstractMatrix{FT},
+    g::AbstractMatrix{FT},
     failure_handler::Union{String, Nothing},
 ) where {FT <: AbstractFloat, IT <: Int}
 
@@ -215,8 +226,8 @@ Failsafe construct_mean `x_mean` from ensemble `x`.
 """
 function construct_failsafe_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Union{Matrix{FT}, Vector{FT}},
-    successful_indices::Union{Vector{IT}, Vector{Any}},
+    x::AbstractVecOrMat{FT},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     mean_weights = deepcopy(uki.process.mean_weights)
@@ -246,9 +257,9 @@ Failsafe construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_failsafe_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Union{Matrix{FT}, Vector{FT}},
-    x_mean::Union{Vector{FT}, FT},
-    successful_indices::Union{Vector{IT}, Vector{Any}},
+    x::AbstractVecOrMat{FT},
+    x_mean::Union{AbstractVector{FT}, FT},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     cov_weights = deepcopy(uki.process.cov_weights)
@@ -285,11 +296,11 @@ Failsafe construct_cov `xy_cov` from ensemble x and mean `x_mean`, ensemble `obs
 """
 function construct_failsafe_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Matrix{FT},
-    x_mean::Array{FT},
-    obs_mean::Matrix{FT},
-    y_mean::Array{FT},
-    successful_indices::Union{Vector{IT}, Vector{Any}},
+    x::AbstractMatrix{FT},
+    x_mean::AbstractArray{FT},
+    obs_mean::AbstractMatrix{FT},
+    y_mean::AbstractArray{FT},
+    successful_indices::Union{AbstractVector{IT}, AbstractVector{Any}},
 ) where {FT <: AbstractFloat, IT <: Int}
     N_ens, N_x, N_y = uki.N_ens, size(x_mean, 1), size(y_mean, 1)
 
@@ -314,7 +325,7 @@ end
 
 function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    g_in::Matrix{FT};
+    g_in::AbstractMatrix{FT};
     failure_handler::Union{String, Nothing} = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
@@ -339,7 +350,7 @@ construct_mean `x_mean` from ensemble `x`.
 """
 function construct_mean(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Vector{FT},
+    x::AbstractVector{FT},
 ) where {FT <: AbstractFloat, IT <: Int}
 
     @assert(uki.N_ens == length(x))
@@ -351,7 +362,7 @@ construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
 """
 function construct_cov(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::Vector{FT},
+    x::AbstractVector{FT},
     x_mean::FT,
 ) where {FT <: AbstractFloat, IT <: Int}
 
