@@ -8,7 +8,7 @@ using Statistics
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.DataContainers
-import EnsembleKalmanProcesses: update_ensemble_prediction!, construct_mean, construct_cov
+import EnsembleKalmanProcesses: update_ensemble_prediction!, construct_mean, construct_cov, set_Δt!
 
 """
      split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
@@ -191,14 +191,14 @@ function update_ensemble_analysis!(
     if length(failed_ens) == 0 || isnothing(failure_handler)
 
         g_mean = construct_mean(uki, g)
-        gg_cov = construct_cov(uki, g, g_mean) + Σ_ν
+        gg_cov = construct_cov(uki, g, g_mean) + Σ_ν / uki.Δt[end]
         ug_cov = construct_cov(uki, u_p, u_p_mean, g, g_mean)
 
         # Ignore failed particles and perform analysis using successful particles.
     elseif failure_handler == "sample_succ_gauss"
 
         g_mean = construct_failsafe_mean(uki, g, successful_ens)
-        gg_cov = construct_failsafe_cov(uki, g, g_mean, successful_ens) + Σ_ν
+        gg_cov = construct_failsafe_cov(uki, g, g_mean, successful_ens) + Σ_ν / uki.Δt[end]
         ug_cov = construct_failsafe_cov(uki, u_p, u_p_mean, g, g_mean, successful_ens)
         println("Particle failure(s) detected. Handler used: $failure_handler.")
 
@@ -327,6 +327,7 @@ function update_ensemble!(
     uki::EnsembleKalmanProcess{FT, IT, Unscented},
     g_in::AbstractMatrix{FT};
     failure_handler::Union{String, Nothing} = nothing,
+    Δt_new = nothing,
 ) where {FT <: AbstractFloat, IT <: Int}
     #catch works when g_in non-square 
     if !(size(g_in, 2) == uki.N_ens)
@@ -335,44 +336,14 @@ function update_ensemble!(
 
     u_p_old = get_u_final(uki)
 
+    set_Δt!(uki, Δt_new)
+
     #perform analysis on the model runs
     update_ensemble_analysis!(uki, u_p_old, g_in, failure_handler)
     #perform new prediction output to model parameters u_p
-    u_p = update_ensemble_prediction!(uki.process)
+    u_p = update_ensemble_prediction!(uki.process, uki.Δt[end])
 
     push!(uki.u, DataContainer(u_p, data_are_columns = true))
 
     return u_p
-end
-
-"""
-construct_mean `x_mean` from ensemble `x`.
-"""
-function construct_mean(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::AbstractVector{FT},
-) where {FT <: AbstractFloat, IT <: Int}
-
-    @assert(uki.N_ens == length(x))
-    return uki.process.mean_weights' * x
-end
-
-"""
-construct_cov `xx_cov` from ensemble `x` and mean `x_mean`.
-"""
-function construct_cov(
-    uki::EnsembleKalmanProcess{FT, IT, Unscented},
-    x::AbstractVector{FT},
-    x_mean::FT,
-) where {FT <: AbstractFloat, IT <: Int}
-
-    @assert(uki.N_ens == length(x))
-    cov_weights = uki.process.cov_weights
-    xx_cov = FT(0)
-
-    for i in 1:(uki.N_ens)
-        xx_cov += cov_weights[i] * (x[i] - x_mean) * (x[i] - x_mean)
-    end
-
-    return xx_cov
 end

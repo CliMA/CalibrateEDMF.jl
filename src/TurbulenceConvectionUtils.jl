@@ -9,6 +9,10 @@ using ..ReferenceStats
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
 using TurbulenceConvection
+tc = pkgdir(TurbulenceConvection)
+include(joinpath(tc, "driver", "main.jl"))
+include(joinpath(tc, "driver", "generate_namelist.jl"))
+
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export ModelEvaluator
@@ -305,11 +309,12 @@ function run_SCM_handler(
     # run TurbulenceConvection.jl with modified parameters
     try
         main(namelist)
-    catch
+    catch e
         model_error = true
         message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
+        @warn join(["This was caused by ", e])
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end
