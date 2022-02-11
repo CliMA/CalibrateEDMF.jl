@@ -115,9 +115,9 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(mean(priors)...), cov(priors))
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
-            ekobj = generate_tekp(initial_params, ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+            ekobj = generate_tekp(ref_stats, priors, algo, initial_params, outdir_path = outdir_path, l2_reg = l2_reg)
         else
-            ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+            ekobj = generate_ekp(ref_stats, algo, initial_params, outdir_path = outdir_path)
         end
     elseif algo_name == "Unscented"
         algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
@@ -612,15 +612,15 @@ function update_minibatch_inverse_problem(
     if isa(process, Inversion) || isa(process, Sampler)
         if augmented
             ekp = generate_tekp(
-                get_u_final(ekp_old),
                 ref_stats,
                 priors,
                 process,
+                get_u_final(ekp_old),
                 outdir_path = outdir_path,
                 l2_reg = l2_reg,
             )
         else
-            ekp = generate_ekp(get_u_final(ekp_old), ref_stats, process, outdir_path = outdir_path)
+            ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old), outdir_path = outdir_path)
         end
     elseif isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior

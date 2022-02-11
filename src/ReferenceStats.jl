@@ -7,6 +7,7 @@ using LinearAlgebra
 using JLD2
 # EKP modules
 using EnsembleKalmanProcesses
+import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler
 using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
 using ..ModelTypes
@@ -343,21 +344,21 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
 end
 
 """
-    generate_ekp(
-        u::Matrix{FT},
+    function generate_ekp(
         ref_stats::ReferenceStatistics,
-        algo;
+        process::Process,
+        u::Union{Matrix{T}, T} = nothing;
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    ) where {FT <: Real}
+    ) where {T}
 
 Generates, and possible writes to file, an EnsembleKalmanProcess
 from a parameter ensemble and reference statistics.
 
 Inputs:
- - u :: An ensemble of parameter vectors.
  - ref_stats :: ReferenceStatistics defining the inverse problem.
- - algo :: Type of EnsembleKalmanProcess algorithm used to evolve the ensemble.
+ - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
+ - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -365,26 +366,17 @@ Output:
  - The generated EnsembleKalmanProcess.
 """
 function generate_ekp(
-    u::Matrix{FT},
     ref_stats::ReferenceStatistics,
-    algo;
+    process::Process,
+    u::Union{Matrix{T}, T} = nothing;
     outdir_path::String = pwd(),
     to_file::Bool = true,
-) where {FT <: Real}
-    ekp = EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, algo)
-    if to_file
-        jldsave(ekobj_path(outdir_path, 1); ekp)
-    end
-    return ekp
-end
+) where {T}
 
-function generate_ekp(
-    ref_stats::ReferenceStatistics,
-    algo::Unscented;
-    outdir_path::String = pwd(),
-    to_file::Bool = true,
-)
-    ekp = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo)
+    @assert isa(process, Unscented) || !isnothing(u) "Incorrect EKP constructor."
+
+    ekp = isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process) :
+        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
@@ -392,15 +384,15 @@ function generate_ekp(
 end
 
 """
-    generate_tekp(
-        u::Matrix{FT},
+    function generate_tekp(
         ref_stats::ReferenceStatistics,
         priors::ParameterDistribution,
-        algo;
-        l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
+        process::Process,
+        u::Union{Matrix{T}, T} = nothing;
+        l2_reg::Union{AbstractMatrix{R}, R} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    ) where {FT <: Real}
+    ) where {T, R}
 
 Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
 from a parameter ensemble and reference statistics.
@@ -411,10 +403,10 @@ should be interpreted as the inverse of the variance of our prior belief in
 the magnitude of the parameters.
 
 Inputs:
- - u :: An ensemble of parameter vectors.
  - ref_stats :: ReferenceStatistics defining the inverse problem.
  - priors :: Parameter priors used for L2 (i.e., Tikhonov) regularization
- - algo :: Type of EnsembleKalmanProcess algorithm used to evolve the ensemble.
+ - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
+ - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
  - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
@@ -423,19 +415,22 @@ Output:
  - The generated augmented EnsembleKalmanProcess.
 """
 function generate_tekp(
-    u::Matrix{FT},
     ref_stats::ReferenceStatistics,
     priors::ParameterDistribution,
-    algo;
-    l2_reg::Union{FT, Matrix{FT}, Nothing} = nothing,
+    process::Process,
+    u::Union{Matrix{T}, T} = nothing;
+    l2_reg::Union{AbstractMatrix{R}, R} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
-) where {FT <: Real}
+) where {T, R}
+
+    @assert isa(process, Unscented) || !isnothing(u) "Incorrect TEKP constructor."
+
     # Augment system with prior
     μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
-    if isa(l2_reg, Matrix{FT})
+    if isa(l2_reg, AbstractMatrix)
         Γ_θ = inv(l2_reg)
     elseif !isnothing(l2_reg) && l2_reg > 0.0
         Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
@@ -446,37 +441,7 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    ekp = EnsembleKalmanProcess(u, y_aug, Γ_aug, algo)
-    if to_file
-        jldsave(ekobj_path(outdir_path, 1); ekp)
-    end
-    return ekp
-end
-
-function generate_tekp(
-    ref_stats::ReferenceStatistics,
-    priors::ParameterDistribution,
-    algo::Unscented;
-    l2_reg::Union{T, Matrix{T}} = nothing,
-    outdir_path::String = pwd(),
-    to_file::Bool = true,
-) where {T}
-    # Augment system with prior
-    μ = vcat(mean(priors)...)
-    y_aug = vcat([ref_stats.y, μ]...)
-
-    if isa(l2_reg, Matrix{T})
-        Γ_θ = inv(l2_reg)
-    elseif !isnothing(l2_reg) && l2_reg > 0.0
-        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
-    else
-        Γ_θ = cov(priors)
-    end
-
-    Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
-    Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
-
-    ekp = EnsembleKalmanProcess(y_aug, Γ_aug, algo)
+    ekp = isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process) : EnsembleKalmanProcess(u, y_aug, Γ_aug, process)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
