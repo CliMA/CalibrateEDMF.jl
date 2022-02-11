@@ -12,8 +12,8 @@ using CalibrateEDMF.NetCDFIO
 src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble!
 # Experimental fail-safe EKP update
 include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))

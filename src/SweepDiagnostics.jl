@@ -2,10 +2,10 @@ module Diagnostics
 
 using NCDatasets
 using Statistics
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_sigma_ensemble
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, construct_cov
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: construct_sigma_ensemble
+import EnsembleKalmanProcesses: construct_mean, construct_cov
 
 using ..ReferenceModels
 using ..ReferenceStats

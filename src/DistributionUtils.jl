@@ -7,7 +7,7 @@ module DistributionUtils
 
 using Distributions
 using JLD2
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses.ParameterDistributions
 
 export construct_priors, deserialize_prior
 export logmean_and_logstd, mean_and_std_from_ln

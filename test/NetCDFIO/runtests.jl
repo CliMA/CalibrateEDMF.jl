@@ -10,8 +10,8 @@ using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.NetCDFIO
 using CalibrateEDMF.TurbulenceConvectionUtils
 
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses
 
 @testset "NetCDFIO_Diags" begin
     # Choose same SCM to speed computation

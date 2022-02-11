@@ -6,9 +6,8 @@ using Random
 using Statistics
 
 using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributionStorage
-using EnsembleKalmanProcesses.DataStorage
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble_prediction!, construct_mean, construct_cov
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: update_ensemble_prediction!, construct_mean, construct_cov
 
 """
      split_indices_by_success(g::Array{FT, 2}) where {FT <: Real}

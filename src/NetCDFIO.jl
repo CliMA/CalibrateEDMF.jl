@@ -2,8 +2,8 @@ module NetCDFIO
 
 using NCDatasets
 using Statistics
-using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-using EnsembleKalmanProcesses.ParameterDistributionStorage
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 
 using ..ReferenceModels
 using ..ReferenceStats
