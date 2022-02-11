@@ -23,6 +23,7 @@ function io_dictionary_reference()
     io_dict = Dict(
         "Gamma" => (; dims = ("out", "out"), group = "reference", type = Float64),
         "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference", type = Float64),
+        "Gamma_full_diag" => (; dims = ("out_full",), group = "reference", type = Float64),
         "y" => (; dims = ("out",), group = "reference", type = Float64),
         "y_full" => (; dims = ("out_full",), group = "reference", type = Float64),
         "P_pca" => (; dims = ("out_full", "out"), group = "reference", type = Float64),
@@ -62,6 +63,7 @@ function io_dictionary_reference(
     end
     io_dict = Dict(
         "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
+        "Gamma_full_diag" => Base.setindex(orig_dict["Gamma_full_diag"], Array(diag(ref_stats.Γ_full)), :field),
         "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
         "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
         "P_pca" => Base.setindex(orig_dict["P_pca"], P_pca_full, :field),
@@ -84,6 +86,7 @@ function io_dictionary_val_reference()
     io_dict = Dict(
         "Gamma_val" => (; dims = ("out_val", "out_val"), group = "reference", type = Float64),
         "Gamma_full_val" => (; dims = ("out_full_val", "out_full_val"), group = "reference", type = Float64),
+        "Gamma_full_diag_val" => (; dims = ("out_full_val",), group = "reference", type = Float64),
         "y_val" => (; dims = ("out_val",), group = "reference", type = Float64),
         "y_full_val" => (; dims = ("out_full_val",), group = "reference", type = Float64),
         "P_pca_val" => (; dims = ("out_full_val", "out_val"), group = "reference", type = Float64),
@@ -123,6 +126,7 @@ function io_dictionary_val_reference(
     end
     io_dict = Dict(
         "Gamma_val" => Base.setindex(orig_dict["Gamma_val"], ref_stats.Γ, :field),
+        "Gamma_full_diag_val" => Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
         "y_val" => Base.setindex(orig_dict["y_val"], ref_stats.y, :field),
         "y_full_val" => Base.setindex(orig_dict["y_full_val"], ref_stats.y_full, :field),
         "P_pca_val" => Base.setindex(orig_dict["P_pca_val"], P_pca_full, :field),
@@ -326,9 +330,10 @@ Elements:
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(
-        "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags", type = Float64),
-        "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags", type = Float64),
+        "g" => (; dims = ("particle", "out_aug", "iteration"), group = "particle_diags", type = Float64),
+        "g_full" => (; dims = ("particle", "out_full_batch", "iteration"), group = "particle_diags", type = Float64),
         "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
+        "batch_indices" => (; dims = ("batch_index", "iteration"), group = "particle_diags", type = Int16),
     )
     return io_dict
 end
@@ -337,41 +342,47 @@ function io_dictionary_particle_eval(
     g_full::Matrix{FT},
     mse_full::Vector{FT},
     d::IT,
+    batch_indices::Vector{IT},
 ) where {FT <: Real, IT <: Integer}
     orig_dict = io_dictionary_particle_eval()
+
+    g_aug = get_g_final(ekp)
+    d_batch, N_ens = size(g_aug)
+    # Fill "g" array with zeros and modify leading rows with possibly batched `g`
+    g_filled = zeros(d, N_ens)
+    g_filled[1:d_batch, :] = g_aug
     io_dict = Dict(
-        "g" => Base.setindex(orig_dict["g"], get_g_final(ekp)'[:, 1:d], :field),
+        "g" => Base.setindex(orig_dict["g"], g_filled', :field), # Avoid params in augmented state
         "g_full" => Base.setindex(orig_dict["g_full"], g_full', :field),
         "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
+        "batch_indices" => Base.setindex(orig_dict["batch_indices"], batch_indices, :field),
     )
-    return io_dict
-end
-function io_dictionary_particle_eval(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
-    orig_dict = io_dictionary_particle_eval()
-    io_dict = Dict("mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field))
     return io_dict
 end
 
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => (; dims = ("particle", "out_val", "iteration"), group = "particle_diags", type = Float64),
-        "val_g_full" => (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
+        "val_g_full" =>
+            (; dims = ("particle", "out_full_batch_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
+        "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
     )
     return io_dict
 end
-function io_dictionary_val_particle_eval(g::Matrix{FT}, g_full::Matrix{FT}, mse_full::Vector{FT}) where {FT <: Real}
+function io_dictionary_val_particle_eval(
+    g::Matrix{FT},
+    g_full::Matrix{FT},
+    mse_full::Vector{FT},
+    batch_indices::Vector{IT},
+) where {FT <: Real, IT <: Integer}
     orig_dict = io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => Base.setindex(orig_dict["val_g"], g', :field),
         "val_g_full" => Base.setindex(orig_dict["val_g_full"], g_full', :field),
         "val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field),
+        "val_batch_indices" => Base.setindex(orig_dict["val_batch_indices"], batch_indices, :field),
     )
-    return io_dict
-end
-function io_dictionary_val_particle_eval(mse_full::Vector{FT}) where {FT <: Real}
-    orig_dict = io_dictionary_val_particle_eval()
-    io_dict = Dict("val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field))
     return io_dict
 end
 
