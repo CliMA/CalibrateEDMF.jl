@@ -54,7 +54,7 @@ mutable struct NetCDFIO_Diags
         NC.Dataset(filepath, "c") do root_grp
 
             # Fetch dimensionality
-            p = get_total_dimension(priors)
+            p = ndims(priors)
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
             C = length(ref_stats.pca_vec)

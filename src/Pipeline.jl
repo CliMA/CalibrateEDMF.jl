@@ -14,7 +14,7 @@ include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: update_ensemble!
+import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
 include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
 

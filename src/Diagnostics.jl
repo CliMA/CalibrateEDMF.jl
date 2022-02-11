@@ -5,8 +5,8 @@ using Statistics
 using LinearAlgebra
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_sigma_ensemble
-import EnsembleKalmanProcesses.EnsembleKalmanProcessModule: construct_mean, construct_cov
+import EnsembleKalmanProcesses: construct_sigma_ensemble
+import EnsembleKalmanProcesses: construct_mean, construct_cov
 include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
 
 using ..ReferenceModels
