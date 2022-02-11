@@ -4,8 +4,6 @@ using SparseArrays
 using Statistics
 using Interpolations
 using LinearAlgebra
-using Glob
-using Random
 using JLD2
 # EKP modules
 using EnsembleKalmanProcesses
@@ -119,7 +117,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
 
         # Scale by number of dimensions (averaging loss per dimension)
-        Γ_vec = dim_scaling ? map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
+        Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
         # Construct global observational covariance matrix, PCA
         Γ = cat(Γ_vec..., dims = (1, 2))
         # Condition global covariance matrix, PCA

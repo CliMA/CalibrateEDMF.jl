@@ -10,14 +10,14 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.NetCDFIO
-src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
+cedmf = pkgdir(CalibrateEDMF)
+include(joinpath(cedmf, "src", "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
-include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
+include(joinpath(cedmf, "ekp_experimental", "failsafe_inversion.jl"))
 
 export init_calibration, ek_update, versioned_model_eval
 
@@ -66,8 +66,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Dimensionality
     n_param = sum(map(length, collect(values(params))))
     if algo_name == "Unscented"
-        N_ens = 2 * n_param + 1
-        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
+        @assert N_ens == 2 * n_param + 1 "Number of ensemble members must be 2p + 1 in Unscented Kalman Inversion."
     end
 
     # Minibatch mode
@@ -406,19 +405,18 @@ function ek_update(
     else
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
     end
-    # Scale artificial timestep by batch size
-    Δt_scaled = Δt / length(ref_models)
+
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     if isa(ekobj.process, Inversion)
         update_ensemble!(
             ekobj,
             g,
-            Δt_new = Δt_scaled,
+            Δt_new = Δt,
             deterministic_forward_map = deterministic_forward_map,
             failure_handler = failure_handler,
         )
     elseif isa(ekobj.process, Unscented)
-        update_ensemble!(ekobj, g, failure_handler = failure_handler)
+        update_ensemble!(ekobj, g, Δt_new = Δt, failure_handler = failure_handler)
     else
         update_ensemble!(ekobj, g)
     end

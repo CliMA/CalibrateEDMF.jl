@@ -7,14 +7,6 @@ using LinearAlgebra
 using Glob
 using JSON
 using Random
-# EKP modules
-using EnsembleKalmanProcesses.ParameterDistributions
-# TurbulenceConvection.jl
-using TurbulenceConvection
-tc = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc, "driver", "main.jl"))
-include(joinpath(tc, "driver", "generate_namelist.jl"))
-include(joinpath(tc, "src", "name_aliases.jl"))
 
 """
     vertical_interpolation(
