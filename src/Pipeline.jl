@@ -66,8 +66,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Dimensionality
     n_param = sum(map(length, collect(values(params))))
     if algo_name == "Unscented"
-        N_ens = 2 * n_param + 1
-        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
+        @assert N_ens == 2 * n_param + 1 "Number of ensemble members must be 2p + 1 in Unscented Kalman Inversion."
     end
 
     # Minibatch mode
