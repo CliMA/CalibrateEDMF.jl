@@ -373,6 +373,7 @@ assigned numerical version.
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
     outdir_path::String = pwd(),
+    batch_indices::Union{Vector{Int}, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
     # Generate versions conditioned on being unique within the batch.
     used_versions = Vector{Int}()
@@ -381,7 +382,7 @@ function generate_scm_input(
         while version in used_versions
             version = rand(11111:99999)
         end
-        jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
+        jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
         push!(used_versions, version)
     end
     return used_versions
