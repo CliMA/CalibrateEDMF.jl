@@ -40,6 +40,7 @@ ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 # Preconditioning ensemble methods in unconstrained space
 if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
     model_evaluator = precondition(scm_args["model_evaluator"], priors, namelist_args = namelist_args)
+    batch_indices = scm_args["batch_indices"]
     rm(scm_init_path(outdir_path, version))
-    jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
+    jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
 end
