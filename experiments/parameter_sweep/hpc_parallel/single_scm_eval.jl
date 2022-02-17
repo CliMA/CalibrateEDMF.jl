@@ -29,5 +29,4 @@ include(joinpath(outdir_path, "config.jl"))
 
 config = get_config()
 version = parsed_args["version"]
-mode = parsed_args["mode"]
-versioned_model_eval(version, outdir_path, mode, config)
+versioned_model_eval(version, outdir_path, config)

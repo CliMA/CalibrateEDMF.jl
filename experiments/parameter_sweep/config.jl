@@ -66,6 +66,7 @@ function get_process_config()
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
+    config["failure_handler"] = "sample_succ_gauss"
     return config
 end
 
