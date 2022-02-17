@@ -330,7 +330,6 @@ function get_entry(dict, key, default)
     try
         return dict[key]
     catch e
-        @info(dict)
         @warn "Key $key not found in dictionary. Returning default value."
         get(dict, key, default)
     end

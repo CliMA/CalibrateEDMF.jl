@@ -30,4 +30,5 @@ julia --project -e 'using Pkg; Pkg.precompile()'
 id_init_ens=$(sbatch --parsable -A esm init.sbatch $config $job_id)
 # Parallel runs of forward model
 id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_init_ens --array=1-$n single_scm_eval.sbatch $job_id)
+id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n step_sweep.sbatch $job_id)
 

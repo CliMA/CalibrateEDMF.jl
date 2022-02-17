@@ -47,5 +47,5 @@ for iteration in 1:N_iter
     ekp = load(ekobj_path(outdir_path, iteration))["ekp"]
     pmap(scm_eval_train, versions)
     pmap(scm_eval_validation, versions)
-    ek_update(ekp, priors, iteration, config, versions, outdir_path)
+    write_sweep_diagnostics(priors, versions, outdir_path)
 end

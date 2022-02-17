@@ -29,4 +29,4 @@ include(joinpath(outdir_path, "config.jl"))
 
 versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
-ek_update(priors, versions, outdir_path)
+write_sweep_diagnostics(priors, versions, outdir_path)
