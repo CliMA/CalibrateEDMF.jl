@@ -103,6 +103,7 @@ function versioned_model_eval_parallel(
     scm_args = load(input_path)
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     model_evaluator = scm_args["model_evaluator"]
+    batch_indices = scm_args["batch_indices"]
     # Eval
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
 
@@ -110,6 +111,6 @@ function versioned_model_eval_parallel(
         run_SCM_parallel(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
 
     # Store output and delete input
-    jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+    jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)
     rm(input_path)
 end

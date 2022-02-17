@@ -1,6 +1,8 @@
 status = [
+  "format",
+  "docbuild",
   "ci 1.7.0 - ubuntu-latest",
-  "ci 1.7.0 - windows-latest",
+  # "ci 1.7.0 - windows-latest",
   "ci 1.7.0 - macOS-latest",
 ]
 delete_merged_branches = true

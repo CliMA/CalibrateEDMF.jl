@@ -3,15 +3,16 @@ using LinearAlgebra
 using NCDatasets
 using Random
 const NC = NCDatasets
+using CalibrateEDMF
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.NetCDFIO
 using CalibrateEDMF.TurbulenceConvectionUtils
-
-using EnsembleKalmanProcesses.ParameterDistributions
+using CalibrateEDMF.NetCDFIO
+const CN = CalibrateEDMF.NetCDFIO
 using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
 
 @testset "NetCDFIO_Diags" begin
     # Choose same SCM to speed computation
@@ -66,10 +67,10 @@ using EnsembleKalmanProcesses
     end
 
     # Test iteration-dependent diagnostics
-    init_iteration_io(diags)
-    open_files(diags)
-    write_iteration(diags)
-    close_files(diags)
+    CN.init_iteration_io(diags)
+    CN.open_files(diags)
+    CN.write_iteration(diags)
+    CN.close_files(diags)
     NC.Dataset(diags.filepath, "r") do root_grp
         ensemble_grp = root_grp.group["ensemble_diags"]
         @test length(ensemble_grp["iteration"]) == 2

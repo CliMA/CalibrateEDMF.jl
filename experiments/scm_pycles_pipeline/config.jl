@@ -5,17 +5,9 @@ using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
 using CalibrateEDMF.ModelTypes
-using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
-using CalibrateEDMF.ModelTypes
-src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
-# Import EKP modules
-using EnsembleKalmanProcesses
-#using EnsembleKalmanProcesses.Observations
+# Import prior constraints
 using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 
@@ -56,7 +48,7 @@ function get_regularization_config()
     config["normalize"] = true  # whether to normalize data by pooled variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 1.0e-4 # Tikhonov regularization
-    config["dim_scaling"] = false # Dimensional scaling of the loss
+    config["dim_scaling"] = true # Dimensional scaling of the loss
 
     # Parameter regularization: L2 regularization with respect to prior mean
     # Set to `nothing` or `0.0` to use prior covariance as regularizer.
@@ -68,7 +60,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 4
-    config["N_ens"] = 5
+    config["N_ens"] = 10
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     # Artificial time stepper of the EKI.
@@ -126,7 +118,8 @@ end
 function get_prior_config()
     config = Dict()
     config["constraints"] =
-        Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.0, 0.5)])
+        Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.3, 0.8)])
+    config["prior_mean"] = Dict("entrainment_factor" => [0.13], "detrainment_factor" => [0.51])
     config["unconstrained_σ"] = 0.5
     return config
 end

@@ -1,6 +1,5 @@
 module ReferenceModels
 
-using NCDatasets
 using JLD2
 include("helper_funcs.jl")
 
@@ -272,11 +271,12 @@ Inputs:
  - batch_size      :: The number of `ReferenceModel`s to retrieve.
 Outputs:
  - A vector of `ReferenceModel`s.
+ - The indices of the returned `ReferenceModel`s.
 """
 function get_minibatch!(ref_model_batch::ReferenceModelBatch, batch_size::Int)
     batch = min(batch_size, length(ref_model_batch.eval_order))
     indices = [pop!(ref_model_batch.eval_order) for i in 1:batch]
-    return ref_model_batch.ref_models[indices]
+    return ref_model_batch.ref_models[indices], indices
 end
 
 "Restarts a shuffled evaluation order if the current epoch has finished."

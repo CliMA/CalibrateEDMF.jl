@@ -2,6 +2,7 @@ module Pipeline
 
 using Random
 using JLD2
+import Dates
 
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
@@ -9,14 +10,14 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.NetCDFIO
-src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
+cedmf = pkgdir(CalibrateEDMF)
+include(joinpath(cedmf, "src", "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
-include(joinpath(dirname(src_dir), "ekp_experimental", "failsafe_inversion.jl"))
+include(joinpath(cedmf, "ekp_experimental", "failsafe_inversion.jl"))
 
 export init_calibration, ek_update, versioned_model_eval
 
@@ -56,7 +57,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
-    prior_μ_dict = get_entry(config["prior"], "prior_mean", nothing)
+    prior_μ = get_entry(config["prior"], "prior_mean", nothing)
 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
@@ -65,8 +66,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Dimensionality
     n_param = sum(map(length, collect(values(params))))
     if algo_name == "Unscented"
-        N_ens = 2 * n_param + 1
-        @warn "Number of ensemble members overwritten to 2p + 1 for Unscented Kalman Inversion."
+        @assert N_ens == 2 * n_param + 1 "Number of ensemble members must be 2p + 1 in Unscented Kalman Inversion."
     end
 
     # Minibatch mode
@@ -76,7 +76,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         # Create input scm stats and namelist file if files don't already exist
         run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
-        ref_models = get_minibatch!(ref_model_batch, batch_size)
+        ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         # Generate global reference statistics for diagnostics
@@ -89,6 +89,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
         io_ref_stats = ref_stats
         io_ref_models = ref_models
+        batch_indices = nothing
     end
 
     outdir_path = create_output_dir(
@@ -104,24 +105,23 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         y_ref_type,
     )
 
-    if !isnothing(prior_μ_dict)
-        @assert collect(keys(params)) == collect(keys(prior_μ_dict))
-        prior_μ = collect(values(prior_μ_dict))
+    if !isnothing(prior_μ)
+        @assert collect(keys(params)) == collect(keys(prior_μ))
     else
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
     # parameters are sampled in unconstrained space
     if algo_name == "Inversion" || algo_name == "Sampler"
-        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(get_mean(priors)...), get_cov(priors))
+        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(mean(priors)...), cov(priors))
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
-            ekobj = generate_tekp(initial_params, ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+            ekobj = generate_tekp(ref_stats, priors, algo, initial_params, outdir_path = outdir_path, l2_reg = l2_reg)
         else
-            ekobj = generate_ekp(initial_params, ref_stats, algo, outdir_path = outdir_path)
+            ekobj = generate_ekp(ref_stats, algo, initial_params, outdir_path = outdir_path)
         end
     elseif algo_name == "Unscented"
-        algo = Unscented(vcat(get_mean(priors)...), get_cov(priors), 1.0, 1)
+        algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
         if augmented
             ekobj = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
         else
@@ -132,7 +132,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path)
+    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
     # Store ReferenceModelBatch
@@ -154,17 +154,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     )
 
     # Diagnostics IO
-    init_diagnostics(
-        config,
-        outdir_path,
-        io_ref_models,
-        io_ref_stats,
-        ekobj,
-        priors,
-        val_ref_models,
-        val_ref_stats,
-        !isnothing(val_config),
-    )
+    init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
@@ -239,9 +229,11 @@ function create_output_dir(
 ) where {FT <: Real, IT <: Integer}
     # Output path
     d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
+    now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM")
+    suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(rand(11111:99999))",
+        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
@@ -271,19 +263,20 @@ function init_validation(
         @info "Validation using mini-batches."
         ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
         run_reference_SCM.(ref_model_batch.ref_models, overwrite = overwrite, namelist_args = namelist_args)
-        ref_models = get_minibatch!(ref_model_batch, batch_size)
+        ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         write_val_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
     else
         ref_models = construct_reference_models(kwargs_ref_model)
         run_reference_SCM.(ref_models, overwrite = overwrite, namelist_args = namelist_args)
+        batch_indices = nothing
     end
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     [
-        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version)
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
         for (model_evaluator, version) in zip(mod_evaluators, versions)
     ]
     return ref_models, ref_stats
@@ -326,7 +319,7 @@ function update_validation(
 
     if !isnothing(batch_size)
         ref_model_batch = load(joinpath(outdir_path, "val_ref_model_batch.jld2"))["ref_model_batch"]
-        ref_models = get_minibatch!(ref_model_batch, batch_size)
+        ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
@@ -336,6 +329,7 @@ function update_validation(
         mod_evaluator = load(scm_val_output_path(outdir_path, versions[1]))["model_evaluator"]
         ref_models = mod_evaluator.ref_models
         ref_stats = mod_evaluator.ref_stats
+        batch_indices = nothing
     end
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp_old))
     params = [c[:] for c in eachcol(params_cons_i)]
@@ -343,7 +337,7 @@ function update_validation(
     # Save new ModelEvaluators using the new versions
     versions = readlines(joinpath(outdir_path, "versions_$(iteration + 1).txt"))
     [
-        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version)
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
         for (model_evaluator, version) in zip(mod_evaluators, versions)
     ]
     return
@@ -394,7 +388,9 @@ function ek_update(
 
     val_config = get(config, "validation", nothing)
 
-    mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
+    scm_args = load(scm_output_path(outdir_path, versions[1]))
+    mod_evaluator = scm_args["model_evaluator"]
+    batch_indices = scm_args["batch_indices"]
     ref_stats = mod_evaluator.ref_stats
     ref_models = mod_evaluator.ref_models
 
@@ -404,31 +400,30 @@ function ek_update(
     else
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
     end
-    # Scale artificial timestep by batch size
-    Δt_scaled = Δt / length(ref_models)
+
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     if isa(ekobj.process, Inversion)
         update_ensemble!(
             ekobj,
             g,
-            Δt_new = Δt_scaled,
+            Δt_new = Δt,
             deterministic_forward_map = deterministic_forward_map,
             failure_handler = failure_handler,
         )
     elseif isa(ekobj.process, Unscented)
-        update_ensemble!(ekobj, g, failure_handler = failure_handler)
+        update_ensemble!(ekobj, g, Δt_new = Δt, failure_handler = failure_handler)
     else
         update_ensemble!(ekobj, g)
     end
 
     # Diagnostics IO
-    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, batch_size, versions, val_config)
+    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, versions, val_config, batch_indices)
 
     if iteration < N_iter
         # Prepare updated EKP and ReferenceModelBatch if minibatching.
         if !isnothing(batch_size)
             ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
-            ekp, ref_models, ref_stats, ref_model_batch =
+            ekp, ref_models, ref_stats, ref_model_batch, batch_indices =
                 update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
             rm(joinpath(outdir_path, "ref_model_batch.jld2"))
             write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
@@ -438,7 +433,7 @@ function ek_update(
 
         # Write to file new EKP and ModelEvaluators
         jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
-        write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration)
+        write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration, batch_indices)
 
         # Update validation ModelEvaluators
         if !isnothing(val_config)
@@ -553,11 +548,12 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     # Check consistent failure method for given algorithm
     @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] != "Sampler" : true
     model_evaluator = scm_args["model_evaluator"]
+    batch_indices = scm_args["batch_indices"]
     # Eval
     sim_dirs, g_scm, g_scm_pca =
         run_SCM(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
     # Store output and delete input
-    jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+    jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)
     rm(input_path)
 end
 
@@ -596,7 +592,7 @@ function update_minibatch_inverse_problem(
 )
     # Construct new reference minibatch, new ref_stats, and new ekp
     ref_model_batch = deepcopy(rm_batch)
-    ref_models = get_minibatch!(ref_model_batch, batch_size)
+    ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
     ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
 
     ref_config = config["reference"]
@@ -612,19 +608,25 @@ function update_minibatch_inverse_problem(
     if isa(process, Inversion) || isa(process, Sampler)
         if augmented
             ekp = generate_tekp(
-                get_u_final(ekp_old),
                 ref_stats,
                 priors,
                 process,
+                get_u_final(ekp_old),
                 outdir_path = outdir_path,
                 l2_reg = l2_reg,
             )
         else
-            ekp = generate_ekp(get_u_final(ekp_old), ref_stats, process, outdir_path = outdir_path)
+            ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old), outdir_path = outdir_path)
         end
     elseif isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
-        algo = Unscented(process.u_mean[end], process.uu_cov[end], 1.0, 1, prior_mean = vcat(get_mean(priors)...))
+        algo = Unscented(
+            process.u_mean[end],
+            process.uu_cov[end],
+            α_reg = 1.0,
+            update_freq = 1,
+            prior_mean = vcat(mean(priors)...),
+        )
         if augmented
             ekp = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
         else
@@ -633,7 +635,7 @@ function update_minibatch_inverse_problem(
     else
         throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
     end
-    return ekp, ref_models, ref_stats, ref_model_batch
+    return ekp, ref_models, ref_stats, ref_model_batch, batch_indices
 end
 
 """
@@ -663,11 +665,12 @@ function write_model_evaluators(
     ref_stats::ReferenceStatistics,
     outdir_path::String,
     iteration::Int,
+    batch_indices::Union{Vector{Int}, Nothing} = nothing,
 )
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path)
+    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
     return
@@ -699,9 +702,8 @@ function init_diagnostics(
     ref_stats::ReferenceStatistics,
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
-    val_ref_models::Union{Vector{ReferenceModel}, Nothing},
-    val_ref_stats::Union{ReferenceStatistics, Nothing},
-    validation::Bool = false,
+    val_ref_models::Union{Vector{ReferenceModel}, Nothing} = nothing,
+    val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     N_ens = size(get_u_final(ekp), 2)
@@ -714,7 +716,7 @@ function init_diagnostics(
     init_metrics(diags)
     init_ensemble_diags(diags, ekp, priors)
     init_particle_diags(diags, ekp, priors)
-    if validation
+    if !isnothing(val_ref_models)
         write_full_stats = get_entry(config["validation"], "write_full_stats", true)
         init_val_diagnostics(diags, val_ref_stats, val_ref_models, write_full_stats)
     end
@@ -732,9 +734,9 @@ and the next iteration state (i.e., parameters and parameter metrics) to a diagn
     - priors:: Prior distributions of the parameters.
     - ref_stats :: ReferenceStatistics.
     - g_full :: The forward model evaluation in primitive space.
-    - batch_size :: The number of evaluations per minibatch, if minibatching.
     - versions :: Version identifiers of the forward model evaluations at the current iteration.
     - val_config :: The validation configuration, if given.
+    - batch_indices :: The indices of the ReferenceModels used in the current batch.
 """
 function update_diagnostics(
     outdir_path::String,
@@ -742,41 +744,35 @@ function update_diagnostics(
     priors::ParameterDistribution,
     ref_stats::ReferenceStatistics,
     g_full::Array{FT, 2},
-    batch_size::Union{Int, Nothing},
     versions::Union{Vector{Int}, Vector{String}},
     val_config::Union{Dict{Any, Any}, Nothing} = nothing,
+    batch_indices::Union{Vector{Int}, Nothing} = nothing,
 ) where {FT <: Real}
 
     if !isnothing(val_config)
-        update_val_diagnostics(outdir_path, ekp, versions, val_config)
+        update_val_diagnostics(outdir_path, ekp, versions)
     end
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-    if isnothing(batch_size)
-        io_diagnostics(diags, ekp, priors, mse_full, g_full)
-    else
-        io_diagnostics(diags, ekp, priors, mse_full)
-    end
+
+    io_diagnostics(diags, ekp, priors, mse_full, g_full, batch_indices)
 end
 
 function update_val_diagnostics(
     outdir_path::String,
     ekp::EnsembleKalmanProcess,
     versions::Union{Vector{Int}, Vector{String}},
-    val_config::Dict{Any, Any},
 ) where {FT <: Real}
-    batch_size = get_entry(val_config, "batch_size", nothing)
-    mod_evaluator = load(scm_val_output_path(outdir_path, versions[1]))["model_evaluator"]
+    scm_args = load(scm_val_output_path(outdir_path, versions[1]))
+    mod_evaluator = scm_args["model_evaluator"]
+    val_batch_indices = scm_args["batch_indices"]
     ref_stats = mod_evaluator.ref_stats
     g, g_full = get_ensemble_g_eval(outdir_path, versions, validation = true)
     # Compute diagnostics
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-    if isnothing(batch_size)
-        io_val_diagnostics(diags, ekp, mse_full, g, g_full)
-    else
-        io_val_diagnostics(diags, ekp, mse_full)
-    end
+
+    io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_batch_indices)
 end
 
 end # module

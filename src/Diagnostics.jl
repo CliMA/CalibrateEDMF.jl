@@ -5,8 +5,7 @@ using Statistics
 using LinearAlgebra
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: construct_sigma_ensemble
-import EnsembleKalmanProcesses: construct_mean, construct_cov
+import EnsembleKalmanProcesses: construct_sigma_ensemble, construct_mean, construct_cov
 include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
 
 using ..ReferenceModels
@@ -24,6 +23,7 @@ function io_dictionary_reference()
     io_dict = Dict(
         "Gamma" => (; dims = ("out", "out"), group = "reference", type = Float64),
         "Gamma_full" => (; dims = ("out_full", "out_full"), group = "reference", type = Float64),
+        "Gamma_full_diag" => (; dims = ("out_full",), group = "reference", type = Float64),
         "y" => (; dims = ("out",), group = "reference", type = Float64),
         "y_full" => (; dims = ("out_full",), group = "reference", type = Float64),
         "P_pca" => (; dims = ("out_full", "out"), group = "reference", type = Float64),
@@ -63,6 +63,7 @@ function io_dictionary_reference(
     end
     io_dict = Dict(
         "Gamma" => Base.setindex(orig_dict["Gamma"], ref_stats.Γ, :field),
+        "Gamma_full_diag" => Base.setindex(orig_dict["Gamma_full_diag"], Array(diag(ref_stats.Γ_full)), :field),
         "y" => Base.setindex(orig_dict["y"], ref_stats.y, :field),
         "y_full" => Base.setindex(orig_dict["y_full"], ref_stats.y_full, :field),
         "P_pca" => Base.setindex(orig_dict["P_pca"], P_pca_full, :field),
@@ -85,6 +86,7 @@ function io_dictionary_val_reference()
     io_dict = Dict(
         "Gamma_val" => (; dims = ("out_val", "out_val"), group = "reference", type = Float64),
         "Gamma_full_val" => (; dims = ("out_full_val", "out_full_val"), group = "reference", type = Float64),
+        "Gamma_full_diag_val" => (; dims = ("out_full_val",), group = "reference", type = Float64),
         "y_val" => (; dims = ("out_val",), group = "reference", type = Float64),
         "y_full_val" => (; dims = ("out_full_val",), group = "reference", type = Float64),
         "P_pca_val" => (; dims = ("out_full_val", "out_val"), group = "reference", type = Float64),
@@ -124,6 +126,7 @@ function io_dictionary_val_reference(
     end
     io_dict = Dict(
         "Gamma_val" => Base.setindex(orig_dict["Gamma_val"], ref_stats.Γ, :field),
+        "Gamma_full_diag_val" => Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
         "y_val" => Base.setindex(orig_dict["y_val"], ref_stats.y, :field),
         "y_full_val" => Base.setindex(orig_dict["y_full_val"], ref_stats.y_full, :field),
         "P_pca_val" => Base.setindex(orig_dict["P_pca_val"], P_pca_full, :field),
@@ -153,14 +156,16 @@ Elements:
  - u_var_prior :: Diagonal of the prior covariance in unconstrained space.
  - phi_low_unc_prior :: Lower uncertainty bound (μ-1σ_prior) of prior in constrained space.
  - phi_upp_unc_prior :: Upper uncertainty bound (μ+1σ_prior) of prior in constrained space.
- - phi_low_std_prior :: Lower standard bound (μ-1) of prior in constrained space.
- - phi_upp_std_prior :: Upper standard bound (μ+1) of prior in constrained space.
+ - phi_low_std_prior :: Lower standard bound (μ-1) of prior in constrained space. Useful
+                        measure of minimum allowed values for bounded parameters.
+ - phi_upp_std_prior :: Upper standard bound (μ+1) of prior in constrained space. Useful
+                        measure of maximum allowed values for bounded parameters.
 """
 function io_dictionary_prior()
     io_dict = Dict(
         "u_mean_prior" => (; dims = ("param",), group = "prior", type = Float64),
         "phi_mean_prior" => (; dims = ("param",), group = "prior", type = Float64),
-        "u_var_prior" => (; dims = ("param", "param"), group = "prior", type = Float64),
+        "u_var_prior" => (; dims = ("param",), group = "prior", type = Float64),
         "phi_low_unc_prior" => (; dims = ("param",), group = "prior", type = Float64),
         "phi_upp_unc_prior" => (; dims = ("param",), group = "prior", type = Float64),
         "phi_low_std_prior" => (; dims = ("param",), group = "prior", type = Float64),
@@ -170,8 +175,8 @@ function io_dictionary_prior()
 end
 function io_dictionary_prior(priors::ParameterDistribution)
     orig_dict = io_dictionary_prior()
-    u_mean = [mean(pd.distribution) for pd in priors.distributions]
-    u_var = [var(pd.distribution) for pd in priors.distributions]
+    u_mean = mean(priors)
+    u_var = var(priors)
     # The estimator of the mean is valid in unconstrained space, so we must transform the mean.
     ϕ_mean = transform_unconstrained_to_constrained(priors, u_mean)
     # Transform prior uncertainty bands to constrained space
@@ -206,6 +211,11 @@ Elements:
  - mse_full_min :: Ensemble min of MSE(g_full, y_full).
  - mse_full_max :: Ensemble max of MSE(g_full, y_full).
  - mse_full_var :: Variance estimate of MSE(g_full, y_full), empirical (EKI/EKS) or quadrature (UKI).
+ - mse_full_nn_mean :: MSE(g_full, y_full) of particle closest to the mean in parameter space. The
+                       mean in parameter space is the solution to the particle-based inversion.
+ - failures :: Number of particle failures per iteration. If the calibration is run with the "high_loss"
+               failure handler, this diagnostic will not capture the failures.
+ - nn_mean_index :: Particle index of the nearest neighbor to the ensemble mean in parameter space.
 """
 function io_dictionary_metrics()
     io_dict = Dict(
@@ -214,20 +224,37 @@ function io_dictionary_metrics()
         "mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "mse_full_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "mse_full_nn_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "failures" => (; dims = ("iteration",), group = "metrics", type = Int16),
+        "nn_mean_index" => (; dims = ("iteration",), group = "metrics", type = Int16),
     )
     return io_dict
 end
 function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_metrics()
+
+    # Failure-safe variance
+    mse_full_var = get_metric_var(ekp, mse_full)
+
+    # Get failures
+    failures = length(filter(isnan, mse_full))
+
+    # Get mse at nearest_to_mean point
+    nn_mean = get_mean_nearest_neighbor(ekp)
+    mse_full_nn_mean = mse_full[nn_mean]
+
     # Filter NaNs for statistics
     mse_filt = filter(!isnan, mse_full)
-    mse_full_var = get_metric_var(ekp, mse_full)
+
     io_dict = Dict(
         "loss_mean_g" => Base.setindex(orig_dict["loss_mean_g"], get_error(ekp)[end], :field),
         "mse_full_mean" => Base.setindex(orig_dict["mse_full_mean"], mean(mse_filt), :field),
         "mse_full_min" => Base.setindex(orig_dict["mse_full_min"], minimum(mse_filt), :field),
         "mse_full_max" => Base.setindex(orig_dict["mse_full_max"], maximum(mse_filt), :field),
         "mse_full_var" => Base.setindex(orig_dict["mse_full_var"], mse_full_var, :field),
+        "mse_full_nn_mean" => Base.setindex(orig_dict["mse_full_nn_mean"], mse_full_nn_mean, :field),
+        "failures" => Base.setindex(orig_dict["failures"], failures, :field),
+        "nn_mean_index" => Base.setindex(orig_dict["nn_mean_index"], nn_mean, :field),
     )
     return io_dict
 end
@@ -238,19 +265,29 @@ function io_dictionary_val_metrics()
         "val_mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_mse_full_nn_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
     )
     return io_dict
 end
 function io_dictionary_val_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
     orig_dict = io_dictionary_val_metrics()
+
+    # Failure-safe variance
+    mse_full_var = get_metric_var(ekp, mse_full)
+
+    # Get mse at nearest_to_mean point
+    nn_mean = get_mean_nearest_neighbor(ekp)
+    mse_full_nn_mean = mse_full[nn_mean]
+
     # Filter NaNs for statistics
     mse_filt = filter(!isnan, mse_full)
-    mse_full_var = get_metric_var(ekp, mse_full)
+
     io_dict = Dict(
         "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(mse_filt), :field),
         "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(mse_filt), :field),
         "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(mse_filt), :field),
         "val_mse_full_var" => Base.setindex(orig_dict["val_mse_full_var"], mse_full_var, :field),
+        "val_mse_full_nn_mean" => Base.setindex(orig_dict["val_mse_full_nn_mean"], mse_full_nn_mean, :field),
     )
     return io_dict
 end
@@ -300,9 +337,10 @@ Elements:
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(
-        "g" => (; dims = ("particle", "out", "iteration"), group = "particle_diags", type = Float64),
-        "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags", type = Float64),
+        "g" => (; dims = ("particle", "out_aug", "iteration"), group = "particle_diags", type = Float64),
+        "g_full" => (; dims = ("particle", "out_full_batch", "iteration"), group = "particle_diags", type = Float64),
         "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
+        "batch_indices" => (; dims = ("batch_index", "iteration"), group = "particle_diags", type = Int16),
     )
     return io_dict
 end
@@ -311,41 +349,47 @@ function io_dictionary_particle_eval(
     g_full::Matrix{FT},
     mse_full::Vector{FT},
     d::IT,
+    batch_indices::Vector{IT},
 ) where {FT <: Real, IT <: Integer}
     orig_dict = io_dictionary_particle_eval()
+
+    g_aug = get_g_final(ekp)
+    d_batch, N_ens = size(g_aug)
+    # Fill "g" array with zeros and modify leading rows with possibly batched `g`
+    g_filled = zeros(d, N_ens)
+    g_filled[1:d_batch, :] = g_aug
     io_dict = Dict(
-        "g" => Base.setindex(orig_dict["g"], get_g_final(ekp)'[:, 1:d], :field),
+        "g" => Base.setindex(orig_dict["g"], g_filled', :field), # Avoid params in augmented state
         "g_full" => Base.setindex(orig_dict["g_full"], g_full', :field),
         "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
+        "batch_indices" => Base.setindex(orig_dict["batch_indices"], batch_indices, :field),
     )
-    return io_dict
-end
-function io_dictionary_particle_eval(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
-    orig_dict = io_dictionary_particle_eval()
-    io_dict = Dict("mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field))
     return io_dict
 end
 
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => (; dims = ("particle", "out_val", "iteration"), group = "particle_diags", type = Float64),
-        "val_g_full" => (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
+        "val_g_full" =>
+            (; dims = ("particle", "out_full_batch_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
+        "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
     )
     return io_dict
 end
-function io_dictionary_val_particle_eval(g::Matrix{FT}, g_full::Matrix{FT}, mse_full::Vector{FT}) where {FT <: Real}
+function io_dictionary_val_particle_eval(
+    g::Matrix{FT},
+    g_full::Matrix{FT},
+    mse_full::Vector{FT},
+    batch_indices::Vector{IT},
+) where {FT <: Real, IT <: Integer}
     orig_dict = io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => Base.setindex(orig_dict["val_g"], g', :field),
         "val_g_full" => Base.setindex(orig_dict["val_g_full"], g_full', :field),
         "val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field),
+        "val_batch_indices" => Base.setindex(orig_dict["val_batch_indices"], batch_indices, :field),
     )
-    return io_dict
-end
-function io_dictionary_val_particle_eval(mse_full::Vector{FT}) where {FT <: Real}
-    orig_dict = io_dictionary_val_particle_eval()
-    io_dict = Dict("val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field))
     return io_dict
 end
 
@@ -451,6 +495,13 @@ function get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {F
     else
         return var(filter(!isnan, metric))
     end
+end
+
+"""Returns the index of the nearest neighbor to the ensemble mean parameter"""
+function get_mean_nearest_neighbor(ekp::EnsembleKalmanProcess)
+    u = get_u_final(ekp)
+    u_mean = mean(u, dims = 2)
+    return argmin(vcat(sum((u .- u_mean) .^ 2, dims = 1)...))
 end
 
 end # module

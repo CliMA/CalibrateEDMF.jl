@@ -53,28 +53,32 @@ mutable struct NetCDFIO_Diags
 
         NC.Dataset(filepath, "c") do root_grp
 
-            # Fetch dimensionality
+            # Parameter dimension
             p = ndims(priors)
+            # Output dimension for global problem: full and low-dim encoding
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
+
+            # Number of configurations, and fields per configuration
             C = length(ref_stats.pca_vec)
             f = length(ref_stats.norm_vec[1])
+            # Number of configuration per batch
             batch_size = get_entry(config["reference"], "batch_size", length(ref_stats.pca_vec))
             batch_size = isnothing(batch_size) ? length(ref_stats.pca_vec) : batch_size
+            # Output dimension for batched problem, low-dim enconding varies per batch
+            d_full_batch = Int(d_full * batch_size / C)
 
             particle = Array(1:N_ens)
-            out = Array(1:d)
+            param = priors.names
             out_full = Array(1:d_full)
+            out = Array(1:d)
             configuration = Array(1:C)
             field = Array(1:f)
-            param = priors.names
+            batch_index = Array(1:batch_size)
+            out_full_batch = Array(1:d_full_batch)
 
             # Ensemble diagnostics (over all particles)
             ensemble_grp = NC.defGroup(root_grp, "ensemble_diags")
-            NC.defDim(ensemble_grp, "out_full", d_full)
-            NC.defVar(ensemble_grp, "out_full", out_full, ("out_full",))
-            NC.defDim(ensemble_grp, "out", d)
-            NC.defVar(ensemble_grp, "out", out, ("out",))
             NC.defDim(ensemble_grp, "param", p)
             NC.defVar(ensemble_grp, "param", param, ("param",))
             NC.defDim(ensemble_grp, "iteration", Inf)
@@ -95,18 +99,26 @@ mutable struct NetCDFIO_Diags
             NC.defVar(reference_grp, "config", configuration, ("config",))
             NC.defDim(reference_grp, "config_field", f)
             NC.defVar(reference_grp, "config_field", field, ("config_field",))
-            NC.defDim(reference_grp, "batch_size", batch_size)
+
+            augmented = get_entry(config["process"], "augmented", false)
+            if augmented
+                d = d + p
+            end
 
             # Particle diagnostics
             particle_grp = NC.defGroup(root_grp, "particle_diags")
             NC.defDim(particle_grp, "particle", N_ens)
             NC.defVar(particle_grp, "particle", particle, ("particle",))
-            NC.defDim(particle_grp, "out_full", d_full)
-            NC.defVar(particle_grp, "out_full", out_full, ("out_full",))
-            NC.defDim(particle_grp, "out", d)
-            NC.defVar(particle_grp, "out", out, ("out",))
+            NC.defDim(particle_grp, "out_full_batch", d_full_batch)
+            NC.defVar(particle_grp, "out_full_batch", out_full_batch, ("out_full_batch",))
+            NC.defDim(particle_grp, "out_aug", d)
+            NC.defVar(particle_grp, "out_aug", Array(1:d), ("out_aug",))
             NC.defDim(particle_grp, "param", p)
             NC.defVar(particle_grp, "param", param, ("param",))
+            NC.defDim(particle_grp, "config", C)
+            NC.defVar(particle_grp, "config", configuration, ("config",))
+            NC.defDim(particle_grp, "batch_index", batch_size)
+            NC.defVar(particle_grp, "batch_index", batch_index, ("batch_index",))
             NC.defDim(particle_grp, "iteration", Inf)
             NC.defVar(particle_grp, "iteration", Int16, ("iteration",))
 
@@ -117,16 +129,23 @@ mutable struct NetCDFIO_Diags
                 f_val = length(val_ref_stats.norm_vec[1])
                 batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
                 batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val
+                d_full_batch_val = Int(d_full_val * batch_size_val / C_val)
 
-                out_val = Array(1:d_val)
                 out_full_val = Array(1:d_full_val)
+                out_val = Array(1:d_val)
                 configuration_val = Array(1:C_val)
                 field_val = Array(1:f_val)
+                batch_index_val = Array(1:batch_size_val)
+                out_full_batch_val = Array(1:d_full_batch_val)
 
-                NC.defDim(particle_grp, "out_full_val", d_full_val)
-                NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
+                NC.defDim(particle_grp, "out_full_batch_val", d_full_val)
+                NC.defVar(particle_grp, "out_full_batch_val", out_full_batch_val, ("out_full_batch_val",))
                 NC.defDim(particle_grp, "out_val", d_val)
                 NC.defVar(particle_grp, "out_val", out_val, ("out_val",))
+                NC.defDim(particle_grp, "batch_index_val", batch_size_val)
+                NC.defVar(particle_grp, "batch_index_val", batch_index_val, ("batch_index_val",))
+                NC.defDim(particle_grp, "config_val", C_val)
+                NC.defVar(particle_grp, "config_val", configuration_val, ("config_val",))
 
                 NC.defDim(reference_grp, "out_full_val", d_full_val)
                 NC.defVar(reference_grp, "out_full_val", out_full_val, ("out_full_val",))
@@ -136,7 +155,7 @@ mutable struct NetCDFIO_Diags
                 NC.defVar(reference_grp, "config_val", configuration_val, ("config_val",))
                 NC.defDim(reference_grp, "config_field_val", f_val)
                 NC.defVar(reference_grp, "config_field_val", field_val, ("config_field_val",))
-                NC.defDim(reference_grp, "batch_size_val", batch_size_val)
+
             end
 
             # Calibration metrics
@@ -161,7 +180,7 @@ mutable struct NetCDFIO_Diags
     end
 end
 
-function open_files(diags)
+function open_files(diags::NetCDFIO_Diags)
     diags.root_grp = NC.Dataset(diags.filepath, "a")
     diags.ensemble_grp = diags.root_grp.group["ensemble_diags"]
     diags.particle_grp = diags.root_grp.group["particle_diags"]
@@ -200,7 +219,15 @@ function write_current(diags::NetCDFIO_Diags, var_name::String, data; group)
     var = diags.vars[group][var_name]
     last_dim = length(size(var))
     last_dim_end = size(var, last_dim)
-    selectdim(var, last_dim, last_dim_end) .= data
+    try
+        selectdim(var, last_dim, last_dim_end) .= data
+    catch e
+        @error string(
+            "Failed to write array of dimension $(size(data)) as $var_name",
+            " to NetCDF file. Expected array of dimension $(size(var)[1:end-1]).",
+        )
+        e
+    end
 end
 
 """Writes all current fields in a given io_dict to an existing NetCDF Dataset."""
@@ -337,15 +364,15 @@ end
 function io_val_particle_diags(
     diags::NetCDFIO_Diags,
     mse_full::Vector{FT},
-    g::Union{Matrix{FT}, Nothing} = nothing,
-    g_full::Union{Matrix{FT}, Nothing} = nothing,
+    g::Matrix{FT},
+    g_full::Matrix{FT},
+    batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
+    # If not minibatching - training set size
+    batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config_val"]) : batch_indices
+
     # Write eval diagnostics to file
-    if !isnothing(g_full)
-        io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full)
-    else
-        io_dict = io_dictionary_val_particle_eval(mse_full)
-    end
+    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -353,16 +380,16 @@ function io_particle_diags_eval(
     diags::NetCDFIO_Diags,
     ekp::EnsembleKalmanProcess,
     mse_full::Vector{FT},
-    g_full::Union{Matrix{FT}, Nothing} = nothing,
+    g_full::Matrix{FT},
+    batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     # Dimension of the outputs - not augmented
-    d = length(diags.ensemble_grp["out"])
+    d = length(diags.particle_grp["out_aug"])
+    # If not minibatching - training set size
+    batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config"]) : batch_indices
+
     # Write eval diagnostics to file
-    if !isnothing(g_full)
-        io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d)
-    else
-        io_dict = io_dictionary_particle_eval(ekp, mse_full)
-    end
+    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -380,12 +407,13 @@ function io_diagnostics(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     mse_full::Vector{FT},
-    g_full::Union{Matrix{FT}, Nothing} = nothing,
+    g_full::Matrix{FT},
+    batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     open_files(diags)
     # Eval diagnostics
     io_metrics(diags, ekp, mse_full)
-    io_particle_diags_eval(diags, ekp, mse_full, g_full)
+    io_particle_diags_eval(diags, ekp, mse_full, g_full, batch_indices)
     write_iteration(diags)
     # State diagnostics
     io_particle_diags_state(diags, ekp, priors)
@@ -397,12 +425,13 @@ function io_val_diagnostics(
     diags::NetCDFIO_Diags,
     ekp::EnsembleKalmanProcess,
     mse_full::Vector{FT},
-    g::Union{Matrix{FT}, Nothing} = nothing,
-    g_full::Union{Matrix{FT}, Nothing} = nothing,
+    g::Matrix{FT},
+    g_full::Matrix{FT},
+    batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     open_files(diags)
     io_val_metrics(diags, ekp, mse_full)
-    io_val_particle_diags(diags, mse_full, g, g_full)
+    io_val_particle_diags(diags, mse_full, g, g_full, batch_indices)
     close_files(diags)
 end
 

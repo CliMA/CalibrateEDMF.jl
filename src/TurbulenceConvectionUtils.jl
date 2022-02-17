@@ -9,6 +9,10 @@ using ..ReferenceStats
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
 using TurbulenceConvection
+tc = pkgdir(TurbulenceConvection)
+include(joinpath(tc, "driver", "main.jl"))
+include(joinpath(tc, "driver", "generate_namelist.jl"))
+
 include(joinpath(@__DIR__, "helper_funcs.jl"))
 
 export ModelEvaluator
@@ -305,11 +309,12 @@ function run_SCM_handler(
     # run TurbulenceConvection.jl with modified parameters
     try
         main(namelist)
-    catch
+    catch e
         model_error = true
         message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
+        @warn join(["This was caused by ", e])
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end
@@ -368,6 +373,7 @@ assigned numerical version.
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
     outdir_path::String = pwd(),
+    batch_indices::Union{Vector{Int}, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
     # Generate versions conditioned on being unique within the batch.
     used_versions = Vector{Int}()
@@ -376,7 +382,7 @@ function generate_scm_input(
         while version in used_versions
             version = rand(11111:99999)
         end
-        jldsave(scm_init_path(outdir_path, version); model_evaluator, version)
+        jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
         push!(used_versions, version)
     end
     return used_versions
@@ -453,7 +459,7 @@ Outputs:
 """
 function precondition(
     param::Vector{FT},
-    priors,
+    priors::ParameterDistribution,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
     namelist_args = nothing;

@@ -41,9 +41,10 @@ end
     @test length(ref_model_batch.eval_order) == 2
 
     # Get a minibatch and check that the eval order shrinks
-    ref_models = get_minibatch!(ref_model_batch, 1)
+    ref_models, model_indices = get_minibatch!(ref_model_batch, 1)
 
     @test isa(ref_models, Vector{ReferenceModel})
+    @test isa(model_indices, Vector{Int})
     @test length(ref_model_batch.ref_models) == 2
     @test length(ref_model_batch.eval_order) == 1
 end

@@ -50,7 +50,6 @@ function run_calibrate(config; return_ekobj = false)
     g_ens = zeros(d, N_ens)
     norm_err_list = []
     g_big_list = []
-    Δt_scaled = Δt / C # Scale artificial timestep by batch size
     for i in 1:N_iter
         # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
         params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
@@ -64,9 +63,15 @@ function run_calibrate(config; return_ekobj = false)
         end
 
         if isa(algo, Inversion)
-            update_ensemble!(ekobj, g_ens, Δt_new = Δt_scaled, deterministic_forward_map = deterministic_forward_map)
+            update_ensemble!(
+                ekobj,
+                g_ens,
+                Δt_new = Δt,
+                failure_handler = failure_handler,
+                deterministic_forward_map = deterministic_forward_map,
+            )
         else
-            update_ensemble!(ekobj, g_ens)
+            update_ensemble!(ekobj, g_ens, Δt_new = Δt, failure_handler = failure_handler)
         end
         @info "\nEnsemble updated. Saving results to file...\n"
 

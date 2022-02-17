@@ -11,11 +11,9 @@ using CalibrateEDMF.Pipeline
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
-tc = dirname(dirname(pathof(TurbulenceConvection)))
-include(joinpath(tc, "driver", "parameter_set.jl"))
-src = dirname(pathof(CalibrateEDMF))
-test_dir = joinpath(dirname(src), "test", "Pipeline")
-include(joinpath(src, "helper_funcs.jl"))
+cedmf = pkgdir(CalibrateEDMF)
+test_dir = joinpath(cedmf, "test", "Pipeline")
+include(joinpath(cedmf, "src", "helper_funcs.jl"))
 include(joinpath(test_dir, "config.jl"))
 
 # Shared simulations
@@ -39,9 +37,9 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
 
     # Different configurations
     prior_means = [
-        Dict("entrainment_factor" => 0.15, "detrainment_factor" => 0.4),
+        Dict("entrainment_factor" => [0.15], "detrainment_factor" => [0.4]),
         nothing,
-        Dict("entrainment_factor" => 0.1, "detrainment_factor" => 0.2),
+        Dict("entrainment_factor" => [0.1], "detrainment_factor" => [0.2]),
     ]
     batch_sizes = [nothing, 1, nothing]
     augments = [true, true, false]
@@ -99,6 +97,7 @@ end
 
     # Run one simulation and perturb results to emulate ensemble
     scm_args = load(scm_init_path(outdir_path, versions[1]))
+    batch_indices = scm_args["batch_indices"]
     priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
     model_evaluator = scm_args["model_evaluator"]
     model_evaluator = precondition(model_evaluator, priors, namelist_args = namelist_args)
@@ -106,7 +105,15 @@ end
     for version in versions
         g_scm = g_scm_orig .* (1.0 + rand())
         g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
-        jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+        jldsave(
+            scm_output_path(outdir_path, version);
+            sim_dirs,
+            g_scm,
+            g_scm_pca,
+            model_evaluator,
+            version,
+            batch_indices,
+        )
         @test isfile(joinpath(outdir_path, "scm_output_$version.jld2"))
     end
 
@@ -138,13 +145,30 @@ end
 
     # Run one simulation and perturb results to emulate ensemble
     scm_args = load(scm_init_path(outdir_path, versions[1]))
+    batch_indices = scm_args["batch_indices"]
     model_evaluator = scm_args["model_evaluator"]
     sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator, namelist_args = namelist_args)
     for version in versions
         g_scm = g_scm_orig .* (1.0 + rand())
         g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
-        jldsave(scm_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
-        jldsave(scm_val_output_path(outdir_path, version); sim_dirs, g_scm, g_scm_pca, model_evaluator, version)
+        jldsave(
+            scm_output_path(outdir_path, version);
+            sim_dirs,
+            g_scm,
+            g_scm_pca,
+            model_evaluator,
+            version,
+            batch_indices,
+        )
+        jldsave(
+            scm_val_output_path(outdir_path, version);
+            sim_dirs,
+            g_scm,
+            g_scm_pca,
+            model_evaluator,
+            version,
+            batch_indices,
+        )
         @test isfile(joinpath(outdir_path, "scm_output_$version.jld2"))
         @test isfile(joinpath(outdir_path, "scm_val_output_$version.jld2"))
     end

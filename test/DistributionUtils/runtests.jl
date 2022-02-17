@@ -25,15 +25,48 @@ using EnsembleKalmanProcesses.ParameterDistributions
     @test priors2.names != priors1.names
     @test priors2.constraints != priors1.constraints
 
-    μ_correct = [0.4, 0.5]
-    μ_incorrect1 = [0.0, 2.5] # Out of bounds
-    μ_incorrect2 = [0.1] # Incorrect shape
+    μ_correct = Dict("foo" => [0.4], "bar" => [0.5])
+    μ_incorrect1 = Dict("foo" => [0.0], "bar" => [2.5]) # Out of bounds
+    μ_incorrect2 = Dict("foo" => [0.1]) # Incorrect shape
     priors3 = construct_priors(params, outdir_path = tmpdir, prior_mean = μ_correct)
 
     @test !isempty(readdir(tmpdir))
     @test readdir(tmpdir)[1] == "prior.jld2"
     @test_throws AssertionError construct_priors(params, outdir_path = tmpdir, prior_mean = μ_incorrect2)
     @test_throws DomainError construct_priors(params, outdir_path = tmpdir, prior_mean = μ_incorrect1)
+end
+
+@testset "Prior Vectors" begin
+    tmpdir = mktempdir()
+    unc_σ = 0.5
+
+    # vector and float -> correct
+    params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [no_constraint(), bounded(-3.0, 3.0), no_constraint()])
+    prior_μ = Dict("foo" => [0.4], "bar_vect" => [1.0, 2.0, 3.0])
+    priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
+
+    @test priors.names == ["bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
+    @test priors.constraints == [no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
+    @test priors.distributions[1].distribution.μ == 1.0
+    @test priors.distributions[2].distribution.μ ==
+          params["bar_vect"][2].constrained_to_unconstrained(prior_μ["bar_vect"][2])
+    @test priors.distributions[4].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
+
+    # length mismatch [length(bar_vect mu) != length(bar_vect constraint)]
+    params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
+    prior_μ = Dict("foo" => [0.4], "bar_vect" => ones(2))
+    @test_throws AssertionError construct_priors(
+        params,
+        outdir_path = tmpdir,
+        unconstrained_σ = unc_σ,
+        prior_mean = prior_μ,
+    )
+
+    # unspecified prior mean should yield μ=0
+    params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
+    priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ)
+    @test [priors.distributions[i].distribution.μ for i in 1:length(priors.distributions)] == zeros(length(priors.distributions))
+
 end
 
 @testset "Transformations" begin
@@ -48,13 +81,13 @@ end
 
 end
 
-@testset "Vectors" begin
+@testset "flatten_config_dict" begin
     foo_constraint = [bounded(0.1, 1.0)]
     bar_constraint = [bounded(0.2, 2.0)]
     vect_constraint = [repeat([bounded(-1.0, 1.0)], 2)..., bounded(-0.5, 0.5)]
 
     params = Dict("foo" => foo_constraint, "bar" => bar_constraint, "vect" => vect_constraint)
-    flattened_names, flattened_values = DistributionUtils.flatten_param_dict(params)
+    flattened_names, flattened_values = DistributionUtils.flatten_config_dict(params)
     @test flattened_names == ["bar", "vect_{1}", "vect_{2}", "vect_{3}", "foo"]
     @test flattened_values[1] == bar_constraint
     @test flattened_values[2][1] == vect_constraint[1]

@@ -5,16 +5,9 @@ using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
 using CalibrateEDMF.ModelTypes
-using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
-using CalibrateEDMF.ModelTypes
-src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
-# Import EKP modules
-using EnsembleKalmanProcesses
+# Import prior constraints
 using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 
@@ -204,22 +197,22 @@ function get_prior_config()
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => 0.13,
-        "detrainment_factor" => 0.51,
-        "sorting_power" => 2.0,
-        # "turbulent_entrainment_factor" => 0.015,
-        # "entrainment_sigma" => 10.0,
-        # "entrainment_scale" => 0.004,
+        "entrainment_factor" => [0.13],
+        "detrainment_factor" => [0.51],
+        "sorting_power" => [2.0],
+        # "turbulent_entrainment_factor" => [0.015],
+        # "entrainment_sigma" => [10.0],
+        # "entrainment_scale" => [0.004],
 
         # diffusion parameters
-        # "tke_ed_coeff" => 0.14,
-        # "tke_diss_coeff" => 0.22,
-        # "static_stab_coeff" => 0.4,
+        # "tke_ed_coeff" => [0.14],
+        # "tke_diss_coeff" => [0.22],
+        # "static_stab_coeff" => [0.4],
 
         # momentum exchange parameters
-        "pressure_normalmode_adv_coeff" => 0.1,
-        "pressure_normalmode_buoy_coeff1" => 0.12,
-        "pressure_normalmode_drag_coeff" => 10.0,
+        "pressure_normalmode_adv_coeff" => [0.1],
+        "pressure_normalmode_buoy_coeff1" => [0.12],
+        "pressure_normalmode_drag_coeff" => [10.0],
     )
     # Worse prior to test training
     # config["prior_mean"] = Dict(
