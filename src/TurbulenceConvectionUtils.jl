@@ -488,7 +488,8 @@ function precondition(
             max_counter = max_counter,
         )
     elseif model_error
-        throw(OverflowError("Number of recursive calls to preconditioner exceeded $(max_counter). Terminating."))
+        @error "Number of recursive calls to preconditioner exceeded $(max_counter). Returning last failed parameter."
+        return param
     else
         @info "Preconditioning finished."
         return param
