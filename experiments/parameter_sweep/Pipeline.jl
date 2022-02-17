@@ -338,4 +338,37 @@ function update_diagnostics(
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
 end
 
+"""
+    ek_update(
+        priors::ParameterDistribution,
+        versions::Vector{String},
+        outdir_path::String,
+    )
+
+Stored in output files defined by their `versions`, and generates the parameters
+for the next ensemble for forward model evaluations. The updated EnsembleKalmanProcess
+and new ModelEvaluators are both written to file.
+
+Inputs:
+
+ - priors        :: Priors over parameters, used for unconstrained-constrained mappings.
+ - versions      :: String versions identifying the forward model evaluations.
+ - outdir_path   :: Output path directory.
+"""
+function ek_update(
+    priors::ParameterDistribution,
+    versions::Vector{String},
+    outdir_path::String,
+)
+    mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
+    ref_stats = mod_evaluator.ref_stats
+
+    # Advance EKP
+    g, g_full = get_ensemble_g_eval(outdir_path, versions)
+
+    # Diagnostics IO
+    update_diagnostics(outdir_path, priors, ref_stats, g_full, versions)
+    return
+end
+
 end # module
