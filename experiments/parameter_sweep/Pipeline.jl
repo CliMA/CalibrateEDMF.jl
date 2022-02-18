@@ -30,7 +30,6 @@ Initializes a calibration process given a configuration, and a pipeline mode.
 """
 function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345", config_path = nothing)
     @assert mode in ["hpc", "pmap"]
-
     ref_config = config["reference"]
     y_ref_type = ref_config["y_reference_type"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
@@ -193,6 +192,7 @@ Outputs:
 """
 function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
     # Find train/validation path
+    @info("start get_ensemble_g_eval")
     scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
     # Get array sizes with first file
     scm_outputs = load(scm_path(versions[1]))
@@ -206,6 +206,7 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
         g[:, ens_index] = scm_outputs["g_scm_pca"]
         g_full[:, ens_index] = scm_outputs["g_scm"]
     end
+    @info("finished get_ensemble_g_eval")
     return g, g_full
 end
 
@@ -263,11 +264,13 @@ function write_model_evaluators(
     outdir_path::String,
     iteration::Int,
 ) where{FT}
+    @info("start write_model_evaluators")
     params = [c[:] for c in eachcol(ϕ)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
+    @info("finish write_model_evaluators")
     return
 end
 
@@ -334,8 +337,10 @@ function update_diagnostics(
     versions::Union{Vector{Int}, Vector{String}},
 ) where {FT <: Real}
 
+    @info("start update_diagnostics")
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
+    @info("finish update_diagnostics")
 end
 
 """
@@ -357,10 +362,12 @@ function write_sweep_diagnostics(
     versions::Vector{String},
     outdir_path::String,
 )
+    @info("start write_sweep_diagnostics")
     mod_evaluator = load(scm_output_path(outdir_path, versions[1]))["model_evaluator"]
     ref_stats = mod_evaluator.ref_stats
     g, g_full = get_ensemble_g_eval(outdir_path, versions)
     update_diagnostics(outdir_path, priors, ref_stats, g_full, versions)
+    @info("finish write_sweep_diagnostics")
     return
 end
 
