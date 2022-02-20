@@ -1,4 +1,5 @@
 status = [
+  "buildkite/calibrateedmf-ci",
   "format",
   "docbuild",
   "ci 1.7.0 - ubuntu-latest",

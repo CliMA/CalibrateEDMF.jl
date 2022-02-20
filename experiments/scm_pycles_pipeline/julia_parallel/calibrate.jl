@@ -8,6 +8,7 @@
 # using HPC resources directly is advantageous.
 
 # Import modules to all processes
+using Distributed
 @everywhere using Pkg
 @everywhere Pkg.activate("../../..")
 @everywhere using ArgParse
@@ -21,6 +22,9 @@
 @everywhere using EnsembleKalmanProcesses.ParameterDistributions
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
+using Test
+import NCDatasets
+const NC = NCDatasets
 
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -42,10 +46,23 @@ priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 
 # Calibration process
 N_iter = config["process"]["N_iter"]
+@info "Running EK updates for $N_iter iterations"
 for iteration in 1:N_iter
-    versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
-    ekp = load(ekobj_path(outdir_path, iteration))["ekp"]
-    pmap(scm_eval_train, versions)
-    pmap(scm_eval_validation, versions)
-    ek_update(ekp, priors, iteration, config, versions, outdir_path)
+    @time begin
+        @info "   iter = $iteration"
+        versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
+        ekp = load(ekobj_path(outdir_path, iteration))["ekp"]
+        pmap(scm_eval_train, versions)
+        pmap(scm_eval_validation, versions)
+        ek_update(ekp, priors, iteration, config, versions, outdir_path)
+    end
+end
+
+mse_full_mean = NC.Dataset(joinpath(outdir_path, "Diagnostics.nc"), "r") do ds
+    Array(ds.group["metrics"]["mse_full_mean"])
+end
+
+@testset "Julia Parallel Calibrate" begin
+    # TODO: add better regression test (random seed)
+    @test mse_full_mean[2] < mse_full_mean[1]
 end
