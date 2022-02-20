@@ -2,7 +2,7 @@
 
 using ArgParse
 using CalibrateEDMF
-include("../Pipeline.jl")
+include("../ParameterSweepPipeline.jl")
 using Main.ParameterSweepPipeline
 
 s = ArgParseSettings()

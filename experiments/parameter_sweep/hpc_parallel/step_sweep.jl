@@ -1,7 +1,7 @@
 using ArgParse
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
-include("../Pipeline.jl")
+include("../ParameterSweepPipeline.jl")
 src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules

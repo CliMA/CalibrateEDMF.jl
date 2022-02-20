@@ -18,5 +18,5 @@ P1=$!
 julia --project single_scm_eval.jl --version $version --job_dir $job_dir --mode "validation" &
 P2=$!
 wait $P1 $P2
-echo "SCM simulation for ${version} in iteration ${iteration_} finished"
+echo "SCM simulation for ${version} finished"
 

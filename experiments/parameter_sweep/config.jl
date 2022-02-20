@@ -11,7 +11,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.ModelTypes
-const src_dir = pkgdir(CalibrateEDMF)
+const src_dir = dirname(pathof(CalibrateEDMF))
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.ParameterDistributions

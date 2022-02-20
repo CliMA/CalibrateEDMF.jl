@@ -4,7 +4,9 @@ using Random
 using JLD2
 
 using CalibrateEDMF
-using CalibrateEDMF.Pipeline
+# using CalibrateEDMF.Pipeline.get_ref_model_kwargs
+# using CalibrateEDMF.Pipeline.get_ref_stats_kwargs
+# using CalibrateEDMF.Pipeline.get_ensemble_g_eval
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
@@ -86,7 +88,7 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     versions = generate_scm_input(mod_evaluators, outdir_path)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
-    init_sweep_diagnostics()
+    init_sweep_diagnostics(
         config,
         outdir_path,
         io_ref_models,
@@ -105,48 +107,48 @@ function init_sweep(config::Dict{Any, Any}; mode::String = "hpc", job_id::String
     end
 end
 
-# function get_ref_model_kwargs(ref_config::Dict{Any, Any})
-#     n_cases = length(ref_config["case_name"])
-#     Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
-#     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
-#     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
-#     return Dict(
-#         :y_names => ref_config["y_names"],
-#         # Reference path specification
-#         :y_dir => ref_config["y_dir"],
-#         :Σ_dir => Σ_dir,
-#         :scm_parent_dir => ref_config["scm_parent_dir"],
-#         :scm_suffix => ref_config["scm_suffix"],
-#         # Case name
-#         :case_name => ref_config["case_name"],
-#         # Define observation window (s)
-#         :t_start => ref_config["t_start"],
-#         :t_end => ref_config["t_end"],
-#         :Σ_t_start => Σ_t_start,
-#         :Σ_t_end => Σ_t_end,
-#     )
-# end
+function get_ref_model_kwargs(ref_config::Dict{Any, Any})
+    n_cases = length(ref_config["case_name"])
+    Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
+    Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
+    Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
+    return Dict(
+        :y_names => ref_config["y_names"],
+        # Reference path specification
+        :y_dir => ref_config["y_dir"],
+        :Σ_dir => Σ_dir,
+        :scm_parent_dir => ref_config["scm_parent_dir"],
+        :scm_suffix => ref_config["scm_suffix"],
+        # Case name
+        :case_name => ref_config["case_name"],
+        # Define observation window (s)
+        :t_start => ref_config["t_start"],
+        :t_end => ref_config["t_end"],
+        :Σ_t_start => Σ_t_start,
+        :Σ_t_end => Σ_t_end,
+    )
+end
 
-# function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
-#     y_ref_type = ref_config["y_reference_type"]
-#     Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
-#     perform_PCA = get_entry(reg_config, "perform_PCA", true)
-#     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
-#     normalize = get_entry(reg_config, "normalize", true)
-#     tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
-#     tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
-#     dim_scaling = get_entry(reg_config, "dim_scaling", true)
-#     return Dict(
-#         :perform_PCA => perform_PCA,
-#         :normalize => normalize,
-#         :variance_loss => variance_loss,
-#         :tikhonov_noise => tikhonov_noise,
-#         :tikhonov_mode => tikhonov_mode,
-#         :dim_scaling => dim_scaling,
-#         :y_type => y_ref_type,
-#         :Σ_type => Σ_ref_type,
-#     )
-# end
+function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
+    y_ref_type = ref_config["y_reference_type"]
+    Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
+    perform_PCA = get_entry(reg_config, "perform_PCA", true)
+    variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
+    normalize = get_entry(reg_config, "normalize", true)
+    tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
+    tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
+    dim_scaling = get_entry(reg_config, "dim_scaling", true)
+    return Dict(
+        :perform_PCA => perform_PCA,
+        :normalize => normalize,
+        :variance_loss => variance_loss,
+        :tikhonov_noise => tikhonov_noise,
+        :tikhonov_mode => tikhonov_mode,
+        :dim_scaling => dim_scaling,
+        :y_type => y_ref_type,
+        :Σ_type => Σ_ref_type,
+    )
+end
 
 
 "Create the calibration output directory and copy the config file into it"
@@ -173,38 +175,38 @@ function create_sweep_output_dir(
     return outdir_path
 end
 
-# """
-#     get_ensemble_g_eval(outdir_path::String, versions::Vector{String})
+"""
+    get_ensemble_g_eval(outdir_path::String, versions::Vector{String})
 
-# Recovers forward model evaluations from the particle ensemble stored in jld2 files,
-# after which the files are deleted from disk.
+Recovers forward model evaluations from the particle ensemble stored in jld2 files,
+after which the files are deleted from disk.
 
-# Inputs:
-#  - outdir_path  :: Path to output directory.
-#  - versions     :: Version identifiers of the files containing forward model evaluations.
-# Outputs:
-#  - g            :: Forward model evaluations in the reduced space of the inverse problem.
-#  - g_full       :: Forward model evaluations in the original physical space.
-# """
-# function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
-#     # Find train/validation path
-#     @info("start get_ensemble_g_eval")
-#     scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
-#     # Get array sizes with first file
-#     scm_outputs = load(scm_path(versions[1]))
-#     d = length(scm_outputs["g_scm_pca"])
-#     d_full = length(scm_outputs["g_scm"])
-#     N_ens = length(versions)
-#     g = zeros(d, N_ens)
-#     g_full = zeros(d_full, N_ens)
-#     for (ens_index, version) in enumerate(versions)
-#         scm_outputs = load(scm_path(version))
-#         g[:, ens_index] = scm_outputs["g_scm_pca"]
-#         g_full[:, ens_index] = scm_outputs["g_scm"]
-#     end
-#     @info("finished get_ensemble_g_eval")
-#     return g, g_full
-# end
+Inputs:
+ - outdir_path  :: Path to output directory.
+ - versions     :: Version identifiers of the files containing forward model evaluations.
+Outputs:
+ - g            :: Forward model evaluations in the reduced space of the inverse problem.
+ - g_full       :: Forward model evaluations in the original physical space.
+"""
+function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
+    # Find train/validation path
+    @info("start get_ensemble_g_eval")
+    scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
+    # Get array sizes with first file
+    scm_outputs = load(scm_path(versions[1]))
+    d = length(scm_outputs["g_scm_pca"])
+    d_full = length(scm_outputs["g_scm"])
+    N_ens = length(versions)
+    g = zeros(d, N_ens)
+    g_full = zeros(d_full, N_ens)
+    for (ens_index, version) in enumerate(versions)
+        scm_outputs = load(scm_path(version))
+        g[:, ens_index] = scm_outputs["g_scm_pca"]
+        g_full[:, ens_index] = scm_outputs["g_scm"]
+    end
+    @info("finished get_ensemble_g_eval")
+    return g, g_full
+end
 
 """
    versioned_model_eval(version::Union{String, Int}, outdir_path::String, config::Dict{Any, Any})
