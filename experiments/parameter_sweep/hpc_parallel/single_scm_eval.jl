@@ -21,7 +21,6 @@ s = ArgParseSettings()
     "--mode"
     help = "Forward model evaluation mode: `train` or `validation`"
     arg_type = String
-    default = "train"
 end
 parsed_args = parse_args(ARGS, s)
 outdir_path = parsed_args["job_dir"]

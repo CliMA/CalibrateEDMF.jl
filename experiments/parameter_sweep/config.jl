@@ -11,7 +11,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.ModelTypes
-const src_dir = dirname(pathof(CalibrateEDMF))
+const src_dir = pkgdir(CalibrateEDMF)
 include(joinpath(src_dir, "helper_funcs.jl"))
 # Import EKP modules
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -61,12 +61,10 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 4
     config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     config["Δt"] = 1.0 # Artificial time stepper of the EKI.
-    config["failure_handler"] = "sample_succ_gauss"
     return config
 end
 

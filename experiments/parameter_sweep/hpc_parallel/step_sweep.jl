@@ -14,7 +14,6 @@ s = ArgParseSettings()
 @add_arg_table s begin
     "--iteration"
     help = "Calibration iteration number"
-    arg_type = Int
     "--job_dir"
     help = "Job output directory"
     arg_type = String
@@ -22,7 +21,6 @@ s = ArgParseSettings()
 end
 parsed_args = parse_args(ARGS, s)
 # Recover inputs for update
-iteration = parsed_args["iteration"]
 outdir_path = parsed_args["job_dir"]
 
 include(joinpath(outdir_path, "config.jl"))

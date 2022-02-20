@@ -12,7 +12,6 @@ job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
 # Get size of the ensemble from config, trim comments and whitespace
 n=$(grep N_ens ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
 # Number of calibration iterations, trim comments and whitespace
-n_it=$(grep N_iter ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
