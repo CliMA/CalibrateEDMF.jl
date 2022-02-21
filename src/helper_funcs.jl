@@ -25,7 +25,7 @@ Output:
  - The interpolated vector.
 """
 function vertical_interpolation(var_name::String, sim_dir::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
-    z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, var_name))
+    z_ref = get_height(sim_dir, get_faces = is_face_variable(get_stats_path(sim_dir), var_name))
     var_ = nc_fetch(sim_dir, var_name)
     if length(size(var_)) == 2
         # Create interpolant
@@ -113,13 +113,11 @@ Output:
  - z: Vertical level coordinates.
 """
 function get_height(sim_dir::String; get_faces::Bool = false)
-    z = nothing # Julia scoping
-    try
-        z = get_faces ? nc_fetch(sim_dir, "zf") : nc_fetch(sim_dir, "zc")
-    catch e
-        z = get_faces ? nc_fetch(sim_dir, "z") : nc_fetch(sim_dir, "z_half")
+    if get_faces
+        return nc_fetch(sim_dir, ("zf", "z"))
+    else
+        return nc_fetch(sim_dir, ("zc", "z_half"))
     end
-    return z
 end
 
 """
@@ -154,30 +152,40 @@ function normalize_profile(profile_vec, n_vars, var_vec)
 end
 
 """
+    nc_fetch(dir::String, var_names::NTuple{N, Tuple}) where {N}
     nc_fetch(dir::String, var_name::String)
 
-Returns the data for a variable `var_name`, looping
-through all dataset groups.
+Returns the data for a variable `var_name` (or
+tuple of strings, `varnames`), looping through
+all dataset groups.
 """
-function nc_fetch(dir::String, var_name::String)
+function nc_fetch(dir::String, var_names::Tuple)
     NCDataset(get_stats_path(dir)) do ds
-        if haskey(ds, var_name)
-            return Array(ds[var_name])
-        else
-            for group_option in ["profiles", "reference", "timeseries"]
-                haskey(ds.group, group_option) || continue
-                if haskey(ds.group[group_option], var_name)
-                    return Array(ds.group[group_option][var_name])
+        for var_name in var_names
+            if haskey(ds, var_name)
+                return Array(ds[var_name])
+            else
+                for group_option in ["profiles", "reference", "timeseries"]
+                    haskey(ds.group, group_option) || continue
+                    if haskey(ds.group[group_option], var_name)
+                        return Array(ds.group[group_option][var_name])
+                    end
                 end
             end
         end
-        error("Variable $var_name not found in the output directory $dir.")
+        error("Variables $var_names not found in the output directory $dir.")
     end
 end
+nc_fetch(dir::String, var_name::String) = nc_fetch(dir, (var_name,))
 
-"""Returns whether the given variables is defined in faces, or not."""
-function is_face_variable(dir::String, var_name::String)
-    NCDataset(get_stats_path(dir)) do ds
+"""
+    is_face_variable(filename::String, var_name::String)
+
+A `Bool` indicating whether the given
+variables is defined in faces, or not.
+"""
+function is_face_variable(filename::String, var_name::String)
+    NCDataset(filename) do ds
         for group_option in ["profiles", "reference", "timeseries"]
             haskey(ds.group, group_option) || continue
             if haskey(ds.group[group_option], var_name)
@@ -187,8 +195,7 @@ function is_face_variable(dir::String, var_name::String)
                 elseif ("zf" in var_dims) | ("z" in var_dims)
                     return true
                 else
-                    @warn "Variable $var_name does not contain a vertical coordinate."
-                    return false
+                    error("Variable $var_name does not contain a vertical coordinate.")
                 end
             end
         end
