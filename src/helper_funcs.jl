@@ -160,35 +160,36 @@ Returns the data for a variable `var_name`, looping
 through all dataset groups.
 """
 function nc_fetch(dir::String, var_name::String)
-    ds = NCDataset(get_stats_path(dir))
-    if haskey(ds, var_name)
-        return Array(ds[var_name])
-    else
-        for group_option in ["profiles", "reference", "timeseries"]
-            haskey(ds.group, group_option) || continue
-            if haskey(ds.group[group_option], var_name)
-                return Array(ds.group[group_option][var_name])
+    NCDataset(get_stats_path(dir)) do ds
+        if haskey(ds, var_name)
+            return Array(ds[var_name])
+        else
+            for group_option in ["profiles", "reference", "timeseries"]
+                haskey(ds.group, group_option) || continue
+                if haskey(ds.group[group_option], var_name)
+                    return Array(ds.group[group_option][var_name])
+                end
             end
         end
+        error("Variable $var_name not found in the output directory $dir.")
     end
-    error("Variable $var_name not found in the output directory $dir.")
 end
 
 """Returns whether the given variables is defined in faces, or not."""
 function is_face_variable(dir::String, var_name::String)
-    ds = NCDataset(get_stats_path(dir))
-
-    for group_option in ["profiles", "reference", "timeseries"]
-        haskey(ds.group, group_option) || continue
-        if haskey(ds.group[group_option], var_name)
-            var_dims = dimnames(ds.group[group_option][var_name])
-            if ("zc" in var_dims) | ("z_half" in var_dims)
-                return false
-            elseif ("zf" in var_dims) | ("z" in var_dims)
-                return true
-            else
-                @warn "Variable $var_name does not contain a vertical coordinate."
-                return false
+    NCDataset(get_stats_path(dir)) do ds
+        for group_option in ["profiles", "reference", "timeseries"]
+            haskey(ds.group, group_option) || continue
+            if haskey(ds.group[group_option], var_name)
+                var_dims = dimnames(ds.group[group_option][var_name])
+                if ("zc" in var_dims) | ("z_half" in var_dims)
+                    return false
+                elseif ("zf" in var_dims) | ("z" in var_dims)
+                    return true
+                else
+                    @warn "Variable $var_name does not contain a vertical coordinate."
+                    return false
+                end
             end
         end
     end

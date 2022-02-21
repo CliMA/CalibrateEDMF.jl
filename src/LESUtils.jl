@@ -56,20 +56,21 @@ end
 Finds the alias present in an NCDataset from a list of possible aliases.
 """
 function find_alias(aliases::Tuple{Vararg{String}}, les_dir::String)
-    ds = NCDataset(get_stats_path(les_dir))
-    for alias in aliases
-        if haskey(ds, alias)
-            return alias
-        else
-            for group_option in ["profiles", "reference", "timeseries"]
-                haskey(ds.group, group_option) || continue
-                if haskey(ds.group[group_option], alias)
-                    return alias
+    NCDataset(get_stats_path(les_dir)) do ds
+        for alias in aliases
+            if haskey(ds, alias)
+                return alias
+            else
+                for group_option in ["profiles", "reference", "timeseries"]
+                    haskey(ds.group, group_option) || continue
+                    if haskey(ds.group[group_option], alias)
+                        return alias
+                    end
                 end
             end
         end
+        error("None of the aliases $aliases found in the dataset $les_dir.")
     end
-    error("None of the aliases $aliases found in the dataset $les_dir.")
 end
 
 """
