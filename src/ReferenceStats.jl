@@ -10,7 +10,7 @@ using EnsembleKalmanProcesses
 import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler
 using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
-using ..ModelTypes
+import ..ModelTypes
 using ..LESUtils
 using ..HelperFuncs
 
@@ -22,7 +22,7 @@ export generate_ekp, generate_tekp
 
 """
     struct ReferenceStatistics{FT <: Real}
-    
+
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
 """
@@ -49,8 +49,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
             tikhonov_noise::FT = 0.0,
             tikhonov_mode::String = "absolute",
             dim_scaling::Bool = false,
-            y_type::ModelType = LES(),
-            Σ_type::ModelType = LES(),
+            y_type::ModelTypes.ModelType = ModelTypes.LES(),
+            Σ_type::ModelTypes.ModelType = ModelTypes.LES(),
             Δt::FT = 6 * 3600.0,
         ) where {FT <: Real}
 
@@ -67,8 +67,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         the inverse of the desired condition number. This value is enforced to be
         larger than the sqrt of the machine precision for stability.
      - dim_scaling      :: Whether to scale covariance blocks by their size.
-     - y_type           :: Type of reference mean data. Either LES() or SCM().
-     - Σ_type           :: Type of reference covariance data. Either LES() or SCM().
+     - y_type           :: Type of reference mean data. Either ModelTypes.LES() or ModelTypes.SCM().
+     - Σ_type           :: Type of reference covariance data. Either ModelTypes.LES() or ModelTypes.SCM().
      - Δt               :: [LES last time - SCM start time (LES timeframe)] for
        LES_driven_SCM cases.
     Outputs:
@@ -82,8 +82,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-        y_type::ModelType = LES(),
-        Σ_type::ModelType = LES(),
+        y_type::ModelTypes.ModelType = ModelTypes.LES(),
+        Σ_type::ModelTypes.ModelType = ModelTypes.LES(),
         Δt::FT = 6 * 3600.0,
     ) where {FT <: Real}
         # Init arrays
@@ -148,7 +148,7 @@ full_length(RS::ReferenceStatistics) = length(RS.y_full)
         Σ_names::Vector{String},
         normalize::Bool;
         z_scm::Union{Vector{FT}, Nothing} = nothing,
-    )   
+    )
 
 Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
@@ -182,13 +182,13 @@ end
 
 function get_obs(
     m::ReferenceModel,
-    y_type::Union{LES, SCM},
-    Σ_type::Union{LES, SCM},
+    y_type::ModelTypes.ModelType,
+    Σ_type::ModelTypes.ModelType,
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing},
 ) where {FT <: Real}
-    y_names = isa(y_type, LES) ? get_les_names(m, m.y_dir) : m.y_names
-    Σ_names = isa(Σ_type, LES) ? get_les_names(m, m.Σ_dir) : m.y_names
+    y_names = isa(y_type, ModelTypes.LES) ? get_les_names(m, m.y_dir) : m.y_names
+    Σ_names = isa(Σ_type, ModelTypes.LES) ? get_les_names(m, m.Σ_dir) : m.y_names
     get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
 end
 
@@ -242,7 +242,7 @@ Inputs:
  - z_scm :: If given, interpolate LES observations to given levels.
 Outputs:
  - y :: Output vector used in the inverse problem, which concatenates the
-   requested profiles. 
+   requested profiles.
 """
 function get_profile(
     sim_dir::String,

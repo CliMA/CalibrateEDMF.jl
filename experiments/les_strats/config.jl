@@ -4,7 +4,7 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 # Import prior constraints
@@ -78,8 +78,8 @@ function get_reference_config(::ObsCampaigns)
     config = Dict()
     config["case_name"] = ["DYCOMS_RF01", "GABLS", "Bomex"]
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] = [
         ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         ["thetal_mean", "u_mean", "v_mean", "tke_mean"],
@@ -129,8 +129,8 @@ function get_reference_config(::LesDrivenScm)
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
@@ -156,8 +156,8 @@ function get_reference_config(::LesDrivenScmVal)
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs

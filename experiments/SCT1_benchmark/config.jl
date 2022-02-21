@@ -4,7 +4,7 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
@@ -89,8 +89,8 @@ function get_reference_config(::SCT1Train)
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
@@ -117,8 +117,8 @@ function get_reference_config(::SCT1Val)
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs

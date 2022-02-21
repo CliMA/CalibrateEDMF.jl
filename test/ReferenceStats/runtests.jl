@@ -1,6 +1,6 @@
 using Test
 using LinearAlgebra
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
@@ -65,8 +65,8 @@ using CalibrateEDMF.TurbulenceConvectionUtils
             tikhonov_noise = 0.1,
             tikhonov_mode = tikhonov_mode,
             dim_scaling = dim_scaling,
-            y_type = SCM(),
-            Σ_type = SCM(),
+            y_type = ModelTypes.SCM(),
+            Σ_type = ModelTypes.SCM(),
         )
 
         @test pca_length(ref_stats) == size(ref_stats.Γ, 1)
@@ -89,7 +89,7 @@ using CalibrateEDMF.TurbulenceConvectionUtils
         perform_PCA = false,
         normalize = false,
         tikhonov_mode = "relative",
-        y_type = SCM(),
-        Σ_type = SCM(),
+        y_type = ModelTypes.SCM(),
+        Σ_type = ModelTypes.SCM(),
     )
 end

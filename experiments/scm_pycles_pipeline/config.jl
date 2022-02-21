@@ -21,7 +21,7 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 # Import prior constraints
@@ -92,8 +92,8 @@ function get_reference_config(::Bomex)
     config = Dict()
     config["case_name"] = ["Bomex"]
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     # "total_flux_qt" will be available in TC.jl version 0.5.0
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h"]]
     config["y_dir"] = [get_les_data_path()]
@@ -115,8 +115,8 @@ function get_reference_config(::LesDrivenScm)
     config = Dict()
     config["case_name"] = ["LES_driven_SCM"]
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = ModelTypes.LES()
+    config["Σ_reference_type"] = ModelTypes.LES()
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
     cfsite_number = 17
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")

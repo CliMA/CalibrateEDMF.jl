@@ -4,7 +4,7 @@ using NCDatasets
 using Random
 const NC = NCDatasets
 using CalibrateEDMF
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
@@ -38,7 +38,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
-    ref_stats = ReferenceStatistics(ref_models, y_type = SCM(), Σ_type = SCM())
+    ref_stats = ReferenceStatistics(ref_models, y_type = ModelTypes.SCM(), Σ_type = ModelTypes.SCM())
     # Generate config
     config = Dict()
     config["process"] = Dict()
