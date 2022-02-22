@@ -4,7 +4,7 @@ using Distributions
 using StatsBase
 using LinearAlgebra
 using CalibrateEDMF
-using CalibrateEDMF.ModelTypes
+import CalibrateEDMF.ModelTypes
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
@@ -67,8 +67,8 @@ function get_reference_config(::Bomex)
     config = Dict()
     config["case_name"] = ["Bomex"]
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = SCM()
-    config["Σ_reference_type"] = SCM()
+    config["y_reference_type"] = ModelTypes.SCM()
+    config["Σ_reference_type"] = ModelTypes.SCM()
     config["y_names"] = [["thetal_mean", "qt_mean"]]
     ref_root_dir = mktempdir()
     config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.ref")]
