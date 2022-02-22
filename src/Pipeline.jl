@@ -3,21 +3,19 @@ module Pipeline
 using Random
 using JLD2
 import Dates
+using Statistics
 
-using CalibrateEDMF
-using CalibrateEDMF.DistributionUtils
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.ReferenceStats
-using CalibrateEDMF.TurbulenceConvectionUtils
-using CalibrateEDMF.NetCDFIO
-cedmf = pkgdir(CalibrateEDMF)
-using CalibrateEDMF.HelperFuncs
+import ..ExperimentalEKP: update_ensemble!
+using ..DistributionUtils
+using ..ReferenceModels
+using ..ReferenceStats
+using ..TurbulenceConvectionUtils
+using ..NetCDFIO
+using ..HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
-include(joinpath(cedmf, "ekp_experimental", "failsafe_inversion.jl"))
 
 export init_calibration, ek_update, versioned_model_eval
 

@@ -6,7 +6,7 @@ using LinearAlgebra
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_sigma_ensemble, construct_mean, construct_cov
-include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
+using ..ExperimentalEKP
 
 using ..ReferenceModels
 using ..ReferenceStats

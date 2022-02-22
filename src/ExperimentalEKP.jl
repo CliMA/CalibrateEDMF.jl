@@ -1,3 +1,4 @@
+module ExperimentalEKP
 #Ensemble Kalman Inversion: specific structures and function definitions
 
 using Distributions
@@ -9,6 +10,7 @@ using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using EnsembleKalmanProcesses.DataContainers
 import EnsembleKalmanProcesses: update_ensemble_prediction!, construct_mean, construct_cov, set_Δt!
+import EnsembleKalmanProcesses: update_ensemble!
 
 """
      split_indices_by_success(g::AbstractMatrix{FT}) where {FT <: Real}
@@ -347,3 +349,5 @@ function update_ensemble!(
 
     return u_p
 end
+
+end # module
