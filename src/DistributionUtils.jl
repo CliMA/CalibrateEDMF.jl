@@ -121,7 +121,7 @@ end
 """
     logmean_and_logstd(μ, σ)
 
-Returns the lognormal parameters μ and σ from the mean μ and std σ of the 
+Returns the lognormal parameters μ and σ from the mean μ and std σ of the
 lognormal distribution.
 """
 function logmean_and_logstd(μ, σ)

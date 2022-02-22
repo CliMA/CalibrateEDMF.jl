@@ -23,7 +23,7 @@ export precondition
 
 """
     struct ModelEvaluator
-    
+
 A structure containing the information required to perform
 a forward model evaluation at a given parameter vector.
 """
@@ -59,9 +59,9 @@ end
         failure_handler = "high_loss",
     ) where {FT <: Real}
 
-Run the single-column model (SCM) using a set of parameters u 
-and return the value of outputs defined in y_names, possibly 
-after normalization and projection onto lower dimensional 
+Run the single-column model (SCM) using a set of parameters u
+and return the value of outputs defined in y_names, possibly
+after normalization and projection onto lower dimensional
 space using PCA.
 
 Inputs:

@@ -1,10 +1,9 @@
 module LESUtils
 
 import NCDatasets
-import CalibrateEDMF.ReferenceModels: ReferenceModel
-using TurbulenceConvection
-tc = dirname(pathof(TurbulenceConvection))
-include(joinpath(tc, "name_aliases.jl"))
+import ..ReferenceModels: ReferenceModel
+import TurbulenceConvection
+const TC = TurbulenceConvection
 using ..HelperFuncs
 
 export get_les_names, get_cfsite_les_dir, find_alias
@@ -46,7 +45,7 @@ corresponding to SCM variables `y_names`.
 """
 get_les_names(m::ReferenceModel, les_dir::String)::Vector{String} = get_les_names(m.y_names, les_dir)
 function get_les_names(y_names::Vector{String}, les_dir::String)::Vector{String}
-    dict = name_aliases()
+    dict = TC.name_aliases()
     y_alias_groups = [haskey(dict, var) ? (dict[var]..., var) : (var,) for var in y_names]
     return [find_alias(aliases, les_dir) for aliases in y_alias_groups]
 end

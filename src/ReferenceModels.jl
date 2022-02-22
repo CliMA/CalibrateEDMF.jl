@@ -14,7 +14,7 @@ export time_shift_reference_model, write_val_ref_model_batch
 
 """
     struct ReferenceModel
-    
+
 A structure containing information about the 'true' reference model
 and the observation map used to compare the parameterized and
 reference models.
@@ -221,7 +221,7 @@ end
 
 """
     struct ReferenceModelBatch
-    
+
 A structure containing a batch of ReferenceModels and a mutable evaluation
 order for ReferenceModels within the current epoch.
 """
