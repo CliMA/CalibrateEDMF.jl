@@ -363,13 +363,17 @@ function expand_dict_entry(dict, key, N)
     r
 end
 
-"Dictionary entry getter that throws a warning if the default is used."
+"""
+    get_entry(dict, key, default)
+
+Calls `get` but throws a warning if the default is used.
+"""
 function get_entry(dict, key, default)
-    try
+    if haskey(dict, key)
         return dict[key]
-    catch e
+    else
         @warn "Key $key not found in dictionary. Returning default value."
-        get(dict, key, default)
+        return default
     end
 end
 
