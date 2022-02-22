@@ -13,7 +13,7 @@ tc = pkgdir(TurbulenceConvection)
 include(joinpath(tc, "driver", "main.jl"))
 include(joinpath(tc, "driver", "generate_namelist.jl"))
 
-include(joinpath(@__DIR__, "helper_funcs.jl"))
+using ..HelperFuncs
 
 export ModelEvaluator
 export run_SCM, run_SCM_handler, get_scm_namelist, run_reference_SCM

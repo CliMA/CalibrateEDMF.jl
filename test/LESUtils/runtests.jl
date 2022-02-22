@@ -7,18 +7,18 @@ using CalibrateEDMF.LESUtils
     scm_names = ["total_flux_qt", "total_flux_h", "u_mean", "foo"]
     tmpdir = mktempdir()
     mkdir(joinpath(tmpdir, "stats"))
-    ds = NCDataset(joinpath(tmpdir, "stats", "test.nc"), "c")
+    NCDataset(joinpath(tmpdir, "stats", "test.nc"), "c") do ds
 
-    defDim(ds, "t", 10)
-    defDim(ds, "z", 20)
+        defDim(ds, "t", 10)
+        defDim(ds, "z", 20)
 
-    defGroup(ds, "profiles")
-    defVar(ds.group["profiles"], "qt_flux_z", Float32, ("t", "z"))
-    defVar(ds.group["profiles"], "resolved_z_flux_thetali", Float32, ("t", "z"))
-    defVar(ds.group["profiles"], "u_translational_mean", Float32, ("t", "z"))
-    defGroup(ds, "timeseries")
-    defVar(ds.group["timeseries"], "foo", Float32, ("t",))
-    close(ds)
+        defGroup(ds, "profiles")
+        defVar(ds.group["profiles"], "qt_flux_z", Float32, ("t", "z"))
+        defVar(ds.group["profiles"], "resolved_z_flux_thetali", Float32, ("t", "z"))
+        defVar(ds.group["profiles"], "u_translational_mean", Float32, ("t", "z"))
+        defGroup(ds, "timeseries")
+        defVar(ds.group["timeseries"], "foo", Float32, ("t",))
+    end
 
     @test find_alias(("u_mean", "u_translational_mean"), tmpdir) == "u_translational_mean"
     @test find_alias(("foo",), tmpdir) == "foo"

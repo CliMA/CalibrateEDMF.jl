@@ -1,4 +1,34 @@
-#= Generic utils. =#
+"""
+    HelperFuncs
+
+Generic utils.
+"""
+module HelperFuncs
+
+# We can work on qualifying these later
+export vertical_interpolation,
+    nc_fetch_interpolate,
+    fetch_interpolate_transform,
+    get_height,
+    get_dz,
+    normalize_profile,
+    nc_fetch,
+    is_face_variable,
+    get_stats_path,
+    compute_mse,
+    penalize_nan,
+    serialize_struct,
+    deserialize_struct,
+    jld2_path,
+    scm_init_path,
+    scm_output_path,
+    scm_val_init_path,
+    scm_val_output_path,
+    ekobj_path,
+    write_versions,
+    expand_dict_entry,
+    get_entry,
+    change_entry!
 
 using NCDatasets
 using Statistics
@@ -25,7 +55,7 @@ Output:
  - The interpolated vector.
 """
 function vertical_interpolation(var_name::String, sim_dir::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
-    z_ref = get_height(sim_dir, get_faces = is_face_variable(sim_dir, var_name))
+    z_ref = get_height(sim_dir, get_faces = is_face_variable(get_stats_path(sim_dir), var_name))
     var_ = nc_fetch(sim_dir, var_name)
     if length(size(var_)) == 2
         # Create interpolant
@@ -113,13 +143,11 @@ Output:
  - z: Vertical level coordinates.
 """
 function get_height(sim_dir::String; get_faces::Bool = false)
-    z = nothing # Julia scoping
-    try
-        z = get_faces ? nc_fetch(sim_dir, "zf") : nc_fetch(sim_dir, "zc")
-    catch e
-        z = get_faces ? nc_fetch(sim_dir, "z") : nc_fetch(sim_dir, "z_half")
+    if get_faces
+        return nc_fetch(sim_dir, ("zf", "z"))
+    else
+        return nc_fetch(sim_dir, ("zc", "z_half"))
     end
-    return z
 end
 
 """
@@ -154,41 +182,51 @@ function normalize_profile(profile_vec, n_vars, var_vec)
 end
 
 """
+    nc_fetch(dir::String, var_names::NTuple{N, Tuple}) where {N}
     nc_fetch(dir::String, var_name::String)
 
-Returns the data for a variable `var_name`, looping
-through all dataset groups.
+Returns the data for a variable `var_name` (or
+tuple of strings, `varnames`), looping through
+all dataset groups.
 """
-function nc_fetch(dir::String, var_name::String)
-    ds = NCDataset(get_stats_path(dir))
-    if haskey(ds, var_name)
-        return Array(ds[var_name])
-    else
+function nc_fetch(dir::String, var_names::Tuple)
+    NCDataset(get_stats_path(dir)) do ds
+        for var_name in var_names
+            if haskey(ds, var_name)
+                return Array(ds[var_name])
+            else
+                for group_option in ["profiles", "reference", "timeseries"]
+                    haskey(ds.group, group_option) || continue
+                    if haskey(ds.group[group_option], var_name)
+                        return Array(ds.group[group_option][var_name])
+                    end
+                end
+            end
+        end
+        error("Variables $var_names not found in the output directory $dir.")
+    end
+end
+nc_fetch(dir::String, var_name::String) = nc_fetch(dir, (var_name,))
+
+"""
+    is_face_variable(filename::String, var_name::String)
+
+A `Bool` indicating whether the given
+variables is defined in faces, or not.
+"""
+function is_face_variable(filename::String, var_name::String)
+    NCDataset(filename) do ds
         for group_option in ["profiles", "reference", "timeseries"]
             haskey(ds.group, group_option) || continue
             if haskey(ds.group[group_option], var_name)
-                return Array(ds.group[group_option][var_name])
-            end
-        end
-    end
-    error("Variable $var_name not found in the output directory $dir.")
-end
-
-"""Returns whether the given variables is defined in faces, or not."""
-function is_face_variable(dir::String, var_name::String)
-    ds = NCDataset(get_stats_path(dir))
-
-    for group_option in ["profiles", "reference", "timeseries"]
-        haskey(ds.group, group_option) || continue
-        if haskey(ds.group[group_option], var_name)
-            var_dims = dimnames(ds.group[group_option][var_name])
-            if ("zc" in var_dims) | ("z_half" in var_dims)
-                return false
-            elseif ("zf" in var_dims) | ("z" in var_dims)
-                return true
-            else
-                @warn "Variable $var_name does not contain a vertical coordinate."
-                return false
+                var_dims = dimnames(ds.group[group_option][var_name])
+                if ("zc" in var_dims) | ("z_half" in var_dims)
+                    return false
+                elseif ("zf" in var_dims) | ("z" in var_dims)
+                    return true
+                else
+                    error("Variable $var_name does not contain a vertical coordinate.")
+                end
             end
         end
     end
@@ -325,13 +363,17 @@ function expand_dict_entry(dict, key, N)
     r
 end
 
-"Dictionary entry getter that throws a warning if the default is used."
+"""
+    get_entry(dict, key, default)
+
+Calls `get` but throws a warning if the default is used.
+"""
 function get_entry(dict, key, default)
-    try
+    if haskey(dict, key)
         return dict[key]
-    catch e
+    else
         @warn "Key $key not found in dictionary. Returning default value."
-        get(dict, key, default)
+        return default
     end
 end
 
@@ -360,3 +402,5 @@ function change_entry!(dict, keys_and_value)
     last_dict = get_last_nested_dict(dict, keys)
     last_dict[keys[end]] = value
 end
+
+end # module

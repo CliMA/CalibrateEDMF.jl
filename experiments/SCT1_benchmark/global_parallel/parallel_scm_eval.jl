@@ -8,7 +8,7 @@
 @everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 
 @everywhere src_dir = dirname(pathof(CalibrateEDMF))
-@everywhere include(joinpath(src_dir, "helper_funcs.jl"))
+@everywhere using CalibrateEDMF.HelperFuncs
 @everywhere include(joinpath(src_dir, "parallel.jl"))
 using JLD2
 

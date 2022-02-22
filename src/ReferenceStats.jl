@@ -12,7 +12,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
 using ..ModelTypes
 using ..LESUtils
-include("helper_funcs.jl")
+using ..HelperFuncs
 
 export ReferenceStatistics
 export pca_length, full_length

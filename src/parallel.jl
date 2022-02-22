@@ -5,7 +5,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using TurbulenceConvection
-include(joinpath(@__DIR__, "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
 
 export run_SCM_parallel, eval_single_ref_model, versioned_model_eval_parallel
 

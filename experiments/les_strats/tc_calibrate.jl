@@ -8,7 +8,7 @@
 @everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 @everywhere using CalibrateEDMF.Pipeline
 @everywhere const src_dir = dirname(pathof(CalibrateEDMF))
-@everywhere include(joinpath(src_dir, "helper_funcs.jl"))
+@everywhere using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 @everywhere using EnsembleKalmanProcesses
 @everywhere using EnsembleKalmanProcesses.Observations
