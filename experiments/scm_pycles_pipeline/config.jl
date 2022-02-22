@@ -1,5 +1,22 @@
 #= Custom calibration configuration file. =#
 
+import ArtifactWrappers
+const AW = ArtifactWrappers
+
+function get_les_data_path()
+    #! format: off
+    PyCLES_output_dataset = AW.ArtifactWrapper(
+        @__DIR__,
+        isempty(get(ENV, "CI", "")),
+        "PyCLES_output",
+        AW.ArtifactFile[
+        AW.ArtifactFile(url = "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc", filename = "Bomex.nc",),
+        ],
+    )
+    PyCLES_output_dataset_path = AW.get_data_folder(PyCLES_output_dataset)
+    return PyCLES_output_dataset_path
+end
+
 using Distributions
 using StatsBase
 using LinearAlgebra
@@ -79,7 +96,7 @@ function get_reference_config(::Bomex)
     config["Σ_reference_type"] = LES()
     # "total_flux_qt" will be available in TC.jl version 0.5.0
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h"]]
-    config["y_dir"] = ["/groups/esm/zhaoyi/pycles_clima/Output.Bomex.aug09"]
+    config["y_dir"] = [get_les_data_path()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
     config["scm_suffix"] = ["000000"]
