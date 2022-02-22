@@ -388,7 +388,7 @@ end
 Changes the entry of a nested dictionary, giving a tuple of all its keys and the new value
 
 Inputs:
- - dict           :: Parent dictionary with an arbitrary number of nested dictionaries. 
+ - dict           :: Parent dictionary with an arbitrary number of nested dictionaries.
  - keys_and_value :: Tuple of keys from the parent dictionary to the entry to be modified,
                      and the value to use to modify it.
 """

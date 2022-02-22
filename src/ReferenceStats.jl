@@ -22,7 +22,7 @@ export generate_ekp, generate_tekp
 
 """
     struct ReferenceStatistics{FT <: Real}
-    
+
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
 """
@@ -148,7 +148,7 @@ full_length(RS::ReferenceStatistics) = length(RS.y_full)
         Σ_names::Vector{String},
         normalize::Bool;
         z_scm::Union{Vector{FT}, Nothing} = nothing,
-    )   
+    )
 
 Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
@@ -242,7 +242,7 @@ Inputs:
  - z_scm :: If given, interpolate LES observations to given levels.
 Outputs:
  - y :: Output vector used in the inverse problem, which concatenates the
-   requested profiles. 
+   requested profiles.
 """
 function get_profile(
     sim_dir::String,
