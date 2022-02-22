@@ -10,7 +10,7 @@
 # Import modules to all processes
 using Distributed
 @everywhere using Pkg
-@everywhere Pkg.activate("../../..")
+@everywhere Pkg.activate(dirname(dirname(dirname(@__DIR__))))
 @everywhere using ArgParse
 @everywhere using CalibrateEDMF
 @everywhere using CalibrateEDMF.DistributionUtils
@@ -33,7 +33,12 @@ s = ArgParseSettings()
     arg_type = String
 end
 parsed_args = parse_args(ARGS, s)
-include(parsed_args["config"])
+if parsed_args["config"] == nothing
+    include(joinpath(dirname(@__DIR__), "config.jl"))
+    @warn "Using default config file."
+else
+    include(parsed_args["config"])
+end
 config = get_config()
 
 # Initialize calibration process
