@@ -2,8 +2,8 @@ using Test
 using Distributions
 using Random
 using CalibrateEDMF
+using CalibrateEDMF.HelperFuncs
 const src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
 
 @testset "error_utils" begin
     # Vector of vectors vs vector

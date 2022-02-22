@@ -11,7 +11,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.NetCDFIO
 cedmf = pkgdir(CalibrateEDMF)
-include(joinpath(cedmf, "src", "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions

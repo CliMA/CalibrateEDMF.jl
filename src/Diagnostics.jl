@@ -10,7 +10,7 @@ include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
 
 using ..ReferenceModels
 using ..ReferenceStats
-include("helper_funcs.jl")
+using ..HelperFuncs
 const NC = NCDatasets
 
 export io_dictionary_ensemble, io_dictionary_reference, io_dictionary_metrics

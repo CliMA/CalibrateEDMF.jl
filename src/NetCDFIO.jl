@@ -1,6 +1,8 @@
 module NetCDFIO
 
 using NCDatasets
+const NC = NCDatasets
+
 using Statistics
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -8,8 +10,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
 using ..ReferenceStats
 using ..Diagnostics
-include("helper_funcs.jl")
-const NC = NCDatasets
+using ..HelperFuncs
 
 export NetCDFIO_Diags
 export open_files, close_files, write_iteration

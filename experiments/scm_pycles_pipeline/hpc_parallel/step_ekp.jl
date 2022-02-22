@@ -6,7 +6,7 @@ using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.Pipeline
 src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions

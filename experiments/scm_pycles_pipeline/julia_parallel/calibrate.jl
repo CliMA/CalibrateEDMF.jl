@@ -16,7 +16,7 @@ using Distributed
 @everywhere using CalibrateEDMF.DistributionUtils
 @everywhere using CalibrateEDMF.Pipeline
 @everywhere src_dir = dirname(pathof(CalibrateEDMF))
-@everywhere include(joinpath(src_dir, "helper_funcs.jl"))
+@everywhere using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 @everywhere using EnsembleKalmanProcesses
 @everywhere using EnsembleKalmanProcesses.ParameterDistributions

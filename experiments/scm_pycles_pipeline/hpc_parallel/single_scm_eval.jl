@@ -4,7 +4,7 @@ using ArgParse
 using CalibrateEDMF
 using CalibrateEDMF.Pipeline
 src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
 using JLD2
 
 # Read iteration number of ensemble to be recovered

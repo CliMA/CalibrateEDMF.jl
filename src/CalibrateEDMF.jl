@@ -1,6 +1,7 @@
 module CalibrateEDMF
 
 # Submodules
+include("HelperFuncs.jl")
 include("ModelTypes.jl")
 include("DistributionUtils.jl")
 include("ReferenceModels.jl")

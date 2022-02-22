@@ -1,6 +1,7 @@
 using Test
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
+using Random
 
 @testset "ReferenceModel" begin
     les_dir_test = "/foo/bar/les"
