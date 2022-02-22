@@ -10,9 +10,8 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
-using CalibrateEDMF.ModelTypes
 src_dir = dirname(pathof(CalibrateEDMF))
-include(joinpath(src_dir, "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using JLD2
 using EnsembleKalmanProcesses

@@ -1,4 +1,34 @@
-#= Generic utils. =#
+"""
+    HelperFuncs
+
+Generic utils.
+"""
+module HelperFuncs
+
+# We can work on qualifying these later
+export vertical_interpolation,
+    nc_fetch_interpolate,
+    fetch_interpolate_transform,
+    get_height,
+    get_dz,
+    normalize_profile,
+    nc_fetch,
+    is_face_variable,
+    get_stats_path,
+    compute_mse,
+    penalize_nan,
+    serialize_struct,
+    deserialize_struct,
+    jld2_path,
+    scm_init_path,
+    scm_output_path,
+    scm_val_init_path,
+    scm_val_output_path,
+    ekobj_path,
+    write_versions,
+    expand_dict_entry,
+    get_entry,
+    change_entry!
 
 using NCDatasets
 using Statistics
@@ -368,3 +398,5 @@ function change_entry!(dict, keys_and_value)
     last_dict = get_last_nested_dict(dict, keys)
     last_dict[keys[end]] = value
 end
+
+end # module

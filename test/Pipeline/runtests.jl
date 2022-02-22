@@ -13,7 +13,8 @@ using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
 cedmf = pkgdir(CalibrateEDMF)
 test_dir = joinpath(cedmf, "test", "Pipeline")
-include(joinpath(cedmf, "src", "helper_funcs.jl"))
+using CalibrateEDMF.HelperFuncs
+using Random
 include(joinpath(test_dir, "config.jl"))
 
 # Shared simulations

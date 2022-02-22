@@ -1,10 +1,11 @@
 module LESUtils
 
+import NCDatasets
 import CalibrateEDMF.ReferenceModels: ReferenceModel
 using TurbulenceConvection
 tc = dirname(pathof(TurbulenceConvection))
 include(joinpath(tc, "name_aliases.jl"))
-include("helper_funcs.jl")
+using ..HelperFuncs
 
 export get_les_names, get_cfsite_les_dir, find_alias
 
@@ -56,7 +57,7 @@ end
 Finds the alias present in an NCDataset from a list of possible aliases.
 """
 function find_alias(aliases::Tuple{Vararg{String}}, les_dir::String)
-    NCDataset(get_stats_path(les_dir)) do ds
+    NCDatasets.NCDataset(get_stats_path(les_dir)) do ds
         for alias in aliases
             if haskey(ds, alias)
                 return alias

@@ -1,7 +1,8 @@
 module ReferenceModels
 
 using JLD2
-include("helper_funcs.jl")
+using ..HelperFuncs
+using Random
 
 export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
