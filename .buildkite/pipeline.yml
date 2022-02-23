@@ -105,3 +105,13 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "Calibrate julia parallel experimental"
+    key: "cpu_calibrate_julia_experimental"
+    command:
+      - cd experiments/scm_pycles_pipeline/julia_parallel_experimental
+      - "julia --color=yes -p 3 --project calibrate.jl --config ../config.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
