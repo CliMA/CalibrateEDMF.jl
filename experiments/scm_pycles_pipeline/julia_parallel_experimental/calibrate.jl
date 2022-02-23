@@ -14,25 +14,7 @@ using Test
 
 # Launch runners:
 @everywhere begin
-    myid() ≠ 1 && include(joinpath(@__DIR__, "TCRunner.jl"))
-end
-
-function signal_start_run(watch_file)
-    open(watch_file, "w") do io
-        println(io, "params_updated = true")
-        println(io, "terminate = false")
-        println(io, "solve_finished = true")
-        println(io, "success = false")
-    end
-end
-
-function signal_terminate(watch_file)
-    open(watch_file, "w") do io
-        println(io, "params_updated = true")
-        println(io, "terminate = true")
-        println(io, "solve_finished = true")
-        println(io, "success = false")
-    end
+    include(joinpath(@__DIR__, "TCRunner.jl"))
 end
 
 # # Calibration process
@@ -40,27 +22,29 @@ N_iter = 5
 @info "Running EK updates for $N_iter iterations"
 
 function perform_ek_update()
-    @info "performing EK update..."
+    @info "Performing EK update..."
     sleep(1)
 end
+function print_estimated_cost(N_iter, p_workload)
+    tc_first_eval = 200
+    tc_compiled_eval = 20
+    @assert N_iter > 0
+    @assert p_workload ≥ 0
+    n_sec = tc_first_eval + tc_compiled_eval * (p_workload - 1) * (N_iter - 1)
+    n_min = n_sec / 60
+    @info "Runtime cost estimate: $n_min minutes"
+    return nothing
+end
+
+p_workload = 3
+print_estimated_cost(N_iter, p_workload)
 
 for iteration in 1:N_iter
-    @info "Running iteration $iteration"
     @time begin
-        @everywhere begin
-            myid() ≠ 1 && signal_start_run("WatchFile_$(myid()).jl")
-        end
+        @info "Running iteration $iteration"
+        pmap(TCmain, ntuple(i -> i, p_workload * (length(workers()))))
     end
     perform_ek_update()
 end
 
-for worker in workers()
-    @info "Shutting off worker $worker"
-    signal_terminate("WatchFile_$(worker).jl")
-end
-
-# cleanup
-for worker in workers()
-    rm("WatchFile_$(worker).jl"; force=true)
-end
-
+@info "Done 🎉"

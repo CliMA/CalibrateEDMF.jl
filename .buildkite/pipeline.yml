@@ -105,13 +105,43 @@ steps:
       queue: central
       slurm_ntasks: 1
 
-  - label: "Calibrate julia parallel experimental"
-    key: "cpu_calibrate_julia_experimental"
+  - label: "Calibrate julia parallel experimental 2"
+    key: "cpu_calibrate_julia_experimental2"
     command:
       - cd experiments/scm_pycles_pipeline/julia_parallel_experimental
-      - "julia --color=yes -p 3 --project calibrate.jl --config ../config.jl"
+      - "julia --color=yes -p 2 --project calibrate.jl --config ../config.jl"
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
+      slurm_ntasks: 3
+
+  - label: "Calibrate julia parallel experimental 4"
+    key: "cpu_calibrate_julia_experimental5"
+    command:
+      - cd experiments/scm_pycles_pipeline/julia_parallel_experimental
+      - "julia --color=yes -p 4 --project calibrate.jl --config ../config.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 5
+
+  - label: "Calibrate julia parallel experimental 8"
+    key: "cpu_calibrate_julia_experimental8"
+    command:
+      - cd experiments/scm_pycles_pipeline/julia_parallel_experimental
+      - "julia --color=yes -p 8 --project calibrate.jl --config ../config.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 9
+
+  - label: "Calibrate julia parallel experimental 16"
+    key: "cpu_calibrate_julia_experimental16"
+    command:
+      - cd experiments/scm_pycles_pipeline/julia_parallel_experimental
+      - "julia --color=yes -p 16 --project calibrate.jl --config ../config.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 17
 
