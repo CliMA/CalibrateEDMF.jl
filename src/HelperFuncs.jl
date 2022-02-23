@@ -371,13 +371,13 @@ end
 """
     get_entry(dict, key, default)
 
-Calls `get` but throws a warning if the default is used.
+Calls `get` but logs whether the default is used.
 """
 function get_entry(dict, key, default)
     if haskey(dict, key)
         return dict[key]
     else
-        @warn "Key $key not found in dictionary. Returning default value."
+        @info "Key $key not found in dictionary. Returning default value $default."
         return default
     end
 end
