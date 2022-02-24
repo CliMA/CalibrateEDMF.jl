@@ -24,10 +24,16 @@ using CalibrateEDMF.LESUtils
     @test find_alias(("foo",), tmpdir) == "foo"
     @test_throws ErrorException find_alias(("vorticity",), tmpdir)
     @test get_les_names(scm_names, tmpdir) == ["qt_flux_z", "resolved_z_flux_thetali", "u_translational_mean", "foo"]
-end
 
-@testset "cfSite_getter" begin
-    @test isa(get_cfsite_les_dir(2), String)
-    @test_throws AssertionError get_cfsite_les_dir(30)
-    @test_throws AssertionError get_cfsite_les_dir(2, forcing_model = "foo")
+    @testset "cfSite_getter" begin
+        @test isa(get_cfsite_les_dir(2), String)
+        @test_throws AssertionError get_cfsite_les_dir(30)
+        @test_throws AssertionError get_cfsite_les_dir(2, forcing_model = "foo")
+    end
+
+    @testset "artifact_getter" begin
+        art_dir = get_path_to_artifact()
+        @test isdir(art_dir)
+        @test_throws KeyError get_path_to_artifact("foo")
+    end
 end
