@@ -1,5 +1,8 @@
 using Test
 using LinearAlgebra
+using Random
+using Statistics
+using LinearAlgebra
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
@@ -92,4 +95,28 @@ using CalibrateEDMF.TurbulenceConvectionUtils
         y_type = SCM(),
         Σ_type = SCM(),
     )
+
+    @testset "PCA" begin
+        dofs = [5, 10, 25, 100, 250]
+        ts = [30, 300, 200, 50, 40]
+        fs = [0.2, 0.1, 0.05, 0.2, 0.1]
+        for (dof, t, f) in zip(dofs, ts, fs)
+            time_evol = rand(dof, t)
+            μ = vcat(mean(time_evol, dims = 2)...)
+            Γ = cov(time_evol, dims = 2)
+            λ, eigvecs = eigen(Γ)
+            λ_pca, P_pca = pca(Γ, f)
+            len_pca = length(λ_pca)
+            @test Diagonal(λ_pca) ≈ P_pca' * Γ * P_pca
+            @test sum(λ_pca) < tr(Γ)
+            @test sum(λ_pca) > (1 - f) * tr(Γ)
+            @test sum(λ_pca) - λ[dof - len_pca + 1] < (1 - f) * tr(Γ)
+
+            μ_pca, Γ_pca, P_pca = obs_PCA(μ, Γ, f)
+            @test tr(Γ_pca) < tr(Γ)
+            @test tr(Γ_pca) ≈ sum(λ_pca)
+            @test tr(Γ_pca) > (1 - f) * tr(Γ)
+            @test tr(Γ_pca) - λ[dof - len_pca + 1] < (1 - f) * tr(Γ)
+        end
+    end
 end
