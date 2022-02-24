@@ -16,7 +16,7 @@ using ..HelperFuncs
 
 export ReferenceStatistics
 export pca_length, full_length
-export get_obs, get_profile, obs_PCA
+export get_obs, get_profile, obs_PCA, pca
 export generate_ekp, generate_tekp
 
 
@@ -208,21 +208,35 @@ Outputs:
  - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function obs_PCA(y_mean::Vector{FT}, y_var::Matrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
-    eig = eigen(y_var)
-    eigvals, eigvecs = eig # eigvecs is matrix with eigvecs as cols
-    # Get index of leading eigenvalues, eigvals are ordered from low to high in julia
-    # This expression recovers 1 extra eigenvalue compared to threshold
-    leading_eigs = findall(<(1.0 - allowed_var_loss), -cumsum(eigvals) / sum(eigvals) .+ 1)
-    P_pca = eigvecs[:, leading_eigs]
-    λ_pca = eigvals[leading_eigs]
-    # Check correct PCA projection
-    @assert Diagonal(λ_pca) ≈ P_pca' * y_var * P_pca
+    λ_pca, P_pca = pca(y_var, allowed_var_loss)
     # Project mean
     y_pca = P_pca' * y_mean
     y_var_pca = Diagonal(λ_pca)
     return y_pca, y_var_pca, P_pca
 end
 
+"""
+    pca(covmat::AbstractMatrix{FT}, allowed_var_loss::FT) where {FT <: Real}
+
+Perform dimensionality reduction using principal component analysis on
+the variance covmat.
+
+Inputs:
+ - covmat           :: Variance of the observations.
+ - allowed_var_loss :: Maximum variance loss allowed.
+Outputs:
+ - λ_pca            :: Principal eigenvalues, ordered in increasing value order.
+ - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+"""
+function pca(covmat::AbstractMatrix{FT}, allowed_var_loss::FT) where {FT <: Real}
+    eigvals, eigvecs = eigen(covmat)
+    # Get index of leading eigenvalues, eigvals are ordered from low to high in julia
+    # This expression recovers 1 extra eigenvalue compared to threshold
+    leading_eigs = findall(<(1.0 - allowed_var_loss), -cumsum(eigvals) / sum(eigvals) .+ 1)
+    P_pca = eigvecs[:, leading_eigs]
+    λ_pca = eigvals[leading_eigs]
+    return λ_pca, P_pca
+end
 
 """
     get_profile(
