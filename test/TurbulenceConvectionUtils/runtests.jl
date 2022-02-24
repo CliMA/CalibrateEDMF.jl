@@ -49,7 +49,6 @@ end
 
 @testset "Namelist modification" begin
 
-    namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "turbulence", "grid", "thermodynamics"]
     # Choose same SCM to speed computation
     data_dir = mktempdir()
     scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
@@ -74,8 +73,13 @@ end
     default_namelist = TurbulenceConvectionUtils.NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
     reference_namelist = JSON.parsefile(init_namelist_path)
 
+    namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "grid", "thermodynamics"]
     for entry in namelist_compare_entries
         @test default_namelist[entry] == reference_namelist[entry]
+    end
+    # Test nested dictionary of closures with type instabilities from JSON parsing
+    for (key, value) in default_namelist["turbulence"]["EDMF_PrognosticTKE"]
+        @test Tuple(reference_namelist["turbulence"]["EDMF_PrognosticTKE"][key]) == Tuple(value)
     end
 
     # ensure namelist in a `run_SCM_handler` call is modified as expected
@@ -106,5 +110,9 @@ end
 
     for entry in namelist_compare_entries
         @test expected_run_scm_namelist[entry] == run_scm_namelist[entry]
+    end
+    # Test nested dictionary of closures with type instabilities from JSON parsing
+    for (key, value) in default_namelist["turbulence"]["EDMF_PrognosticTKE"]
+        @test Tuple(reference_namelist["turbulence"]["EDMF_PrognosticTKE"][key]) == Tuple(value)
     end
 end
