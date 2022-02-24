@@ -1,22 +1,5 @@
 #= Custom calibration configuration file. =#
 
-import ArtifactWrappers
-const AW = ArtifactWrappers
-
-function get_les_data_path()
-    #! format: off
-    PyCLES_output_dataset = AW.ArtifactWrapper(
-        @__DIR__,
-        isempty(get(ENV, "CI", "")),
-        "PyCLES_output",
-        AW.ArtifactFile[
-        AW.ArtifactFile(url = "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc", filename = "Bomex.nc",),
-        ],
-    )
-    PyCLES_output_dataset_path = AW.get_data_folder(PyCLES_output_dataset)
-    return PyCLES_output_dataset_path
-end
-
 using Distributions
 using StatsBase
 using LinearAlgebra
@@ -30,6 +13,7 @@ using JLD2
 
 # Cases defined as structs for quick access to default configs
 struct Bomex end
+struct ValidateBomex end
 struct LesDrivenScm end
 # struct MyAwesomeSetup end
 
@@ -41,6 +25,8 @@ function get_config()
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(Bomex())
+    # Define reference models to use for validation
+    config["validation"] = get_reference_config(ValidateBomex())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -83,7 +69,7 @@ function get_process_config()
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = false
+    config["augmented"] = true
     config["failure_handler"] = "sample_succ_gauss"
     return config
 end
@@ -94,9 +80,10 @@ function get_reference_config(::Bomex)
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    # "total_flux_qt" will be available in TC.jl version 0.5.0
-    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean", "total_flux_h"]]
-    config["y_dir"] = [get_les_data_path()]
+    # Fields to learn from during training
+    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
+    # LES data can be stored as an Artifact and downloaded lazily
+    config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
     config["scm_suffix"] = ["000000"]
@@ -106,10 +93,33 @@ function get_reference_config(::Bomex)
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
+    # If isnothing(config["batch_size"]), use all data per iteration
     config["batch_size"] = nothing
     return config
 end
 
+function get_reference_config(::ValidateBomex)
+    config = Dict()
+    config["case_name"] = ["Bomex"]
+    # Flag to indicate source of data (LES or SCM) for reference data and covariance
+    config["y_reference_type"] = LES()
+    config["Σ_reference_type"] = LES()
+    # Validate on different variables for this example
+    config["y_names"] = [["total_flux_h", "total_flux_qt", "u_mean", "v_mean"]]
+    config["y_dir"] = [LESUtils.get_path_to_artifact()]
+    # provide list of dirs if different from `y_dir`
+    # config["Σ_dir"] = [...]
+    config["scm_suffix"] = ["000000"]
+    config["scm_parent_dir"] = ["scm_init"]
+    config["t_start"] = [4.0 * 3600]
+    config["t_end"] = [6.0 * 3600]
+    # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
+    # config["Σ_t_start"] = [...]
+    # config["Σ_t_end"] = [...]
+    # If isnothing(config["batch_size"]), use all data per iteration
+    config["batch_size"] = nothing
+    return config
+end
 
 function get_reference_config(::LesDrivenScm)
     config = Dict()
@@ -120,6 +130,7 @@ function get_reference_config(::LesDrivenScm)
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
     cfsite_number = 17
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+    # LES data can be retrieved from the filesystem. Here we fetch from the Central cluster.
     config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...)]
     config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...)]
     config["scm_parent_dir"] = ["scm_init"]
@@ -134,9 +145,13 @@ end
 
 function get_prior_config()
     config = Dict()
+    # Define prior bounds on the parameters.
     config["constraints"] =
         Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.3, 0.8)])
+    # Define prior mean (must be within bounds).
     config["prior_mean"] = Dict("entrainment_factor" => [0.13], "detrainment_factor" => [0.51])
+    # Define width of the probability distribution with respect to the bounds. This is equivalent
+    # to the σ of a Gaussian in unconstrained space.
     config["unconstrained_σ"] = 0.5
     return config
 end
