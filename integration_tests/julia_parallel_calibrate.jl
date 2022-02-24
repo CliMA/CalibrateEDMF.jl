@@ -45,6 +45,7 @@ priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
     scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
 end
 # Calibration process
+config["process"]["N_iter"] = 20
 N_iter = config["process"]["N_iter"]
 @info "Running EK updates for $N_iter iterations"
 for iteration in 1:N_iter
