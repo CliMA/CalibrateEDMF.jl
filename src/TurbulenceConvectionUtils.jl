@@ -1,5 +1,6 @@
 module TurbulenceConvectionUtils
 
+import Logging
 using JLD2
 using JSON
 using Random
@@ -236,7 +237,9 @@ function run_reference_SCM(
         end
         # run TurbulenceConvection.jl
         try
-            main(namelist)
+            Logging.with_logger(Logging.NullLogger()) do
+                main1d(namelist; time_run = false)
+            end
         catch
             @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
         end
@@ -308,7 +311,9 @@ function run_SCM_handler(
 
     # run TurbulenceConvection.jl with modified parameters
     try
-        main(namelist)
+        Logging.with_logger(Logging.NullLogger()) do
+            main1d(namelist; time_run = false)
+        end
     catch e
         model_error = true
         message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
