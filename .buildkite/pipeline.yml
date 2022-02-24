@@ -17,6 +17,11 @@ steps:
       - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
       - "julia --project -e 'using Pkg; Pkg.status()'"
+
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.develop(path = \".\")'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.precompile()'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.status()'"
     agents:
       config: cpu
       queue: central
@@ -90,8 +95,9 @@ steps:
   - label: "Calibrate julia parallel 10 procs"
     key: "cpu_calibrate_julia_p10"
     command:
-      - cd experiments/scm_pycles_pipeline/julia_parallel
-      - "julia --color=yes -p 10 --project calibrate.jl --config ../config.jl"
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_calibrate.jl"
+    artifact_paths:
+      - "integration_tests/output/julia_parallel_calibrate/*"
     agents:
       config: cpu
       queue: central
