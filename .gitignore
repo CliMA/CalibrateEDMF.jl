@@ -23,6 +23,8 @@ docs/site/
 # environment.
 Manifest.toml
 
+!integration_tests/Manifest.toml
+
 # editor settings
 .vscode
 

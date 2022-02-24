@@ -22,9 +22,6 @@ using Distributed
 @everywhere using EnsembleKalmanProcesses.ParameterDistributions
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
-using Test
-import NCDatasets
-const NC = NCDatasets
 
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -33,12 +30,7 @@ s = ArgParseSettings()
     arg_type = String
 end
 parsed_args = parse_args(ARGS, s)
-if parsed_args["config"] == nothing
-    include(joinpath(dirname(@__DIR__), "config.jl"))
-    @warn "Using default config file."
-else
-    include(parsed_args["config"])
-end
+include(parsed_args["config"])
 config = get_config()
 
 # Initialize calibration process
@@ -61,13 +53,4 @@ for iteration in 1:N_iter
         pmap(scm_eval_validation, versions)
         ek_update(ekp, priors, iteration, config, versions, outdir_path)
     end
-end
-
-mse_full_mean = NC.Dataset(joinpath(outdir_path, "Diagnostics.nc"), "r") do ds
-    Array(ds.group["metrics"]["mse_full_mean"])
-end
-
-@testset "Julia Parallel Calibrate" begin
-    # TODO: add better regression test (random seed)
-    @test mse_full_mean[2] < mse_full_mean[1]
 end
