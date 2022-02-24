@@ -20,7 +20,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - wait
 
@@ -31,7 +30,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "DistributionUtils"
     key: "cpu_distributionutils"
@@ -40,7 +38,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "LESUtils"
     key: "cpu_lesutils"
@@ -49,7 +46,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "TurbulenceConvectionUtils"
     key: "cpu_turbulenceconvectionutils"
@@ -58,7 +54,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "ReferenceModels"
     key: "cpu_referencemodels"
@@ -67,7 +62,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "ReferenceStats"
     key: "cpu_referencestats"
@@ -76,7 +70,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "Pipeline"
     key: "cpu_pipeline"
@@ -85,7 +78,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "NetCDFIO"
     key: "cpu_netcdfio"
@@ -94,7 +86,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "Calibrate julia parallel 10 procs"
     key: "cpu_calibrate_julia_p10"
@@ -104,5 +95,5 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 11
+      slurm_cpus_per_task: 11
 
