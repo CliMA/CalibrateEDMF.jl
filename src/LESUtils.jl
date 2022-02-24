@@ -4,9 +4,11 @@ import NCDatasets
 import ..ReferenceModels: ReferenceModel
 import TurbulenceConvection
 const TC = TurbulenceConvection
+import ArtifactWrappers
+const AW = ArtifactWrappers
 using ..HelperFuncs
 
-export get_les_names, get_cfsite_les_dir, find_alias
+export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
 
 
 """
@@ -114,6 +116,25 @@ function get_cfsite_les_dir(
     root_dir = "/central/groups/esm/zhaoyi/GCMForcedLES/cfsite/$month/$forcing_model/$experiment/"
     rel_dir = join(["Output.cfsite$cfsite_number", forcing_model, experiment, "2004-2008.$month.4x"], "_")
     return joinpath(root_dir, rel_dir)
+end
+
+function get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
+    local_to_box = Dict("Bomex" => "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc")
+    if haskey(local_to_box, casename)
+        #! format: off
+        output_artifact = AW.ArtifactWrapper(
+            artifact_dir,
+            isempty(get(ENV, "CI", "")),
+            artifact_type,
+            AW.ArtifactFile[
+            AW.ArtifactFile(url = local_to_box[casename], filename = string(casename, ".nc"),),
+            ],
+        )
+        output_artifact_path = AW.get_data_folder(output_artifact)
+        return output_artifact_path
+    else
+        throw(KeyError("Artifacts for casename $casename of type $artifact_type are not currently available."))
+    end
 end
 
 end # module
