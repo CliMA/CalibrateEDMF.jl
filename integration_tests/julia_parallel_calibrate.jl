@@ -17,6 +17,8 @@ using Distributed
 @everywhere Pkg.activate(@__DIR__)
 @everywhere begin
     using ArgParse
+    import Random
+    Random.seed!(1234)
     using CalibrateEDMF
     using CalibrateEDMF.DistributionUtils
     using CalibrateEDMF.Pipeline
