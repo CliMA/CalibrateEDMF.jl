@@ -45,6 +45,7 @@ priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
     scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
 end
 # Calibration process
+config["process"]["N_iter"] = 20
 N_iter = config["process"]["N_iter"]
 @info "Running EK updates for $N_iter iterations"
 for iteration in 1:N_iter
@@ -66,6 +67,9 @@ nt = NC.Dataset(joinpath(outdir_path, "Diagnostics.nc"), "r") do ds
         mse_full_mean = Array(ds.group["metrics"]["mse_full_mean"]),
         mse_full_nn_mean = Array(ds.group["metrics"]["mse_full_nn_mean"]),
         mse_full_var = Array(ds.group["metrics"]["mse_full_var"]),
+        val_mse_full_mean = Array(ds.group["metrics"]["val_mse_full_mean"]),
+        val_mse_full_nn_mean = Array(ds.group["metrics"]["val_mse_full_nn_mean"]),
+        val_mse_full_var = Array(ds.group["metrics"]["val_mse_full_var"]),
         phi_mean = Array(ds.group["ensemble_diags"]["phi_mean"]),
     )
 end
@@ -73,6 +77,9 @@ end
 mse_full_mean = nt.mse_full_mean[1:(end - 1)]
 mse_full_nn_mean = nt.mse_full_nn_mean[1:(end - 1)]
 mse_full_var = nt.mse_full_var[1:(end - 1)]
+val_mse_full_mean = nt.val_mse_full_mean[1:(end - 1)]
+val_mse_full_nn_mean = nt.val_mse_full_nn_mean[1:(end - 1)]
+val_mse_full_var = nt.val_mse_full_var[1:(end - 1)]
 phi_mean = nt.phi_mean
 
 import Plots
@@ -88,11 +95,24 @@ iters = 1:N_iter
 @show mse_full_var
 @show phi_mean
 
-Plots.plot(iters, mse_full_nn_mean; label = "mean")
-Plots.plot!(iters, mse_full_nn_mean .+ sqrt.(mse_full_var); label = "std")
+mse_full_nn_mean_std = mse_full_nn_mean .+ sqrt.(mse_full_var)
+val_mse_full_nn_mean_std = val_mse_full_nn_mean .+ sqrt.(val_mse_full_var)
+
+p1 = Plots.plot(iters, mse_full_nn_mean; label = "mean")
+Plots.plot!(iters, mse_full_nn_mean_std; label = "")
+Plots.plot!(iters, mse_full_nn_mean; fillrange = mse_full_nn_mean_std, fillalpha = 0.35, c = 1, label = "")
 Plots.xlabel!("Iteration")
 Plots.ylabel!("Train MSE (full)")
 Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
+
+p2 = Plots.plot(iters, val_mse_full_nn_mean; label = "mean")
+Plots.plot!(iters, val_mse_full_nn_mean_std; label = "")
+Plots.plot!(iters, val_mse_full_nn_mean; fillrange = val_mse_full_nn_mean_std, fillalpha = 0.35, c = 1, label = "")
+Plots.xlabel!("Iteration")
+Plots.ylabel!("Validation MSE (full)")
+Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
+
+Plots.plot(p1, p2; layout = (1, 2))
 folder = joinpath(@__DIR__, "output", first(split(basename(@__FILE__), ".")))
 mkpath(folder)
 Plots.savefig(joinpath(folder, "mse.png"))
