@@ -216,6 +216,7 @@ function run_reference_SCM(
     if ~isdir(output_dir) | overwrite
         namelist = get_scm_namelist(m, overwrite = overwrite)
         # Set optional namelist args
+        namelist["stats_io"]["calibrate_io"] = true
         if !isnothing(namelist_args)
             for namelist_arg in namelist_args
                 change_entry!(namelist, namelist_arg)
@@ -235,11 +236,10 @@ function run_reference_SCM(
             namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
         end
         # run TurbulenceConvection.jl
-        try
-            Logging.with_logger(Logging.NullLogger()) do
-                main1d(namelist; time_run = false)
-            end
-        catch
+        _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+            main1d(namelist; time_run = false)
+        end
+        if ret_code ≠ :success
             @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
         end
         if run_single_timestep
@@ -291,6 +291,7 @@ function run_SCM_handler(
     u_names, u = create_parameter_vectors(u_names, u)
 
     # Set optional namelist args
+    namelist["stats_io"]["calibrate_io"] = true
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
             change_entry!(namelist, namelist_arg)
@@ -309,16 +310,14 @@ function run_SCM_handler(
     namelist["output"]["output_root"] = tmpdir
 
     # run TurbulenceConvection.jl with modified parameters
-    try
-        Logging.with_logger(Logging.NullLogger()) do
-            main1d(namelist; time_run = false)
-        end
-    catch e
+    _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+        main1d(namelist; time_run = false)
+    end
+    if ret_code ≠ :success
         model_error = true
         message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
-        @warn join(["This was caused by ", e])
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end
