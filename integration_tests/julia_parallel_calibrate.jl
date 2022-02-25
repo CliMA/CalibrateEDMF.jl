@@ -66,12 +66,14 @@ nt = NC.Dataset(joinpath(outdir_path, "Diagnostics.nc"), "r") do ds
         mse_full_mean = Array(ds.group["metrics"]["mse_full_mean"]),
         mse_full_nn_mean = Array(ds.group["metrics"]["mse_full_nn_mean"]),
         mse_full_var = Array(ds.group["metrics"]["mse_full_var"]),
+        phi_mean = Array(ds.group["ensemble_diags"]["phi_mean"]),
     )
 end
 
 mse_full_mean = nt.mse_full_mean[1:(end - 1)]
 mse_full_nn_mean = nt.mse_full_nn_mean[1:(end - 1)]
 mse_full_var = nt.mse_full_var[1:(end - 1)]
+phi_mean = nt.phi_mean
 
 import Plots
 
@@ -84,6 +86,7 @@ iters = 1:N_iter
 @show mse_full_mean
 @show mse_full_nn_mean
 @show mse_full_var
+@show phi_mean
 
 Plots.plot(iters, mse_full_nn_mean; label = "mean")
 Plots.plot!(iters, mse_full_nn_mean .+ sqrt.(mse_full_var); label = "std")
@@ -97,5 +100,6 @@ Plots.savefig(joinpath(folder, "mse.png"))
 using Test
 @testset "Julia Parallel Calibrate" begin
     # TODO: add better regression test (random seed)
-    @test mse_full_mean[2] < mse_full_mean[1]
+    @test mse_full_mean[end] < mse_full_mean[1]
+    @test mse_full_var[end] < mse_full_var[1]
 end

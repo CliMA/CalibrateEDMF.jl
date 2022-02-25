@@ -149,7 +149,7 @@ function get_prior_config()
     config["constraints"] =
         Dict("entrainment_factor" => [bounded(0.0, 0.5)], "detrainment_factor" => [bounded(0.3, 0.8)])
     # Define prior mean (must be within bounds).
-    config["prior_mean"] = Dict("entrainment_factor" => [0.13], "detrainment_factor" => [0.51])
+    config["prior_mean"] = Dict("entrainment_factor" => [0.02], "detrainment_factor" => [0.4])
     # Define width of the probability distribution with respect to the bounds. This is equivalent
     # to the σ of a Gaussian in unconstrained space.
     config["unconstrained_σ"] = 0.5
