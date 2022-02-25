@@ -50,8 +50,7 @@ function run_SCM_parallel(
         g_scm_pca .= 1e5
     end
 
-    @info "Length of g_scm (full): $(length(g_scm))"
-    @info "Length of g_scm (pca) : $(length(g_scm_pca))"
+    @info "Length of g_scm (full, pca): ($(length(g_scm)), $(length(g_scm_pca)))"
     if error_check
         return sim_dirs, g_scm, g_scm_pca, model_error
     else
