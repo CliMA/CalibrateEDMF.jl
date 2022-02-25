@@ -11,15 +11,17 @@
 using Distributed
 @everywhere using Pkg
 @everywhere Pkg.activate(dirname(dirname(dirname(@__DIR__))))
-@everywhere using ArgParse
-@everywhere using CalibrateEDMF
-@everywhere using CalibrateEDMF.DistributionUtils
-@everywhere using CalibrateEDMF.Pipeline
-@everywhere src_dir = dirname(pathof(CalibrateEDMF))
-@everywhere using CalibrateEDMF.HelperFuncs
-# Import EKP modules
-@everywhere using EnsembleKalmanProcesses
-@everywhere using EnsembleKalmanProcesses.ParameterDistributions
+@everywhere begin
+    using ArgParse
+    using CalibrateEDMF
+    using CalibrateEDMF.DistributionUtils
+    using CalibrateEDMF.Pipeline
+    src_dir = dirname(pathof(CalibrateEDMF))
+    using CalibrateEDMF.HelperFuncs
+    # Import EKP modules
+    using EnsembleKalmanProcesses
+    using EnsembleKalmanProcesses.ParameterDistributions
+end
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
 
@@ -38,8 +40,10 @@ outdir_path = init_calibration(config; config_path = parsed_args["config"], mode
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 
 # Dispatch SCM eval functions to workers
-@everywhere scm_eval_train(version) = versioned_model_eval(version, $outdir_path, "train", $config)
-@everywhere scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
+@everywhere begin
+    scm_eval_train(version) = versioned_model_eval(version, $outdir_path, "train", $config)
+    scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
+end
 
 # Calibration process
 N_iter = config["process"]["N_iter"]
