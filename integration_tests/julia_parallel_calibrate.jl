@@ -73,11 +73,21 @@ mse_full_var = nt.mse_full_var[1:(end - 1)]
 
 import Plots
 
+# https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
+ENV["GKSwstype"] = "nul"
+
 iters = 1:N_iter
+
+@show iters
+@show mse_full_mean
+@show mse_full_nn_mean
+@show mse_full_var
+
 Plots.plot(iters, mse_full_nn_mean; label = "mean")
 Plots.plot!(iters, mse_full_nn_mean .+ sqrt.(mse_full_var); label = "std")
 Plots.xlabel!("Iteration")
 Plots.ylabel!("Train MSE (full)")
+Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 folder = joinpath(@__DIR__, "output", first(split(basename(@__FILE__), ".")))
 mkpath(folder)
 Plots.savefig(joinpath(folder, "mse.png"))
