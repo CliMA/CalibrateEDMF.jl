@@ -39,26 +39,26 @@ function get_LES_library()
 end
 
 """
-    get_les_names(y_names::Vector{String}, les_dir::String)
-    get_les_names(m::ReferenceModel, les_dir::String)
+    get_les_names(y_names::Vector{String}, filename::String)
+    get_les_names(m::ReferenceModel, filename::String)
 
-Returns the aliases of the variables actually present in `les_dir`
-corresponding to SCM variables `y_names`.
+Returns the aliases of the variables actually present in the nc
+file (`filename`) corresponding to SCM variables `y_names`.
 """
-get_les_names(m::ReferenceModel, les_dir::String)::Vector{String} = get_les_names(m.y_names, les_dir)
-function get_les_names(y_names::Vector{String}, les_dir::String)::Vector{String}
+get_les_names(m::ReferenceModel, filename::String)::Vector{String} = get_les_names(m.y_names, filename)
+function get_les_names(y_names::Vector{String}, filename::String)::Vector{String}
     dict = TC.name_aliases()
     y_alias_groups = [haskey(dict, var) ? (dict[var]..., var) : (var,) for var in y_names]
-    return [find_alias(aliases, les_dir) for aliases in y_alias_groups]
+    return [find_alias(aliases, filename) for aliases in y_alias_groups]
 end
 
 """
-    find_alias(les_dir::String, aliases::Tuple{Vararg{String}})
+    find_alias(aliases::Tuple{Vararg{String}}, filename::String)
 
 Finds the alias present in an NCDataset from a list of possible aliases.
 """
-function find_alias(aliases::Tuple{Vararg{String}}, les_dir::String)
-    NCDatasets.NCDataset(get_stats_path(les_dir)) do ds
+function find_alias(aliases::Tuple{Vararg{String}}, filename::String)
+    NCDatasets.NCDataset(filename) do ds
         for alias in aliases
             if haskey(ds, alias)
                 return alias
@@ -71,7 +71,7 @@ function find_alias(aliases::Tuple{Vararg{String}}, les_dir::String)
                 end
             end
         end
-        error("None of the aliases $aliases found in the dataset $les_dir.")
+        error("None of the aliases $aliases found in the dataset $filename.")
     end
 end
 

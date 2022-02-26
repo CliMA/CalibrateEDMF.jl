@@ -174,7 +174,7 @@ function get_obs(
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
-    y = get_profile(m, y_dir(m), y_names, z_scm = z_scm)
+    y = get_profile(m, y_nc_file(m), y_names, z_scm = z_scm)
     # normalize
     y = normalize_profile(y, num_vars(m), norm_vec)
     return y, Σ, norm_vec
@@ -187,8 +187,8 @@ function get_obs(
     normalize::Bool;
     z_scm::Union{Vector{FT}, Nothing},
 ) where {FT <: Real}
-    y_names = isa(y_type, LES) ? get_les_names(m, m.y_dir) : m.y_names
-    Σ_names = isa(Σ_type, LES) ? get_les_names(m, m.Σ_dir) : m.y_names
+    y_names = isa(y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
+    Σ_names = isa(Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
     get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
 end
 
@@ -240,7 +240,7 @@ end
 
 """
     get_profile(
-        sim_dir::String,
+        filename::String,
         var_names::Vector{String};
         ti::Real = 0.0,
         tf = nothing,
@@ -251,7 +251,7 @@ Get profiles for variables var_names, interpolated to
 z_scm (if given), and concatenated into a single output vector.
 
 Inputs:
- - sim_dir  :: Simulation output directory.
+ - filename  :: nc filename
  - var_names   :: Names of variables to be retrieved.
  - z_scm :: If given, interpolate LES observations to given levels.
 Outputs:
@@ -259,14 +259,14 @@ Outputs:
    requested profiles.
 """
 function get_profile(
-    sim_dir::String,
+    filename::String,
     var_names::Vector{String};
     ti::Real = 0.0,
     tf::Union{Real, Nothing} = nothing,
     z_scm::Union{Vector{T}, T} = nothing,
 ) where {T}
 
-    t = nc_fetch(sim_dir, "t")
+    t = nc_fetch(filename, "t")
     dt = length(t) > 1 ? mean(diff(t)) : 0.0
     y = zeros(0)
 
@@ -280,7 +280,7 @@ function get_profile(
             "Defaulting to penalized profiles...",
         )
         for i in 1:length(var_names)
-            var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
+            var_ = isnothing(z_scm) ? get_height(filename) : z_scm
             append!(y, 1.0e5 * ones(length(var_[:])))
         end
         return y
@@ -294,7 +294,7 @@ function get_profile(
                 "Defaulting to penalized profiles...",
             )
             for i in 1:length(var_names)
-                var_ = isnothing(z_scm) ? get_height(sim_dir) : z_scm
+                var_ = isnothing(z_scm) ? get_height(filename) : z_scm
                 append!(y, 1.0e5 * ones(length(var_[:])))
             end
             return y
@@ -303,25 +303,25 @@ function get_profile(
 
     # Return time average for non-degenerate cases
     for var_name in var_names
-        var_ = fetch_interpolate_transform(var_name, sim_dir, z_scm)
+        var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
         append!(y, var_mean)
     end
     return y
 end
 
-function get_profile(m::ReferenceModel, sim_dir::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
-    get_profile(m, sim_dir, m.y_names, z_scm = z_scm)
+function get_profile(m::ReferenceModel, filename::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
+    get_profile(m, filename, m.y_names, z_scm = z_scm)
 end
 
 
 function get_profile(
     m::ReferenceModel,
-    sim_dir::String,
+    filename::String,
     y_names::Vector{String};
     z_scm::Union{Vector{T}, T} = nothing,
 ) where {T}
-    get_profile(sim_dir, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
+    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
 end
 
 """
@@ -335,8 +335,8 @@ Inputs:
  - z_scm        :: If given, interpolates covariance matrix to this locations.
 """
 function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
-    sim_dir = Σ_dir(m)
-    t = nc_fetch(sim_dir, "t")
+    filename = Σ_nc_file(m)
+    t = nc_fetch(filename, "t")
     # Find closest interval in data
     ti_index = argmin(broadcast(abs, t .- get_t_start_Σ(m)))
     tf_index = argmin(broadcast(abs, t .- get_t_end_Σ(m)))
@@ -346,7 +346,7 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
     pool_var = zeros(num_outputs)
 
     for (i, var_name) in enumerate(var_names)
-        var_ = fetch_interpolate_transform(var_name, sim_dir, z_scm)
+        var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         # Store pooled variance
         pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
         # Normalize timeseries
