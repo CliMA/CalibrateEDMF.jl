@@ -1622,9 +1622,9 @@ version = "0.3.0"
 
 [[deps.TriangularSolve]]
 deps = ["CloseOpenIntervals", "IfElse", "LayoutPointers", "LinearAlgebra", "LoopVectorization", "Polyester", "Static", "VectorizationBase"]
-git-tree-sha1 = "c3ab8b77b82fd92e2b6eea8a275a794d5a6e4011"
+git-tree-sha1 = "5cbc1a4551fcf8afe8f80bb4f1f13e3271ee2656"
 uuid = "d5829a12-d9aa-46ab-831f-fb7c9ab06edf"
-version = "0.1.9"
+version = "0.1.10"
 
 [[deps.Tullio]]
 deps = ["ChainRulesCore", "DiffRules", "LinearAlgebra", "Requires"]
@@ -1634,9 +1634,9 @@ version = "0.3.3"
 
 [[deps.TurbulenceConvection]]
 deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "abe071922bf34399a79d01f31eb2ea59a3ba1382"
+git-tree-sha1 = "68f54ae5c350b87f16f6b0039c880eae22bc5947"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.15.0"
+version = "0.15.2"
 
 [[deps.URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
