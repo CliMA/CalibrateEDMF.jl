@@ -275,7 +275,7 @@ Inputs:
  - u_names       :: SCM names for parameters `u`.
  - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 Outputs:
- - output_dirs   :: directory containing output data from the SCM run.
+ - output_dir   :: directory containing output data from the SCM run.
  - model_error   :: Boolean specifying whether the simulation failed.
 """
 function run_SCM_handler(
@@ -285,31 +285,105 @@ function run_SCM_handler(
     u_names::Vector{String},
     namelist_args = nothing,
 ) where {FT <: AbstractFloat}
-    model_error = false
-    # fetch default namelist
+
+    # fetch namelist
     inputdir = scm_dir(m)
     namelist = JSON.parsefile(namelist_directory(inputdir, m))
+    # output subset of variables needed for calibration
+    namelist["stats_io"]["calibrate_io"] = true
+
+    # run TurbulenceConvection.jl with modified parameters
+    return run_SCM_handler(
+        m.case_name,
+        tmpdir;
+        u = u,
+        u_names = u_names,
+        namelist = namelist,
+        namelist_args = namelist_args,
+        uuid = basename(tmpdir), # set random uuid
+        les = get(namelist["meta"], "lesfile", nothing),
+    )
+end
+
+
+"""
+    run_SCM_handler(
+        case_name::String,
+        out_dir::String;
+        u::Vector{FT},
+        u_names::Vector{String},
+        namelist::Union{Dict, Nothing} = nothing,
+        namelist_args::Union{Tuple, Nothing} = nothing,
+        uuid::String = "01",
+        les::Union{NamedTuple, String} = nothing,
+    )
+
+Run a TurbulenceConvection.jl case and return directory pointing to where data is stored for simulation run.
+
+Inputs:
+ - case_name     :: case name
+ - out_dir       :: Directory to store simulation results in.
+ Optional Inputs:
+ - u             :: Values of parameters to be used in simulations.
+ - u_names       :: SCM names for parameters `u`.
+ - namelist      :: namelist to use for simulation.
+ - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+ - uuid          :: uuid of SCM run
+ - les           :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
+ Outputs:
+ - output_dir   :: directory containing output data from the SCM run.
+ - model_error   :: Boolean specifying whether the simulation failed.
+"""
+function run_SCM_handler(
+    case_name::String,
+    out_dir::String;
+    u::Vector{FT},
+    u_names::Vector{String},
+    namelist::Union{Dict, Nothing} = nothing,
+    namelist_args::Union{Vector, Nothing} = nothing,
+    uuid::String = "01",
+    les::Union{NamedTuple, String, Nothing} = nothing,
+) where {FT <: AbstractFloat}
+    model_error = false
+
+    # fetch default namelist if not provided
+    if isnothing(namelist)
+        namelist = NameList.default_namelist(case_name)
+    end
+
+    namelist["meta"]["uuid"] = uuid
+    # set output dir to `out_dir`
+    namelist["output"]["output_root"] = out_dir
 
     u_names, u = create_parameter_vectors(u_names, u)
-
     # Set optional namelist args
-    namelist["stats_io"]["calibrate_io"] = true
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
             change_entry!(namelist, namelist_arg)
         end
     end
 
-    # update parameter values
-    for (pName, pVal) in zip(u_names, u)
-        namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+    # update parameter values, if provided
+    if !(isnothing(u) & isnothing(u_names))
+        @assert length(u_names) == length(u)
+        for (pName, pVal) in zip(u_names, u)
+            namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+        end
     end
 
-    # set random uuid
-    uuid = basename(tmpdir)
-    namelist["meta"]["uuid"] = uuid
-    # set output dir to `tmpdir`
-    namelist["output"]["output_root"] = tmpdir
+    if case_name == "LES_driven_SCM"
+        if isnothing(les)
+            error("les path or keywords required for LES_driven_SCM case!")
+        elseif isa(les, NamedTuple)
+            les = get_stats_path(get_cfsite_les_dir(
+                les.cfsite_number;
+                forcing_model = les.forcing_model,
+                month = les.month,
+                experiment = les.experiment,
+            ))
+        end
+        namelist["meta"]["lesfile"] = les
+    end
 
     # run TurbulenceConvection.jl with modified parameters
     logger = Logging.ConsoleLogger(stderr, Logging.Warn)
@@ -318,11 +392,12 @@ function run_SCM_handler(
     end
     if ret_code ≠ :success
         model_error = true
-        message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
+        message = ["TurbulenceConvection.jl simulation $out_dir failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
     end
-    return data_directory(tmpdir, m.case_name, uuid), model_error
+
+    return data_directory(out_dir, case_name, uuid), model_error
 end
 
 """
