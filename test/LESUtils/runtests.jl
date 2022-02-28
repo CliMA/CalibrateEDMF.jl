@@ -6,8 +6,9 @@ using CalibrateEDMF.LESUtils
 @testset "LESUtils" begin
     scm_names = ["total_flux_qt", "total_flux_h", "u_mean", "foo"]
     tmpdir = mktempdir()
-    mkdir(joinpath(tmpdir, "stats"))
-    NCDataset(joinpath(tmpdir, "stats", "test.nc"), "c") do ds
+    filename = joinpath(tmpdir, "stats", "test.nc")
+    mkdir(dirname(filename))
+    NCDataset(filename, "c") do ds
 
         defDim(ds, "t", 10)
         defDim(ds, "z", 20)
@@ -20,10 +21,10 @@ using CalibrateEDMF.LESUtils
         defVar(ds.group["timeseries"], "foo", Float32, ("t",))
     end
 
-    @test find_alias(("u_mean", "u_translational_mean"), tmpdir) == "u_translational_mean"
-    @test find_alias(("foo",), tmpdir) == "foo"
-    @test_throws ErrorException find_alias(("vorticity",), tmpdir)
-    @test get_les_names(scm_names, tmpdir) == ["qt_flux_z", "resolved_z_flux_thetali", "u_translational_mean", "foo"]
+    @test find_alias(("u_mean", "u_translational_mean"), filename) == "u_translational_mean"
+    @test find_alias(("foo",), filename) == "foo"
+    @test_throws ErrorException find_alias(("vorticity",), filename)
+    @test get_les_names(scm_names, filename) == ["qt_flux_z", "resolved_z_flux_thetali", "u_translational_mean", "foo"]
 
     @testset "cfSite_getter" begin
         @test isa(get_cfsite_les_dir(2), String)

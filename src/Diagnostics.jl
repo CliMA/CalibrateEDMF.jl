@@ -51,7 +51,7 @@ function io_dictionary_reference(
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
         for rm in ref_models
     ]
-    config_dz = [get_dz(rm.scm_dir) for rm in ref_models]
+    config_dz = [get_dz(scm_nc_file(rm)) for rm in ref_models]
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1
@@ -114,7 +114,7 @@ function io_dictionary_val_reference(
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
         for rm in ref_models
     ]
-    config_dz = [get_dz(rm.scm_dir) for rm in ref_models]
+    config_dz = [get_dz(scm_nc_file(rm)) for rm in ref_models]
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1

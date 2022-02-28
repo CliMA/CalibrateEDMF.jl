@@ -7,6 +7,7 @@ using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.HelperFuncs
 
 @testset "ReferenceStatistics" begin
     # Choose same SCM to speed computation
@@ -37,21 +38,22 @@ using CalibrateEDMF.TurbulenceConvectionUtils
     run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
 
     # Test penalty behavior of ReferenceStatistics.get_profile
+    filename = get_stats_path(scm_dirs[1])
 
     # if simulation lines up with ti, tf => no penalty
-    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max)
+    y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = 0.0, tf = t_max)
     @test maximum(y) < 1e4
     # if simulation end within dt margin => no penalty
-    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency)
+    y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency)
     @test maximum(y) < 1e4
     # if simulation end outside of dt margin => penalty
-    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency + dt_max)
+    y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = 0.0, tf = t_max + io_frequency + dt_max)
     @test all(y .> 1e4)
     # if simulation end after ti  => no penalty
-    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = t_max - 0.01, tf = t_max)
+    y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = t_max - 0.01, tf = t_max)
     @test maximum(y) < 1e4
     # if simulation end before ti  => penalty
-    y = ReferenceStats.get_profile(scm_dirs[1], ["u_mean", "v_mean"]; ti = t_max + 0.01, tf = t_max)
+    y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = t_max + 0.01, tf = t_max)
     @test all(y .> 1e4)
 
     # Test only tikhonov vs PCA and tikhonov
