@@ -50,8 +50,7 @@ function run_SCM_parallel(
         g_scm_pca .= 1e5
     end
 
-    @info "Length of g_scm (full): $(length(g_scm))"
-    @info "Length of g_scm (pca) : $(length(g_scm_pca))"
+    @info "Length of g_scm (full, pca): ($(length(g_scm)), $(length(g_scm_pca)))"
     if error_check
         return sim_dirs, g_scm, g_scm_pca, model_error
     else
@@ -71,10 +70,11 @@ function eval_single_ref_model(
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
+    filename = get_stats_path(sim_dir)
     if model_error
         g_scm = fill(NaN, length(get_z_obs(m)) * length(m.y_names))
     else
-        g_scm = get_profile(m, sim_dir, z_scm = get_z_obs(m))
+        g_scm = get_profile(m, filename, z_scm = get_z_obs(m))
         g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
     end
     # perform PCA reduction

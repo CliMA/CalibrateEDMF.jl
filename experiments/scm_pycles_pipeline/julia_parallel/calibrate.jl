@@ -11,20 +11,19 @@
 using Distributed
 @everywhere using Pkg
 @everywhere Pkg.activate(dirname(dirname(dirname(@__DIR__))))
-@everywhere using ArgParse
-@everywhere using CalibrateEDMF
-@everywhere using CalibrateEDMF.DistributionUtils
-@everywhere using CalibrateEDMF.Pipeline
-@everywhere src_dir = dirname(pathof(CalibrateEDMF))
-@everywhere using CalibrateEDMF.HelperFuncs
-# Import EKP modules
-@everywhere using EnsembleKalmanProcesses
-@everywhere using EnsembleKalmanProcesses.ParameterDistributions
+@everywhere begin
+    using ArgParse
+    using CalibrateEDMF
+    using CalibrateEDMF.DistributionUtils
+    using CalibrateEDMF.Pipeline
+    src_dir = dirname(pathof(CalibrateEDMF))
+    using CalibrateEDMF.HelperFuncs
+    # Import EKP modules
+    using EnsembleKalmanProcesses
+    using EnsembleKalmanProcesses.ParameterDistributions
+end
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
-using Test
-import NCDatasets
-const NC = NCDatasets
 
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -33,12 +32,7 @@ s = ArgParseSettings()
     arg_type = String
 end
 parsed_args = parse_args(ARGS, s)
-if parsed_args["config"] == nothing
-    include(joinpath(dirname(@__DIR__), "config.jl"))
-    @warn "Using default config file."
-else
-    include(parsed_args["config"])
-end
+include(parsed_args["config"])
 config = get_config()
 
 # Initialize calibration process
@@ -46,8 +40,10 @@ outdir_path = init_calibration(config; config_path = parsed_args["config"], mode
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 
 # Dispatch SCM eval functions to workers
-@everywhere scm_eval_train(version) = versioned_model_eval(version, $outdir_path, "train", $config)
-@everywhere scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
+@everywhere begin
+    scm_eval_train(version) = versioned_model_eval(version, $outdir_path, "train", $config)
+    scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
+end
 
 # Calibration process
 N_iter = config["process"]["N_iter"]
@@ -61,13 +57,4 @@ for iteration in 1:N_iter
         pmap(scm_eval_validation, versions)
         ek_update(ekp, priors, iteration, config, versions, outdir_path)
     end
-end
-
-mse_full_mean = NC.Dataset(joinpath(outdir_path, "Diagnostics.nc"), "r") do ds
-    Array(ds.group["metrics"]["mse_full_mean"])
-end
-
-@testset "Julia Parallel Calibrate" begin
-    # TODO: add better regression test (random seed)
-    @test mse_full_mean[2] < mse_full_mean[1]
 end

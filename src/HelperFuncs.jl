@@ -41,7 +41,7 @@ using Random
 """
     vertical_interpolation(
         var_name::String,
-        sim_dir::String,
+        filename::String,
         z_scm::Vector{FT};
     ) where {FT <: AbstractFloat}
 
@@ -49,14 +49,14 @@ Returns the netcdf variable var_name interpolated to heights z_scm.
 
 Inputs:
  - var_name :: Name of variable in the netcdf dataset.
- - sim_dir :: Name of simulation directory.
+ - filename :: nc filename
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated vector.
 """
-function vertical_interpolation(var_name::String, sim_dir::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
-    z_ref = get_height(sim_dir, get_faces = is_face_variable(get_stats_path(sim_dir), var_name))
-    var_ = nc_fetch(sim_dir, var_name)
+function vertical_interpolation(var_name::String, filename::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
+    z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
+    var_ = nc_fetch(filename, var_name)
     if length(size(var_)) == 2
         # Create interpolant
         nodes = (z_ref, 1:size(var_, 2))
@@ -75,7 +75,7 @@ end
 """
     nc_fetch_interpolate(
         var_name::String,
-        sim_dir::String,
+        filename::String,
         z_scm::Union{Vector{Float64}, Nothing};
     )
 
@@ -83,23 +83,23 @@ Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
 
 Inputs:
  - var_name :: Name of variable in the netcdf dataset.
- - sim_dir :: Name of simulation directory.
+ - filename :: nc filename
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated vector.
 """
-function nc_fetch_interpolate(var_name::String, sim_dir::String, z_scm::Union{Vector{Float64}, Nothing};)
+function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{Vector{Float64}, Nothing};)
     if !isnothing(z_scm)
-        return vertical_interpolation(var_name, sim_dir, z_scm)
+        return vertical_interpolation(var_name, filename, z_scm)
     else
-        return nc_fetch(sim_dir, var_name)
+        return nc_fetch(filename, var_name)
     end
 end
 
 """
     fetch_interpolate_transform(
         var_name::String,
-        sim_dir::String,
+        filename::String,
         z_scm::Union{Vector{Float64}, Nothing};
     )
 
@@ -109,59 +109,59 @@ transformation as well.
 
 Inputs:
  - var_name :: Name of variable in the netcdf dataset.
- - sim_dir :: Name of simulation directory.
+ - filename :: nc filename
  - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated and transformed vector.
 """
-function fetch_interpolate_transform(var_name::String, sim_dir::String, z_scm::Union{Vector{Float64}, Nothing};)
+function fetch_interpolate_transform(var_name::String, filename::String, z_scm::Union{Vector{Float64}, Nothing};)
     # PyCLES vertical fluxes are per volume, not mass
     if occursin("resolved_z_flux", var_name)
-        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm)
-        rho_half = nc_fetch_interpolate("rho0_half", sim_dir, z_scm)
+        var_ = nc_fetch_interpolate(var_name, filename, z_scm)
+        rho_half = nc_fetch_interpolate("rho0_half", filename, z_scm)
         var_ = var_ .* rho_half
     elseif occursin("horizontal_vel", var_name)
-        u_ = nc_fetch_interpolate("u_mean", sim_dir, z_scm)
-        v_ = nc_fetch_interpolate("v_mean", sim_dir, z_scm)
+        u_ = nc_fetch_interpolate("u_mean", filename, z_scm)
+        v_ = nc_fetch_interpolate("v_mean", filename, z_scm)
         var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
     else
-        var_ = nc_fetch_interpolate(var_name, sim_dir, z_scm)
+        var_ = nc_fetch_interpolate(var_name, filename, z_scm)
     end
     return var_
 end
 
 """
-    get_height(sim_dir::String; get_faces::Bool = false)
+    get_height(filename::String; get_faces::Bool = false)
 
 Returns the vertical cell centers or faces of the given configuration.
 
 Inputs:
- - sim_dir :: Name of simulation directory.
+ - filename :: nc filename.
  - get_faces :: If true, returns the coordinates of cell faces. Otherwise,
     returns the coordinates of cell centers.
 Output:
  - z: Vertical level coordinates.
 """
-function get_height(sim_dir::String; get_faces::Bool = false)
+function get_height(filename::String; get_faces::Bool = false)
     if get_faces
-        return nc_fetch(sim_dir, ("zf", "z"))
+        return nc_fetch(filename, ("zf", "z"))
     else
-        return nc_fetch(sim_dir, ("zc", "z_half"))
+        return nc_fetch(filename, ("zc", "z_half"))
     end
 end
 
 """
-    get_dz(sim_dir::String)
+    get_dz(filename::String)
 
 Returns the vertical grid size of the given configuration.
 
 Inputs:
- - sim_dir :: Name of simulation directory.
+ - filename :: nc filename
 Output:
  - The vertical grid size.
 """
-function get_dz(sim_dir::String)
-    z = get_height(sim_dir)
+function get_dz(filename::String)
+    z = get_height(filename)
     return z[2] - z[1]
 end
 
@@ -182,15 +182,15 @@ function normalize_profile(profile_vec, n_vars, var_vec)
 end
 
 """
-    nc_fetch(dir::String, var_names::NTuple{N, Tuple}) where {N}
-    nc_fetch(dir::String, var_name::String)
+    nc_fetch(filename::String, var_names::NTuple{N, Tuple}) where {N}
+    nc_fetch(filename::String, var_name::String)
 
 Returns the data for a variable `var_name` (or
 tuple of strings, `varnames`), looping through
 all dataset groups.
 """
-function nc_fetch(dir::String, var_names::Tuple)
-    NCDataset(get_stats_path(dir)) do ds
+function nc_fetch(filename::String, var_names::Tuple)
+    NCDataset(filename) do ds
         for var_name in var_names
             if haskey(ds, var_name)
                 return Array(ds[var_name])
@@ -203,10 +203,10 @@ function nc_fetch(dir::String, var_names::Tuple)
                 end
             end
         end
-        error("Variables $var_names not found in the output directory $dir.")
+        error("Variables $var_names not found in the output netCDF file $filename.")
     end
 end
-nc_fetch(dir::String, var_name::String) = nc_fetch(dir, (var_name,))
+nc_fetch(filename::String, var_name::String) = nc_fetch(filename, (var_name,))
 
 """
     is_face_variable(filename::String, var_name::String)

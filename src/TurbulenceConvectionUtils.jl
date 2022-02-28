@@ -1,5 +1,6 @@
 module TurbulenceConvectionUtils
 
+import Logging
 using JLD2
 using JSON
 using Random
@@ -101,8 +102,7 @@ function run_SCM(
         g_scm_pca .= 1e5
     end
 
-    @info "Length of g_scm (full): $(length(g_scm))"
-    @info "Length of g_scm (pca) : $(length(g_scm_pca))"
+    @info "Length of g_scm (full, pca): ($(length(g_scm)), $(length(g_scm_pca)))"
     if error_check
         return sim_dirs, g_scm, g_scm_pca, model_error
     else
@@ -167,10 +167,11 @@ function eval_single_ref_model(
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
+    filename = get_stats_path(sim_dir)
     if model_error
         g_scm = fill(NaN, length(get_z_obs(m)) * length(m.y_names))
     else
-        g_scm = get_profile(m, sim_dir, z_scm = get_z_obs(m))
+        g_scm = get_profile(m, filename, z_scm = get_z_obs(m))
         g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
     end
     # perform PCA reduction
@@ -216,6 +217,7 @@ function run_reference_SCM(
     if ~isdir(output_dir) | overwrite
         namelist = get_scm_namelist(m, overwrite = overwrite)
         # Set optional namelist args
+        namelist["stats_io"]["calibrate_io"] = true
         if !isnothing(namelist_args)
             for namelist_arg in namelist_args
                 change_entry!(namelist, namelist_arg)
@@ -232,12 +234,13 @@ function run_reference_SCM(
         namelist["output"]["output_root"] = dirname(output_dir)
         # if `LES_driven_SCM` case, provide input LES stats file
         if m.case_name == "LES_driven_SCM"
-            namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
+            namelist["meta"]["lesfile"] = y_nc_file(m)
         end
         # run TurbulenceConvection.jl
-        try
-            main(namelist)
-        catch
+        _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+            main1d(namelist; time_run = false)
+        end
+        if ret_code ≠ :success
             @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
         end
         if run_single_timestep
@@ -289,6 +292,7 @@ function run_SCM_handler(
     u_names, u = create_parameter_vectors(u_names, u)
 
     # Set optional namelist args
+    namelist["stats_io"]["calibrate_io"] = true
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
             change_entry!(namelist, namelist_arg)
@@ -307,14 +311,14 @@ function run_SCM_handler(
     namelist["output"]["output_root"] = tmpdir
 
     # run TurbulenceConvection.jl with modified parameters
-    try
-        main(namelist)
-    catch e
+    _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+        main1d(namelist; time_run = false)
+    end
+    if ret_code ≠ :success
         model_error = true
         message = ["TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
-        @warn join(["This was caused by ", e])
     end
     return data_directory(tmpdir, m.case_name, uuid), model_error
 end

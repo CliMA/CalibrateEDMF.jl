@@ -17,10 +17,14 @@ steps:
       - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
       - "julia --project -e 'using Pkg; Pkg.status()'"
+
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.develop(path = \".\")'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.precompile()'"
+      - "julia --project=integration_tests -e 'using Pkg; Pkg.status()'"
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - wait
 
@@ -31,7 +35,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "DistributionUtils"
     key: "cpu_distributionutils"
@@ -40,7 +43,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "LESUtils"
     key: "cpu_lesutils"
@@ -49,7 +51,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "TurbulenceConvectionUtils"
     key: "cpu_turbulenceconvectionutils"
@@ -58,7 +59,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "ReferenceModels"
     key: "cpu_referencemodels"
@@ -67,7 +67,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "ReferenceStats"
     key: "cpu_referencestats"
@@ -76,7 +75,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "Pipeline"
     key: "cpu_pipeline"
@@ -85,7 +83,6 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "NetCDFIO"
     key: "cpu_netcdfio"
@@ -94,15 +91,15 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 1
 
   - label: "Calibrate julia parallel 10 procs"
     key: "cpu_calibrate_julia_p10"
     command:
-      - cd experiments/scm_pycles_pipeline/julia_parallel
-      - "julia --color=yes -p 10 --project calibrate.jl --config ../config.jl"
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_calibrate.jl"
+    artifact_paths:
+      - "integration_tests/output/julia_parallel_calibrate/*"
     agents:
       config: cpu
       queue: central
-      slurm_ntasks: 11
+      slurm_cpus_per_task: 11
 

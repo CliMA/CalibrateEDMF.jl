@@ -7,6 +7,7 @@ using Random
 export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
+export y_nc_file, Σ_nc_file, scm_nc_file
 export data_directory, namelist_directory
 export construct_reference_models, construct_ref_model_batch
 export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
@@ -122,11 +123,39 @@ get_t_end_Σ(m::ReferenceModel) = m.Σ_t_end
 
 "Returns the observed vertical locations for a reference model"
 function get_z_obs(m::ReferenceModel)
-    z_scm = get_height(scm_dir(m))
+    filename = scm_nc_file(m)
+    z_scm = get_height(filename)
     return isnothing(m.n_obs) ? z_scm : Array(LinRange(z_scm[1], z_scm[end], m.n_obs))
 end
 
 y_dir(m::ReferenceModel) = m.y_dir
+# TODO: remove conditional from the nc-file functions if possible
+# One option would be to cache the filenames, as opposed to the folder
+# directories.
+function y_nc_file(m::ReferenceModel)
+    folder = joinpath(y_dir(m), "stats")
+    if ispath(folder)
+        return joinpath(folder, "Stats.$(m.case_name).nc")
+    else
+        return joinpath(y_dir(m), "$(m.case_name).nc")
+    end
+end
+function Σ_nc_file(m::ReferenceModel)
+    folder = joinpath(Σ_dir(m), "stats")
+    if ispath(folder)
+        return joinpath(folder, "Stats.$(m.case_name).nc")
+    else
+        return joinpath(Σ_dir(m), "$(m.case_name).nc")
+    end
+end
+function scm_nc_file(m::ReferenceModel)
+    folder = joinpath(scm_dir(m), "stats")
+    if ispath(folder)
+        return joinpath(folder, "Stats.$(m.case_name).nc")
+    else
+        return joinpath(scm_dir(m), "$(m.case_name).nc")
+    end
+end
 Σ_dir(m::ReferenceModel) = m.Σ_dir
 scm_dir(m::ReferenceModel) = m.scm_dir
 data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
@@ -192,7 +221,8 @@ Outputs:
  - The time-shifted ReferenceModel.
 """
 function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
-    t = nc_fetch(y_dir(m), "t")
+    filename = y_nc_file(m)
+    t = nc_fetch(filename, "t")
     t_start = t[end] - Δt + get_t_start(m)
     t_end = t[end] - Δt + get_t_end(m)
     Σ_t_start = t[end] - Δt + get_t_start_Σ(m)
