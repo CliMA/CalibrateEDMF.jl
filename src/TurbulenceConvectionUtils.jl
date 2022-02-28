@@ -236,7 +236,8 @@ function run_reference_SCM(
             namelist["meta"]["lesfile"] = get_stats_path(y_dir(m))
         end
         # run TurbulenceConvection.jl
-        _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+        logger = Logging.ConsoleLogger(stderr, Logging.Warn)
+        _, ret_code = Logging.with_logger(logger) do
             main1d(namelist; time_run = false)
         end
         if ret_code ≠ :success
@@ -310,7 +311,8 @@ function run_SCM_handler(
     namelist["output"]["output_root"] = tmpdir
 
     # run TurbulenceConvection.jl with modified parameters
-    _, ret_code = Logging.with_logger(Logging.NullLogger()) do
+    logger = Logging.ConsoleLogger(stderr, Logging.Warn)
+    _, ret_code = Logging.with_logger(logger) do
         main1d(namelist; time_run = false)
     end
     if ret_code ≠ :success
