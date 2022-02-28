@@ -1,0 +1,5 @@
+
+signal (11): Segmentation fault
+in expression starting at /central/groups/esm/ilopezgo/CalibrateEDMF.jl/experiments/les_strats/julia_parallel/calibrate.jl:15
+/var/spool/slurmd/job21602887/slurm_script: line 13:  6094 Bus error               (core dumped) julia --project -p 159 calibrate.jl --config ../config_nn_uki20.jl
+slurmstepd: error: Detected 776319 oom-kill event(s) in step 21602887.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.
