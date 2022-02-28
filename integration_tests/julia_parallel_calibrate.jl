@@ -31,7 +31,8 @@ end
 using JLD2
 using Test
 
-config_filename = joinpath(dirname(@__DIR__), "experiments", "scm_pycles_pipeline", "config.jl")
+# config_filename = joinpath(dirname(@__DIR__), "experiments/scm_pycles_pipeline/config.jl")
+config_filename = joinpath(dirname(@__DIR__), "experiments/les_strats/config_nn_uki20.jl")
 include(config_filename)
 config = get_config()
 
