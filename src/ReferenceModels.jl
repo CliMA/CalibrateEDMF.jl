@@ -132,30 +132,39 @@ y_dir(m::ReferenceModel) = m.y_dir
 # TODO: remove conditional from the nc-file functions if possible
 # One option would be to cache the filenames, as opposed to the folder
 # directories.
-function y_nc_file(m::ReferenceModel)
-    folder = joinpath(y_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(y_dir(m), "$(m.case_name).nc")
-    end
-end
-function Σ_nc_file(m::ReferenceModel)
-    folder = joinpath(Σ_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(Σ_dir(m), "$(m.case_name).nc")
-    end
-end
-function scm_nc_file(m::ReferenceModel)
-    folder = joinpath(scm_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(scm_dir(m), "$(m.case_name).nc")
-    end
-end
+y_nc_file(m::ReferenceModel) = get_stats_path(y_dir(m))
+# function y_nc_file(m::ReferenceModel)
+#     folder = joinpath(y_dir(m), "stats")
+#     if ispath(folder)
+#         return joinpath(folder, "Stats.$(m.case_name).nc")
+#     elseif isfile(joinpath(y_dir(m), "$(m.case_name).nc"))
+#         return joinpath(y_dir(m), "$(m.case_name).nc")
+#     else
+#         return get_stats_path(y_dir(m))
+#     end
+# end
+Σ_nc_file(m::ReferenceModel) = get_stats_path(Σ_dir(m))
+# function Σ_nc_file(m::ReferenceModel)
+#     folder = joinpath(Σ_dir(m), "stats")
+#     if ispath(folder)
+#         return joinpath(folder, "Stats.$(m.case_name).nc")
+#     elseif isfile(joinpath(Σ_dir(m), "$(m.case_name).nc"))
+#         return joinpath(Σ_dir(m), "$(m.case_name).nc")
+#     else
+#         return get_stats_path(Σ_dir(m))
+#     end
+# end
+scm_nc_file(m::ReferenceModel) = get_stats_path(scm_dir(m))
+# function scm_nc_file(m::ReferenceModel)
+#     folder = joinpath(scm_dir(m), "stats")
+#     if ispath(folder)
+#         return joinpath(folder, "Stats.$(m.case_name).nc")
+#     elseif isfile(joinpath(scm_dir(m), "$(m.case_name).nc"))
+#         return joinpath(scm_dir(m), "$(m.case_name).nc")
+#     else
+#         return get_stats_path(scm_dir(m))
+#     end
+# end
 Σ_dir(m::ReferenceModel) = m.Σ_dir
 scm_dir(m::ReferenceModel) = m.scm_dir
 data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
