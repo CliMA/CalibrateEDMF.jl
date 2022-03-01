@@ -129,35 +129,14 @@ function get_z_obs(m::ReferenceModel)
 end
 
 y_dir(m::ReferenceModel) = m.y_dir
-# TODO: remove conditional from the nc-file functions if possible
-# One option would be to cache the filenames, as opposed to the folder
-# directories.
-function y_nc_file(m::ReferenceModel)
-    folder = joinpath(y_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(y_dir(m), "$(m.case_name).nc")
-    end
-end
-function Σ_nc_file(m::ReferenceModel)
-    folder = joinpath(Σ_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(Σ_dir(m), "$(m.case_name).nc")
-    end
-end
-function scm_nc_file(m::ReferenceModel)
-    folder = joinpath(scm_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(scm_dir(m), "$(m.case_name).nc")
-    end
-end
 Σ_dir(m::ReferenceModel) = m.Σ_dir
 scm_dir(m::ReferenceModel) = m.scm_dir
+
+# TODO: cache filename and move `get_stats_path` call to constructor.
+y_nc_file(m::ReferenceModel) = get_stats_path(y_dir(m))
+Σ_nc_file(m::ReferenceModel) = get_stats_path(Σ_dir(m))
+scm_nc_file(m::ReferenceModel) = get_stats_path(scm_dir(m))
+
 data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
 uuid(m::ReferenceModel) = String(split(scm_dir(m), ".")[end])
 
