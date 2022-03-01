@@ -29,6 +29,12 @@ Base.@kwdef struct ReferenceModel
     Σ_dir::String
     "Directory for static data related to forward scm model (parameter file & vertical levels)"
     scm_dir::String
+    "NC filename for reference data to compute `y` mean vector"
+    y_nc_filename::String
+    "NC filename for reference data to compute `Σ` covariance matrix"
+    Σ_nc_filename::String
+    "NC filename for static data related to forward scm model (parameter file & vertical levels)"
+    scm_nc_filename::String
     "Name of case"
     case_name::String
     # TODO: Make t_start and t_end vectors for multiple time intervals per reference model.
@@ -78,7 +84,25 @@ function ReferenceModel(
     Σ_t_start = isnothing(Σ_t_start) ? t_start : Σ_t_start
     Σ_t_end = isnothing(Σ_t_end) ? t_end : Σ_t_end
 
-    ReferenceModel(y_names, y_dir, Σ_dir, scm_dir, case_name, t_start, t_end, Σ_t_start, Σ_t_end, n_obs)
+    y_nc_filename = get_stats_path(y_dir)
+    Σ_nc_filename = get_stats_path(Σ_dir)
+    scm_nc_filename = get_stats_path(scm_dir)
+    kwargs = (;
+        y_names,
+        y_dir,
+        Σ_dir,
+        scm_dir,
+        y_nc_filename,
+        Σ_nc_filename,
+        scm_nc_filename,
+        case_name,
+        t_start,
+        t_end,
+        Σ_t_start,
+        Σ_t_end,
+        n_obs,
+    )
+    ReferenceModel(; kwargs...)
 end
 
 """
@@ -113,7 +137,7 @@ function ReferenceModel(
 )
     scm_dir = data_directory(scm_parent_dir, case_name, scm_suffix)
     args = (y_names, y_dir, scm_dir, case_name, t_start, t_end)
-    return ReferenceModel(args..., Σ_dir = Σ_dir, Σ_t_start = Σ_t_start, Σ_t_end = Σ_t_end, n_obs = n_obs)
+    return ReferenceModel(args...; Σ_dir = Σ_dir, Σ_t_start = Σ_t_start, Σ_t_end = Σ_t_end, n_obs = n_obs)
 end
 
 get_t_start(m::ReferenceModel) = m.y_t_start
@@ -129,35 +153,13 @@ function get_z_obs(m::ReferenceModel)
 end
 
 y_dir(m::ReferenceModel) = m.y_dir
-# TODO: remove conditional from the nc-file functions if possible
-# One option would be to cache the filenames, as opposed to the folder
-# directories.
-function y_nc_file(m::ReferenceModel)
-    folder = joinpath(y_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(y_dir(m), "$(m.case_name).nc")
-    end
-end
-function Σ_nc_file(m::ReferenceModel)
-    folder = joinpath(Σ_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(Σ_dir(m), "$(m.case_name).nc")
-    end
-end
-function scm_nc_file(m::ReferenceModel)
-    folder = joinpath(scm_dir(m), "stats")
-    if ispath(folder)
-        return joinpath(folder, "Stats.$(m.case_name).nc")
-    else
-        return joinpath(scm_dir(m), "$(m.case_name).nc")
-    end
-end
 Σ_dir(m::ReferenceModel) = m.Σ_dir
 scm_dir(m::ReferenceModel) = m.scm_dir
+
+y_nc_file(m::ReferenceModel) = m.y_nc_filename
+Σ_nc_file(m::ReferenceModel) = m.Σ_nc_filename
+scm_nc_file(m::ReferenceModel) = m.scm_nc_filename
+
 data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
 uuid(m::ReferenceModel) = String(split(scm_dir(m), ".")[end])
 
