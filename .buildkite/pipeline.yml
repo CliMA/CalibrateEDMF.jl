@@ -92,14 +92,14 @@ steps:
       config: cpu
       queue: central
 
-  - label: "Calibrate julia parallel 10 procs"
-    key: "cpu_calibrate_julia_p10"
+  - label: "Calibrate julia parallel 56 procs"
+    key: "cpu_calibrate_julia_p56"
     command:
-      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_calibrate.jl"
+      - "julia --color=yes -p 55 --project=integration_tests integration_tests/julia_parallel_calibrate.jl"
     artifact_paths:
       - "integration_tests/output/julia_parallel_calibrate/*"
     agents:
       config: cpu
       queue: central
-      slurm_cpus_per_task: 11
+      slurm_cpus_per_task: 56
 
