@@ -398,12 +398,12 @@ function generate_ekp(
 end
 
 """
-    function generate_tekp(
+    generate_tekp(
         ref_stats::ReferenceStatistics,
         priors::ParameterDistribution,
         process::Process,
         u::Union{Matrix{T}, T} = nothing;
-        l2_reg::Union{AbstractMatrix{R}, R} = nothing,
+        l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
     ) where {T, R}
@@ -422,6 +422,8 @@ Inputs:
  - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
  - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
  - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
+        May be a float (isotropic regularization) or a dictionary of regularizations
+        per parameter.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -433,7 +435,7 @@ function generate_tekp(
     priors::ParameterDistribution,
     process::Process,
     u::Union{Matrix{T}, T} = nothing;
-    l2_reg::Union{AbstractMatrix{R}, R} = nothing,
+    l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T, R}
@@ -444,10 +446,16 @@ function generate_tekp(
     μ = vcat(mean(priors)...)
     y_aug = vcat([ref_stats.y, μ]...)
 
-    if isa(l2_reg, AbstractMatrix)
-        Γ_θ = inv(l2_reg)
-    elseif !isnothing(l2_reg) && l2_reg > 0.0
-        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
+    if isa(l2_reg, Dict)
+        if any(1 .< [length(val) for val in collect(values(l2_reg))])
+            _, l2_reg_values = flatten_config_dict(l2_reg)
+        else
+            l2_reg_values = collect(values(l2_reg))
+        end
+        l2_reg_values = vcat(l2_reg_values...)
+        Γ_θ = inv(Diagonal(l2_reg_values) + eps(R) * I)
+    elseif !isnothing(l2_reg)
+        Γ_θ = Diagonal(repeat([inv(l2_reg + eps(R))], length(μ)))
     else
         Γ_θ = cov(priors)
     end
