@@ -17,7 +17,7 @@ import EnsembleKalmanProcesses: update_ensemble!
 # Experimental fail-safe EKP update
 include(joinpath("..", "ekp_experimental", "failsafe_inversion.jl"))
 
-export init_calibration, ek_update, versioned_model_eval
+export init_calibration, ek_update, versioned_model_eval, restart_calibration
 
 """
     init_calibration(job_id::String, config::Dict{Any, Any})
@@ -444,6 +444,165 @@ function ek_update(
         rm(scm_output_path(outdir_path, version))
         !isnothing(val_config) ? rm(scm_val_output_path(outdir_path, version)) : nothing
     end
+    return
+end
+
+"""
+    function restart_calibration(
+        ekobj::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
+        last_iteration::Int64,
+        config::Dict{Any, Any},
+        outdir_path::String,
+    )
+
+Restarts a calibration process from an EnsembleKalmanProcess, the parameter priors and the
+calibration process config file. If batching, it requires access to the last ReferenceModelBatch,
+stored in the results directory of the previous calibration, `outdir_path`.
+
+Writes to file the ModelEvaluators necessary to continue the calibration process.
+
+Inputs:
+
+ - ekobj          :: EnsembleKalmanProcess to be updated.
+ - priors         :: Priors over parameters, used for unconstrained-constrained mappings.
+ - last_iteration :: Last iteration of the calibration process to be restarted.
+ - config         :: Configuration dictionary.
+ - outdir_path    :: Output path directory of the calibration process to be restarted.
+ - mode :: Whether the calibration process is parallelized through HPC resources
+  or using Julia's pmap.
+ - job_id :: Unique job identifier for sbatch communication.
+"""
+function restart_calibration(
+    ekobj::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    last_iteration::Int64,
+    config::Dict{Any, Any},
+    outdir_path::String;
+    mode::String = "hpc",
+    job_id::String = "12345",
+)
+    # Get config
+    ref_config = config["reference"]
+    batch_size = get_entry(ref_config, "batch_size", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+
+    reg_config = config["regularization"]
+    kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
+
+    out_config = config["output"]
+    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
+
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+
+    val_config = get(config, "validation", nothing)
+
+    # Prepare updated EKP and ReferenceModelBatch if minibatching.
+    if !isnothing(batch_size)
+        ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
+        global_ref_models = deepcopy(ref_model_batch.ref_models)
+        # Create input scm stats and namelist file if files don't already exist
+        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
+        ekp, ref_models, ref_stats, ref_model_batch, batch_indices =
+            update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
+        rm(joinpath(outdir_path, "ref_model_batch.jld2"))
+        write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+    else
+        ekp = ekobj
+        ref_models = construct_reference_models(kwargs_ref_model)
+        # Create input scm stats and namelist file if files don't already exist
+        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
+        ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        batch_indices = nothing
+    end
+
+    # Write to file new EKP and ModelEvaluators
+    jldsave(ekobj_path(outdir_path, last_iteration + 1); ekp)
+    write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, last_iteration, batch_indices)
+
+    # Restart validation
+    if !isnothing(val_config)
+        restart_validation(
+            val_config,
+            reg_config,
+            ekobj,
+            priors,
+            outdir_path,
+            last_iteration,
+            overwrite = overwrite_scm_file,
+            namelist_args = namelist_args,
+        )
+    end
+    if mode == "hpc"
+        open("$(job_id).txt", "w") do io
+            write(io, "$(outdir_path)\n")
+        end
+    end
+    return outdir_path
+end
+
+"""
+    restart_validation(
+        val_config::Dict{Any, Any},
+        reg_config::Dict{Any, Any},
+        ekp_old::EnsembleKalmanProcess,
+        priors::ParameterDistribution,
+        outdir_path::String,
+        last_iteration::IT;
+        overwrite::Bool = false,
+        namelist_args = nothing,
+    ) where {IT <: Integer}
+
+Restarts a validation process by writing to file the validation ModelEvaluators necessary to continue
+the validation process. If batching, it requires access to the last validation ReferenceModelBatch,
+stored in the results directory of the previous calibration process, `outdir_path`.
+
+Inputs:
+
+ - val_config    :: Validation model configuration.
+ - reg_config    :: Regularization configuration.
+ - ekp_old       :: EnsembleKalmanProcess updated using the past forward model evaluations.
+ - priors        :: The priors over parameter space.
+ - outdir_path   :: Output path directory.
+"""
+function restart_validation(
+    val_config::Dict{Any, Any},
+    reg_config::Dict{Any, Any},
+    ekp_old::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
+    outdir_path::String,
+    last_iteration::IT;
+    overwrite::Bool = false,
+    namelist_args = nothing,
+) where {IT <: Integer}
+
+    kwargs_ref_model = get_ref_model_kwargs(val_config)
+    kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
+    batch_size = get_entry(val_config, "batch_size", nothing)
+
+    if !isnothing(batch_size)
+        ref_model_batch = load(joinpath(outdir_path, "val_ref_model_batch.jld2"))["ref_model_batch"]
+        run_reference_SCM.(ref_model_batch.ref_models, overwrite = overwrite, namelist_args = namelist_args)
+        ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
+        ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
+        rm(joinpath(outdir_path, "val_ref_model_batch.jld2"))
+        write_val_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+    else
+        ref_models = construct_reference_models(kwargs_ref_model)
+        run_reference_SCM.(ref_models, overwrite = overwrite, namelist_args = namelist_args)
+        batch_indices = nothing
+    end
+    ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+
+    params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp_old))
+    params = [c[:] for c in eachcol(params_cons_i)]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    # Save new ModelEvaluators using the new versions
+    versions = readlines(joinpath(outdir_path, "versions_$(last_iteration + 1).txt"))
+    [
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
+        for (model_evaluator, version) in zip(mod_evaluators, versions)
+    ]
     return
 end
 
