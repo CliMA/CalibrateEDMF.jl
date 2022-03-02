@@ -64,15 +64,15 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 50
-    config["N_ens"] = 15 # Must be 2p+1 when algorithm is "Unscented"
-    config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
+    config["N_iter"] = 2
+    config["N_ens"] = 5 # Must be 2p+1 when algorithm is "Unscented"
+    config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
     config["augmented"] = true
-    config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
+    config["failure_handler"] = "sample_succ_gauss" #"high_loss"
     return config
 end
 
@@ -138,11 +138,6 @@ function get_prior_config()
         # entrainment parameters
         "entrainment_factor" => [bounded(0.0, 1.0)],
         "detrainment_factor" => [bounded(0.0, 1.0)],
-        "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
-        "entrainment_smin_tke_coeff" => [bounded(0.0, 10.0)],
-        "updraft_mixing_frac" => [bounded(0.0, 1.0)],
-        "entrainment_scale" => [bounded(1.0e-6, 1.0e-2)],
-        "sorting_power" => [bounded(0.0, 4.0)],
     )
 
     # TC.jl prior mean
@@ -150,14 +145,9 @@ function get_prior_config()
         # entrainment parameters
         "entrainment_factor" => [0.13],
         "detrainment_factor" => [0.51],
-        "turbulent_entrainment_factor" => [0.075],
-        "entrainment_smin_tke_coeff" => [0.3],
-        "updraft_mixing_frac" => [0.25],
-        "entrainment_scale" => [4.0e-4],
-        "sorting_power" => [2.0],
     )
 
-    config["unconstrained_σ"] = 1.0
+    config["unconstrained_σ"] = 0.25
     return config
 end
 

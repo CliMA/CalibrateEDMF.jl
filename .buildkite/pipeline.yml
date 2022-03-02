@@ -103,3 +103,14 @@ steps:
       queue: central
       slurm_cpus_per_task: 11
 
+  - label: "SCT1 global parallel"
+    key: "cpu_sct1_global_parallel"
+    command:
+      - "cd experiments/SCT1_benchmark/global_parallel"
+      - "sbatch ekp_par_calibration.sbatch ../../../integration_tests/SCT1_integration_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/SCT1_global_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+
