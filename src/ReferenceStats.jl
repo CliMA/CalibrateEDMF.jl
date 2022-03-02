@@ -13,6 +13,7 @@ using ..ReferenceModels
 using ..ModelTypes
 using ..LESUtils
 using ..HelperFuncs
+using ..DistributionUtils
 
 export ReferenceStatistics
 export pca_length, full_length
