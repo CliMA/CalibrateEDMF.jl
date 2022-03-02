@@ -27,7 +27,7 @@ A package to calibrate turbulence and convection parameterizations.
 
 # Installation
 
-To use the package, clone this repo
+To use the package, clone this repository
 
   >> git clone https://github.com/CliMA/CalibrateEDMF.jl.git
 
