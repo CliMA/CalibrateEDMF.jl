@@ -78,7 +78,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     end
 end
 
-@testset "Pipeline" begin
+@testset "Pipeline with restart" begin
 
     ###  Test HPC pipeline
     outdir_path = init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
@@ -127,6 +127,15 @@ end
     for i in 1:config["process"]["N_ens"]
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
+
+    restart_calibration(ekobj, priors, 2, config, outdir_path, mode = "hpc")
+    @test isfile(joinpath(outdir_path, "ekobj_iter_3.jld2"))
+    @test isfile(joinpath(outdir_path, "versions_3.txt"))
+    versions = readlines(joinpath(outdir_path, "versions_3.txt"))
+    for i in 1:config["process"]["N_ens"]
+        @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
+    end
+
     rm(outdir_path, recursive = true)
 end
 
@@ -190,6 +199,14 @@ end
     @test isfile(joinpath(outdir_path, "ekobj_iter_2.jld2"))
     @test isfile(joinpath(outdir_path, "versions_2.txt"))
     versions = readlines(joinpath(outdir_path, "versions_2.txt"))
+    for i in 1:config["process"]["N_ens"]
+        @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
+    end
+
+    restart_calibration(ekobj, priors, 2, config, outdir_path, mode = "hpc")
+    @test isfile(joinpath(outdir_path, "ekobj_iter_3.jld2"))
+    @test isfile(joinpath(outdir_path, "versions_3.txt"))
+    versions = readlines(joinpath(outdir_path, "versions_3.txt"))
     for i in 1:config["process"]["N_ens"]
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
