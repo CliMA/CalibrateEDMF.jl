@@ -11,7 +11,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
 export construct_priors, deserialize_prior
 export logmean_and_logstd, mean_and_std_from_ln
-
+export flatten_config_dict
 
 """
     construct_priors(

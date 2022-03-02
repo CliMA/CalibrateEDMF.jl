@@ -44,6 +44,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     ]
     batch_sizes = [nothing, 1, nothing]
     augments = [true, true, false]
+    l2_regs = [1.0, Dict("entrainment_factor" => [0.0], "detrainment_factor" => [0.1]), nothing]
     norms = [true, false, true]
     dim_scalings = [true, false, false]
     tikhonov_modes = ["relative", "absolute", "relative"]
@@ -51,11 +52,12 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     validations = [config["reference"], config["reference"], nothing]
     algos = ["Sampler", "Unscented", "Inversion"]
 
-    for (prior_mean, batch_size, augment, norm, dim_scaling, tikhonov_mode, mode, validation, algo) in
-        zip(prior_means, batch_sizes, augments, norms, dim_scalings, tikhonov_modes, modes, validations, algos)
+    for (prior_mean, batch_size, augment, norm, dim_scaling, tikhonov_mode, mode, validation, algo, l2_reg) in
+        zip(prior_means, batch_sizes, augments, norms, dim_scalings, tikhonov_modes, modes, validations, algos, l2_regs)
         config["prior"]["prior_mean"] = prior_mean
         config["reference"]["batch_size"] = batch_size
         config["process"]["augmented"] = augment
+        config["regularization"]["l2_reg"] = l2_reg
         config["process"]["algorithm"] = algo
         config["regularization"]["normalize"] = norm
         config["regularization"]["dim_scaling"] = dim_scaling
