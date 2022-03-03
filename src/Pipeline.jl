@@ -1,5 +1,6 @@
 module Pipeline
 
+using Statistics
 using Random
 using JLD2
 import Dates
@@ -14,8 +15,6 @@ using ..HelperFuncs
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: update_ensemble!
-# Experimental fail-safe EKP update
-include(joinpath("..", "ekp_experimental", "failsafe_inversion.jl"))
 
 export init_calibration, ek_update, versioned_model_eval, restart_calibration
 
@@ -52,6 +51,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     algo_name = get_entry(proc_config, "algorithm", "Inversion")
     Δt = get_entry(proc_config, "Δt", 1.0)
     augmented = get_entry(proc_config, "augmented", false)
+    failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
@@ -114,16 +114,37 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(mean(priors)...), cov(priors))
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
-            ekobj = generate_tekp(ref_stats, priors, algo, initial_params, outdir_path = outdir_path, l2_reg = l2_reg)
+            ekobj = generate_tekp(
+                ref_stats,
+                priors,
+                algo,
+                initial_params,
+                outdir_path = outdir_path,
+                l2_reg = l2_reg,
+                failure_handler = failure_handler,
+            )
         else
-            ekobj = generate_ekp(ref_stats, algo, initial_params, outdir_path = outdir_path)
+            ekobj = generate_ekp(
+                ref_stats,
+                algo,
+                initial_params,
+                outdir_path = outdir_path,
+                failure_handler = failure_handler,
+            )
         end
     elseif algo_name == "Unscented"
         algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
         if augmented
-            ekobj = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+            ekobj = generate_tekp(
+                ref_stats,
+                priors,
+                algo,
+                outdir_path = outdir_path,
+                l2_reg = l2_reg,
+                failure_handler = failure_handler,
+            )
         else
-            ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+            ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
         end
     end
 
@@ -399,17 +420,10 @@ function ek_update(
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
     end
 
-    failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     if isa(ekobj.process, Inversion)
-        update_ensemble!(
-            ekobj,
-            g,
-            Δt_new = Δt,
-            deterministic_forward_map = deterministic_forward_map,
-            failure_handler = failure_handler,
-        )
+        update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map)
     elseif isa(ekobj.process, Unscented)
-        update_ensemble!(ekobj, g, Δt_new = Δt, failure_handler = failure_handler)
+        update_ensemble!(ekobj, g, Δt_new = Δt)
     else
         update_ensemble!(ekobj, g)
     end
@@ -757,6 +771,7 @@ function update_minibatch_inverse_problem(
     proc_config = config["process"]
 
     augmented = get_entry(proc_config, "augmented", false)
+    failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
@@ -771,9 +786,16 @@ function update_minibatch_inverse_problem(
                 get_u_final(ekp_old),
                 outdir_path = outdir_path,
                 l2_reg = l2_reg,
+                failure_handler = failure_handler,
             )
         else
-            ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old), outdir_path = outdir_path)
+            ekp = generate_ekp(
+                ref_stats,
+                process,
+                get_u_final(ekp_old),
+                failure_handler = failure_handler,
+                outdir_path = outdir_path,
+            )
         end
     elseif isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
@@ -785,9 +807,16 @@ function update_minibatch_inverse_problem(
             prior_mean = vcat(mean(priors)...),
         )
         if augmented
-            ekp = generate_tekp(ref_stats, priors, algo, outdir_path = outdir_path, l2_reg = l2_reg)
+            ekp = generate_tekp(
+                ref_stats,
+                priors,
+                algo,
+                outdir_path = outdir_path,
+                l2_reg = l2_reg,
+                failure_handler = failure_handler,
+            )
         else
-            ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path)
+            ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
         end
     else
         throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
