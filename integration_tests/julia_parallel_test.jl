@@ -31,7 +31,16 @@ end
 using JLD2
 using Test
 
-config_filename = joinpath(dirname(@__DIR__), "experiments", "scm_pycles_pipeline", "config.jl")
+s = ArgParseSettings()
+@add_arg_table s begin
+    "--config"
+    help = "Inverse problem config file path"
+    arg_type = String
+end
+parsed_args = parse_args(ARGS, s)
+config_rel_filepath = parsed_args["config"]
+
+config_filename = joinpath(@__DIR__, config_rel_filepath)
 include(config_filename)
 config = get_config()
 
@@ -45,7 +54,6 @@ priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
     scm_eval_validation(version) = versioned_model_eval(version, $outdir_path, "validation", $config)
 end
 # Calibration process
-config["process"]["N_iter"] = 20
 N_iter = config["process"]["N_iter"]
 @info "Running EK updates for $N_iter iterations"
 for iteration in 1:N_iter
@@ -113,7 +121,7 @@ Plots.ylabel!("Validation MSE (full)")
 Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 
 Plots.plot(p1, p2; layout = (1, 2))
-folder = joinpath(@__DIR__, "output", first(split(basename(@__FILE__), ".")))
+folder = joinpath(@__DIR__, "output", string(first(split(config_rel_filepath, "_")), "_julia_parallel"))
 mkpath(folder)
 Plots.savefig(joinpath(folder, "mse.png"))
 
