@@ -1,14 +1,5 @@
 #=
-This is an integration test using Julia's pmap parallelization.
-
-This is an example on training the TurbulenceConvection.jl implementation
-of the EDMF scheme with data generated using PyCLES (an LES solver) or
-TurbulenceConvection.jl (perfect model setting).
-
-This example parallelizes forward model evaluations using Julia's pmap() function.
-This parallelization strategy is efficient for small ensembles (N_ens < 20). For
-calibration processes involving a larger number of ensemble members, parallelization
-using HPC resources directly is advantageous.
+This is an integration test of a restarted calibration process.
 =#
 
 # Import modules to all processes
@@ -17,6 +8,7 @@ using Distributed
 @everywhere Pkg.activate(@__DIR__)
 @everywhere begin
     using ArgParse
+    using Glob
     import Random
     Random.seed!(1234)
     using CalibrateEDMF
@@ -38,14 +30,23 @@ s = ArgParseSettings()
 end
 parsed_args = parse_args(ARGS, s)
 config_rel_filepath = parsed_args["config"]
+case_name = first(split(config_rel_filepath, "_"))
 
-config_filename = joinpath(@__DIR__, config_rel_filepath)
-include(config_filename)
-config = get_config()
+folder = joinpath(@__DIR__, "output", string(case_name, "_julia_parallel"))
+@assert isdir(folder)
+outdir_path = open(f -> read(f, String), string(folder, case_name, ".txt"))
 
-# Initialize calibration process
-outdir_path = init_calibration(config; config_path = config_filename, mode = "pmap")
+include(joinpath(outdir_path, "config.jl"))
+ekobjs = glob(joinpath(relpath(outdir_path), "ekobj_iter_*.jld2"))
+iters = [parse(Int64, first(split(split(split(ekobj, "/")[end], "_")[end], "."))) for ekobj in ekobjs]
+last_iteration = maximum(iters)
+
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+ekobj = load(ekobj_path(outdir_path, last_iteration))["ekp"]
+config = get_config()
+# continue calibration process for 5 iterations
+config["process"]["N_iter"] = last_iteration + 5
+restart_calibration(ekobj, priors, last_iteration, config, outdir_path)
 
 # Dispatch SCM eval functions to workers
 @everywhere begin
@@ -54,10 +55,10 @@ priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 end
 # Calibration process
 N_iter = config["process"]["N_iter"]
-@info "Running EK updates for $N_iter iterations"
-for iteration in 1:N_iter
+@info "Continue EK updates for $(N_iter-last_iteration) iterations"
+for iteration in (last_iteration + 1):N_iter
     @time begin
-        @info "   iter = $iteration"
+        @info "   iter = $iteration, ($(iteration - last_iteration) since restart)"
         versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
         ekp = load(ekobj_path(outdir_path, iteration))["ekp"]
         pmap(scm_eval_train, versions)
@@ -120,13 +121,9 @@ Plots.ylabel!("Validation MSE (full)")
 Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 
 Plots.plot(p1, p2; layout = (1, 2))
-case_name = first(split(config_rel_filepath, "_"))
-folder = joinpath(@__DIR__, "output", string(case_name, "_julia_parallel"))
+folder = joinpath(@__DIR__, "output", string(first(split(config_rel_filepath, "_")), "_julia_parallel"))
 mkpath(folder)
 Plots.savefig(joinpath(folder, "mse.png"))
-open(string(folder, case_name, ".txt"), "w") do io
-    write(io, outdir_path)
-end;
 
 using Test
 @testset "Julia Parallel Calibrate" begin
