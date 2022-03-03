@@ -135,6 +135,6 @@ end
 function get_scm_config()
     config = Dict()
     # List of tuples like [("time_stepping", "dt_min", 1.0)], or nothing
-    config["namelist_args"] = nothing
+    config["namelist_args"] = [("stats_io", "calibrate_io", true)]
     return config
 end
