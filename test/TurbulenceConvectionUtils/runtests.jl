@@ -4,13 +4,24 @@ using Test
 import StaticArrays
 const SA = StaticArrays
 
-using CalibrateEDMF.ReferenceModels
-using CalibrateEDMF.TurbulenceConvectionUtils
+using EnsembleKalmanProcesses.ParameterDistributions
 
+using CalibrateEDMF.ModelTypes
+using CalibrateEDMF.ReferenceModels
+using CalibrateEDMF.ReferenceStats
+using CalibrateEDMF.DistributionUtils
+using CalibrateEDMF.TurbulenceConvectionUtils
+import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
 
 @testset "TurbulenceConvectionUtils" begin
     @test get_gcm_les_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") ==
           "1_model1_01_experiment1"
+
+    u_names = ["foo", "bar_{1}", "bar_{2}"]
+    u = [1.0, 2.0, 3.0]
+    u_names_out, u_out = create_parameter_vectors(u_names, u)
+    @test length(u_names_out) == 2
+    @test isa(u_out, Vector{Any})
 
     @testset "TC.jl error handling" begin
         # Choose same SCM to speed computation
@@ -37,13 +48,29 @@ using CalibrateEDMF.TurbulenceConvectionUtils
             :Σ_t_end => [t_max],
         )
         ref_models = construct_reference_models(kwargs_ref_model)
-        run_reference_SCM.(ref_models, run_single_timestep = false, namelist_args = namelist_args)
+        @test_logs (:warn,) match_mode = :any run_reference_SCM.(
+            ref_models,
+            run_single_timestep = false,
+            namelist_args = namelist_args,
+        )
 
         u = [0.15]
         u_names = ["entrainment_factor"]
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
+        constraints = Dict("entrainment_factor" => [bounded(0.0, 0.5)])
+        prior = construct_priors(constraints)
+        ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
+        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
         @test model_error
+
+        @test_logs (:warn,) (:error,) match_mode = :any precondition(
+            u,
+            prior,
+            ref_models,
+            ref_stats,
+            namelist_args,
+            max_counter = 1,
+        )
     end
 
     @testset "Namelist modification" begin
