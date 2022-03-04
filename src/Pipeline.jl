@@ -30,6 +30,7 @@ Initializes a calibration process given a configuration, and a pipeline mode.
       or using Julia's pmap.
 """
 function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345", config_path = nothing)
+    @info "Initialize calibration on $(Dates.now())"
     @assert mode in ["hpc", "pmap"]
 
     ref_config = config["reference"]
@@ -394,6 +395,7 @@ function ek_update(
     versions::Vector{String},
     outdir_path::String,
 )
+    @info "Update the Ensemble Kalman Process at iteration $iteration. $(Dates.now())"
     # Get config
     proc_config = config["process"]
     N_iter = proc_config["N_iter"]
@@ -496,6 +498,7 @@ function restart_calibration(
     mode::String = "hpc",
     job_id::String = "12345",
 )
+    @info "Restart calibration on $(Dates.now())"
     # Get config
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
