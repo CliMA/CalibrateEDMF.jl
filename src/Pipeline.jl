@@ -396,6 +396,7 @@ function ek_update(
     outdir_path::String,
 )
     @info "Update the Ensemble Kalman Process at iteration $iteration. $(Dates.now())"
+    @info "Output is stored in: $outdir_path"
     # Get config
     proc_config = config["process"]
     N_iter = proc_config["N_iter"]
