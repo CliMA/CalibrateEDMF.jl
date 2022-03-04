@@ -8,6 +8,7 @@ using JLD2
 # EKP modules
 using EnsembleKalmanProcesses
 import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler
+import EnsembleKalmanProcesses: SampleSuccGauss, IgnoreFailures
 using EnsembleKalmanProcesses.ParameterDistributions
 using ..ReferenceModels
 using ..ModelTypes
@@ -359,10 +360,11 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
 end
 
 """
-    function generate_ekp(
+    generate_ekp(
         ref_stats::ReferenceStatistics,
         process::Process,
         u::Union{Matrix{T}, T} = nothing;
+        failure_handler::String = "ignore_failures",
         outdir_path::String = pwd(),
         to_file::Bool = true,
     ) where {T}
@@ -374,6 +376,7 @@ Inputs:
  - ref_stats :: ReferenceStatistics defining the inverse problem.
  - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
  - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
+ - failure_handler :: String describing what failure handler to use.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -384,14 +387,20 @@ function generate_ekp(
     ref_stats::ReferenceStatistics,
     process::Process,
     u::Union{Matrix{T}, T} = nothing;
+    failure_handler::String = "ignore_failures",
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T}
 
     @assert isa(process, Unscented) || !isnothing(u) "Incorrect EKP constructor."
-
-    ekp = isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process) :
-        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process)
+    @assert failure_handler in ["ignore_failures", "high_loss", "sample_succ_gauss"]
+    if failure_handler == "sample_succ_gauss"
+        fh = SampleSuccGauss()
+    else
+        fh = IgnoreFailures()
+    end
+    ekp = isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh) :
+        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
@@ -405,6 +414,7 @@ end
         process::Process,
         u::Union{Matrix{T}, T} = nothing;
         l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
+        failure_handler::String = "ignore_failures",
         outdir_path::String = pwd(),
         to_file::Bool = true,
     ) where {T, R}
@@ -425,6 +435,7 @@ Inputs:
  - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
         May be a float (isotropic regularization) or a dictionary of regularizations
         per parameter.
+ - failure_handler :: String describing what failure handler to use.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -437,11 +448,18 @@ function generate_tekp(
     process::Process,
     u::Union{Matrix{T}, T} = nothing;
     l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
+    failure_handler::String = "ignore_failures",
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T, R}
 
     @assert isa(process, Unscented) || !isnothing(u) "Incorrect TEKP constructor."
+    @assert failure_handler in ["ignore_failures", "high_loss", "sample_succ_gauss"]
+    if failure_handler == "sample_succ_gauss"
+        fh = SampleSuccGauss()
+    else
+        fh = IgnoreFailures()
+    end
 
     # Augment system with prior
     μ = vcat(mean(priors)...)
@@ -464,7 +482,8 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    ekp = isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process) : EnsembleKalmanProcess(u, y_aug, Γ_aug, process)
+    ekp = isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process, failure_handler_method = fh) :
+        EnsembleKalmanProcess(u, y_aug, Γ_aug, process, failure_handler_method = fh)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end

@@ -6,7 +6,7 @@ using LinearAlgebra
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_sigma_ensemble, construct_mean, construct_cov
-include(joinpath("../ekp_experimental", "failsafe_inversion.jl"))
+import EnsembleKalmanProcesses: construct_successful_mean, construct_successful_cov
 
 using ..ReferenceModels
 using ..ReferenceStats
@@ -479,8 +479,8 @@ function get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {F
     if isa(ekp.process, Unscented)
         if any(isnan.(metric))
             succ_ens = [i for i = 1:length(metric) if !isnan(metric[i])]
-            metric_mean = construct_failsafe_mean(ekp, metric, succ_ens)
-            return construct_failsafe_cov(ekp, metric, metric_mean, succ_ens)
+            metric_mean = construct_successful_mean(ekp, metric, succ_ens)
+            return construct_successful_cov(ekp, metric, metric_mean, succ_ens)
         else
             metric_mean = construct_mean(ekp, metric)
             return construct_cov(ekp, metric, metric_mean)
