@@ -98,6 +98,12 @@ using CalibrateEDMF.HelperFuncs
         Σ_type = SCM(),
     )
 
+    l2_reg = Dict("foo" => [0.1], "bar" => [0.3, 0.0, 0.4])
+    reg_indices = regularized_param_indices(l2_reg)
+    @test length(reg_indices) == 3
+    # Dict is not ordered
+    @test reg_indices == [1, 3, 4]
+
     @testset "PCA" begin
         dofs = [5, 10, 25, 100, 250]
         ts = [30, 300, 200, 50, 40]

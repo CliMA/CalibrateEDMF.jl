@@ -40,17 +40,18 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     prior_means = [
         Dict("entrainment_factor" => [0.15], "detrainment_factor" => [0.4]),
         nothing,
+        nothing,
         Dict("entrainment_factor" => [0.1], "detrainment_factor" => [0.2]),
     ]
-    batch_sizes = [nothing, 1, nothing]
-    augments = [true, true, false]
-    l2_regs = [1.0, Dict("entrainment_factor" => [0.0], "detrainment_factor" => [0.1]), nothing]
-    norms = [true, false, true]
-    dim_scalings = [true, false, false]
-    tikhonov_modes = ["relative", "absolute", "relative"]
-    modes = ["pmap", "hpc", "pmap"]
-    validations = [config["reference"], config["reference"], nothing]
-    algos = ["Sampler", "Unscented", "Inversion"]
+    batch_sizes = [nothing, 1, 1, nothing]
+    augments = [true, true, true, false]
+    l2_regs = [1.0, Dict("entrainment_factor" => [0.0], "detrainment_factor" => [0.1]), nothing, nothing]
+    norms = [true, false, true, true]
+    dim_scalings = [true, false, true, false]
+    tikhonov_modes = ["relative", "absolute", "relative", "relative"]
+    modes = ["pmap", "hpc", "hpc", "pmap"]
+    validations = [config["reference"], config["reference"], config["reference"], nothing]
+    algos = ["Sampler", "Unscented", "Unscented", "Inversion"]
 
     for (prior_mean, batch_size, augment, norm, dim_scaling, tikhonov_mode, mode, validation, algo, l2_reg) in
         zip(prior_means, batch_sizes, augments, norms, dim_scalings, tikhonov_modes, modes, validations, algos, l2_regs)
