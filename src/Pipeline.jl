@@ -415,7 +415,10 @@ function ek_update(
 
     # Advance EKP
     if augmented
-        g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors)
+        reg_config = config["regularization"]
+        l2_reg = get_entry(reg_config, "l2_reg", nothing)
+        # aug_indices = regularized_param_indices(l2_reg)
+        g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors, l2_reg)
     else
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
     end
@@ -637,7 +640,7 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
     # Find train/validation path
     scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
     # Get array sizes with first file
-    scm_outputs = load(scm_path(versions[1]))
+    scm_outputs = load(scm_path(first(versions)))
     d = length(scm_outputs["g_scm_pca"])
     d_full = length(scm_outputs["g_scm"])
     N_ens = length(versions)
@@ -652,7 +655,12 @@ function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; vali
 end
 
 """
-    get_ensemble_g_eval_aug(outdir_path::String, versions::Vector{String}, priors::ParameterDistribution)
+    get_ensemble_g_eval_aug(
+        outdir_path::String,
+        versions::Vector{String},
+        priors::ParameterDistribution,
+        l2_reg::Union{Dict{String, Vector{R}}, R},
+    ) where {R}
 
 Recovers forward model evaluations from the particle ensemble stored in jld2 files,
 and augments the projected output state with the input parameters in unconstrained form
@@ -662,28 +670,40 @@ Inputs:
  - outdir_path  :: Path to output directory.
  - versions     :: Version identifiers of the files containing forward model evaluations.
  - priors       :: Parameter priors, used to transform between constrained and unconstrained spaces.
+ - l2_reg       :: The config entry specifying l2 regularization.
 Outputs:
  - g_aug        :: Forward model evaluations in the reduced space of the inverse problem, augmented with
                     the unconstrained input parameters.
  - g_full       :: Forward model evaluations in the original physical space.
 """
-function get_ensemble_g_eval_aug(outdir_path::String, versions::Vector{String}, priors::ParameterDistribution)
+function get_ensemble_g_eval_aug(
+    outdir_path::String,
+    versions::Vector{String},
+    priors::ParameterDistribution,
+    l2_reg::Union{Dict{String, Vector{R}}, R},
+) where {R}
     # Find train/validation path
     scm_path(x) = scm_output_path(outdir_path, x)
     # Get array sizes with first file
-    scm_outputs = load(scm_path(versions[1]))
+    scm_outputs = load(scm_path(first(versions)))
+
+    aug_indices =
+        isa(l2_reg, Dict) ? regularized_param_indices(l2_reg) : 1:length(scm_outputs["model_evaluator"].param_cons)
+
+    # Set dimensionality
     d = length(scm_outputs["g_scm_pca"])
-    d_aug = d + length(scm_outputs["model_evaluator"].param_cons)
+    d_aug = d + length(aug_indices)
     d_full = length(scm_outputs["g_scm"])
     N_ens = length(versions)
     g_aug = zeros(d_aug, N_ens)
     g_full = zeros(d_full, N_ens)
+
     for (ens_index, version) in enumerate(versions)
         scm_outputs = load(scm_path(version))
         g_aug[1:d, ens_index] = scm_outputs["g_scm_pca"]
         g_full[:, ens_index] = scm_outputs["g_scm"]
         θ = transform_constrained_to_unconstrained(priors, scm_outputs["model_evaluator"].param_cons)
-        g_aug[(d + 1):d_aug, ens_index] = θ
+        g_aug[(d + 1):d_aug, ens_index] = θ[aug_indices]
     end
     return g_aug, g_full
 end

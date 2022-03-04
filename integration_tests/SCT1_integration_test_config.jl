@@ -55,8 +55,13 @@ function get_regularization_config()
     config["tikhonov_noise"] = 1.0e-6 # Tikhonov regularization
     config["dim_scaling"] = true # Dimensional scaling of the loss
 
-    # Parameter regularization: L2 regularization with respect to prior mean
-    # Set to `nothing` or `0.0` to use prior covariance as regularizer.
+    # Parameter regularization: L2 regularization with respect to prior mean.
+    #  - Set to `nothing` to use prior covariance as regularizer,
+    #  - Set to a float for isotropic parameter regularization.
+    #  - Pass a dictionary of lists similar to config["prior_mean"] for
+    #       anisotropic regularization. The dictionary must be complete.
+    #       If you want to avoid regularizing a certain parameter, set the entry
+    #       to [0].
     # To turn off regularization, set config["process"]["augmented"] to false.
     config["l2_reg"] = 1.0
     return config

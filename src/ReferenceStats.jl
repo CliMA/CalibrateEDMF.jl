@@ -20,6 +20,7 @@ export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA, pca
 export generate_ekp, generate_tekp
+export regularized_param_indices
 
 
 """
@@ -461,24 +462,34 @@ function generate_tekp(
         fh = IgnoreFailures()
     end
 
-    # Augment system with prior
     μ = vcat(mean(priors)...)
-    y_aug = vcat([ref_stats.y, μ]...)
-
     if isa(l2_reg, Dict)
+        # flatten l2_reg dict
         if any(1 .< [length(val) for val in collect(values(l2_reg))])
             _, l2_reg_values = flatten_config_dict(l2_reg)
         else
             l2_reg_values = collect(values(l2_reg))
         end
         l2_reg_values = vcat(l2_reg_values...)
-        Γ_θ = inv(Diagonal(l2_reg_values) + eps(R) * I)
+
+        # dict must be complete to preserve ordering
+        @assert length(μ) == length(l2_reg_values) "Dictionary of regularizations l2_reg must include all parameters."
+
+        # Augment exclusively with nonzero weights
+        aug_indices = regularized_param_indices(l2_reg)
+        l2_reg_values = l2_reg_values[aug_indices]
+        μ = μ[aug_indices]
+        Γ_θ = inv(Diagonal(l2_reg_values))
+
     elseif !isnothing(l2_reg)
-        Γ_θ = Diagonal(repeat([inv(l2_reg + eps(R))], length(μ)))
+        @assert l2_reg > eps(R) "If system is augmented, provide nonzero l2_reg."
+        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
     else
         Γ_θ = cov(priors)
     end
 
+    # Augment system with regularization towards prior mean
+    y_aug = vcat([ref_stats.y, μ]...)
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
@@ -488,6 +499,20 @@ function generate_tekp(
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
     return ekp
+end
+
+"Get indices of the parameters that are regularized for the augmented system"
+function regularized_param_indices(l2_reg::Dict{String, Vector{FT}}) where {FT}
+    # flatten l2_reg dict
+    if any(1 .< [length(val) for val in collect(values(l2_reg))])
+        _, l2_reg_values = flatten_config_dict(l2_reg)
+    else
+        l2_reg_values = collect(values(l2_reg))
+    end
+    l2_reg_values = vcat(l2_reg_values...)
+
+    reg_indices = findall(x -> x > eps(FT), l2_reg_values)
+    return reg_indices
 end
 
 end # module
