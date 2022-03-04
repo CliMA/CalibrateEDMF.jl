@@ -16,11 +16,11 @@ Within the `scm_pycles_pipeline` directory (i.e. this example), navigate to `jul
 
 If you are on the Caltech Central Cluster, you can run the project by adding it to the schedule:
 
-  >> sbatch calibrate_script
+  >> sbatch calibrate_script ../config.jl
 
 Otherwise run locally, e.g.:
 
->> sh calibrate_script
+>> sh calibrate_script ../config.jl
 
 # How to run: SLURM HPC pipeline
 
