@@ -6,6 +6,7 @@
 #SBATCH --ntasks=10  # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
 #SBATCH -J "ekp_bomex"   # job name
+#SBATCH --output=slurm_julia_par_%j.out
 
 module purge
 module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
