@@ -217,7 +217,7 @@ function run_reference_SCM(
     if ~isdir(output_dir) | overwrite
         namelist = get_scm_namelist(m, overwrite = overwrite)
         # Set optional namelist args
-        # namelist["stats_io"]["calibrate_io"] = true
+        namelist["stats_io"]["calibrate_io"] = true
         if !isnothing(namelist_args)
             for namelist_arg in namelist_args
                 change_entry!(namelist, namelist_arg)
@@ -293,7 +293,7 @@ function run_SCM_handler(
     u_names, u = create_parameter_vectors(u_names, u)
 
     # Set optional namelist args
-    # namelist["stats_io"]["calibrate_io"] = true
+    namelist["stats_io"]["calibrate_io"] = true
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
             change_entry!(namelist, namelist_arg)

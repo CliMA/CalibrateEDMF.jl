@@ -133,7 +133,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
         expected_run_scm_namelist["thermodynamics"]["quadrature_type"] = "gaussian"
         expected_run_scm_namelist["grid"]["nz"] = 20
         expected_run_scm_namelist["grid"]["dz"] = 150.0
-        # expected_run_scm_namelist["stats_io"]["calibrate_io"] = true
+        expected_run_scm_namelist["stats_io"]["calibrate_io"] = true
 
         for entry in namelist_compare_entries
             @test expected_run_scm_namelist[entry] == run_scm_namelist[entry]
