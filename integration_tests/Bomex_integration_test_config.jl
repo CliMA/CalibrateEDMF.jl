@@ -59,7 +59,7 @@ function get_regularization_config()
     #       If you want to avoid regularizing a certain parameter, set the entry
     #       to [0].
     # To turn off regularization, set config["process"]["augmented"] to false.
-    config["l2_reg"] = Dict("entrainment_factor" => [0.0], "detrainment_factor" => [0.4])
+    config["l2_reg"] = nothing
     return config
 end
 
