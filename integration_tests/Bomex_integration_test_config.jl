@@ -72,7 +72,7 @@ function get_process_config()
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = true
+    config["augmented"] = false
     config["failure_handler"] = "sample_succ_gauss"
     return config
 end
