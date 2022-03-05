@@ -59,7 +59,7 @@ function get_regularization_config()
     #       If you want to avoid regularizing a certain parameter, set the entry
     #       to [0].
     # To turn off regularization, set config["process"]["augmented"] to false.
-    config["l2_reg"] = nothing
+    config["l2_reg"] = 1.0
     return config
 end
 
@@ -72,7 +72,7 @@ function get_process_config()
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = false
+    config["augmented"] = true
     config["failure_handler"] = "sample_succ_gauss"
     return config
 end
