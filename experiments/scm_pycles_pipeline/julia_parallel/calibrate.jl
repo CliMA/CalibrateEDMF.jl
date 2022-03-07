@@ -24,6 +24,7 @@ using Distributed
 end
 # include(joinpath(@__DIR__, "../../../src/viz/ekp_plots.jl"))
 using JLD2
+import Dates
 
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -58,3 +59,4 @@ for iteration in 1:N_iter
         ek_update(ekp, priors, iteration, config, versions, outdir_path)
     end
 end
+@info "Calibration completed. $(Dates.now())"
