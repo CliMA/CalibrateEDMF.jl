@@ -4,8 +4,6 @@ import NCDatasets
 import ..ReferenceModels: ReferenceModel
 import TurbulenceConvection
 const TC = TurbulenceConvection
-import ArtifactWrappers
-const AW = ArtifactWrappers
 using ..HelperFuncs
 
 export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
@@ -118,33 +116,6 @@ function get_cfsite_les_dir(
     return joinpath(root_dir, rel_dir)
 end
 
-"""
-    get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
-
-    Downloads an artifact and returns its path.
-
-    Inputs:
-    - casename  :: Casename of the output to be downloaded, must be defined in `local_to_box` dict.
-    - artifact_type :: Overarching type of artifact to be downloaded.
-    - artifact_dir :: Location of the Artifact.toml.
-
-   Outputs:
-    - The artifact path
-"""
-function get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
-    local_to_box = Dict("Bomex" => "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc")
-    if haskey(local_to_box, casename)
-        output_artifact = AW.ArtifactWrapper(
-            artifact_dir,
-            isempty(get(ENV, "CI", "")),
-            artifact_type,
-            AW.ArtifactFile[AW.ArtifactFile(url = local_to_box[casename], filename = string(casename, ".nc")),],
-        )
-        output_artifact_path = AW.get_data_folder(output_artifact)
-        return output_artifact_path
-    else
-        throw(KeyError("Artifacts for casename $casename of type $artifact_type are not currently available."))
-    end
-end
+include("artifact_funcs.jl")
 
 end # module
