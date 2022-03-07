@@ -22,6 +22,9 @@ steps:
       - "julia --project=integration_tests -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project=integration_tests -e 'using Pkg; Pkg.precompile()'"
       - "julia --project=integration_tests -e 'using Pkg; Pkg.status()'"
+
+      - "julia --project=integration_tests integration_tests/download_artifacts.jl"
+
     agents:
       config: cpu
       queue: central
