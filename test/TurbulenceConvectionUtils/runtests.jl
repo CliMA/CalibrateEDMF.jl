@@ -112,13 +112,13 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
         u = [0.15, 0.52]
         u_names = ["entrainment_factor", "detrainment_factor"]
         # Test namelist modification for different nesting levels
-        namelist_args = (
+        namelist_args = [
             ("thermodynamics", "quadrature_type", "gaussian"),
             ("grid", "dz", 150.0),
             ("grid", "nz", 20),
             ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.0),
             ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
-        )
+        ]
 
         res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
 
