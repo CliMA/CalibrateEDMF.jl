@@ -10,6 +10,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
+src_dir = dirname(pathof(CalibrateEDMF))
 using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using JLD2

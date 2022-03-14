@@ -13,7 +13,6 @@ using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using JLD2
-using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
 struct SCT1Train end
@@ -63,20 +62,20 @@ function get_regularization_config()
     #       If you want to avoid regularizing a certain parameter, set the entry
     #       to [0].
     # To turn off regularization, set config["process"]["augmented"] to false.
-    config["l2_reg"] = 1.0
+    # config["l2_reg"] = 1.0
     return config
 end
 
 function get_process_config()
     config = Dict()
     config["N_iter"] = 50
-    config["N_ens"] = 15 # Must be 2p+1 when algorithm is "Unscented"
+    config["N_ens"] = 50 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = true
+    config["augmented"] = false
     config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
     return config
 end
@@ -141,25 +140,15 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.0, 1.0)],
-        "detrainment_factor" => [bounded(0.0, 1.0)],
+        "general_ent_params" => [repeat([no_constraint()], 69)...],
         "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
-        "entrainment_smin_tke_coeff" => [bounded(0.0, 10.0)],
-        "updraft_mixing_frac" => [bounded(0.0, 1.0)],
-        "entrainment_scale" => [bounded(1.0e-6, 1.0e-2)],
-        "sorting_power" => [bounded(0.0, 4.0)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [0.13],
-        "detrainment_factor" => [0.51],
+        "general_ent_params" => 0.1 .* (rand(69) .- 0.5),
         "turbulent_entrainment_factor" => [0.075],
-        "entrainment_smin_tke_coeff" => [0.3],
-        "updraft_mixing_frac" => [0.25],
-        "entrainment_scale" => [4.0e-4],
-        "sorting_power" => [2.0],
     )
 
     config["unconstrained_σ"] = 1.0
@@ -172,9 +161,11 @@ function get_scm_config()
         ("time_stepping", "dt_min", 1.0),
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
-        ("stats_io", "calibrate_io", false),
         ("grid", "dz", 50.0),
         ("grid", "nz", 80),
+        ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
+        ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
+        ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "none"),
     ]
     return config
 end
