@@ -26,6 +26,14 @@ Results after 50 iterations:
 - MSE_full_nn_mean (validation) : ~ 4.75
 
 
+#### no scaling, regularized, 50 particles (`none_reg_0.1`)
+
+Results after 50 iterations:
+
+- MSE_full_nn_mean (train) : ~ 4.13 (unstable posterior)
+- MSE_full_nn_mean (validation) : ~ 7.22 (unstable posterior)
+
+
 #### no scaling, no regularization, (`none_no_reg`)
 
 Results after 50 iterations:
@@ -40,6 +48,13 @@ Results after 50 iterations:
 - MSE_full_nn_mean (train) : ~ 2.86 (unstable posterior)
 - MSE_full_nn_mean (validation) : ~ 4.70 (unstable posterior)
 
+
+#### b/w scaling, regularized, 50 particles (`buoy_vel_reg_0.1`)
+
+Results after 50 iterations:
+
+- MSE_full_nn_mean (train) : ~ 2.94
+- MSE_full_nn_mean (validation) : ~ 4.67
 
 #### b/w scaling, no regularization (`buoy_vel_no_reg`)
 
