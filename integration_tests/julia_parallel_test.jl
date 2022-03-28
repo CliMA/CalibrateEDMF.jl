@@ -42,6 +42,7 @@ config_rel_filepath = parsed_args["config"]
 config_filename = joinpath(@__DIR__, config_rel_filepath)
 include(config_filename)
 config = get_config()
+algorithm = config["process"]["algorithm"]
 
 # Initialize calibration process
 outdir_path = init_calibration(config; config_path = config_filename, mode = "pmap")
@@ -123,7 +124,7 @@ Plots.plot(p1, p2; layout = (1, 2))
 case_name = first(split(config_rel_filepath, "_"))
 folder = joinpath(@__DIR__, "output", string(case_name, "_julia_parallel"))
 mkpath(folder)
-Plots.savefig(joinpath(folder, "mse.png"))
+Plots.savefig(joinpath(folder, string(algorithm, "_mse.png")))
 open(string(folder, case_name, ".txt"), "w") do io
     write(io, outdir_path)
 end;

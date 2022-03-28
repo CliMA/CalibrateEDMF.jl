@@ -8,6 +8,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.HelperFuncs
+using CalibrateEDMF.DistributionUtils
 
 @testset "ReferenceStatistics" begin
     # Choose same SCM to speed computation
@@ -99,7 +100,7 @@ using CalibrateEDMF.HelperFuncs
     )
 
     l2_reg = Dict("foo" => [0.1], "bar" => [0.3, 0.0, 0.4])
-    reg_indices = regularized_param_indices(l2_reg)
+    reg_indices = flat_dict_keys_where(l2_reg, above_eps)
     @test length(reg_indices) == 3
     # Dict is not ordered
     @test reg_indices == [1, 3, 4]

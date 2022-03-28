@@ -241,12 +241,12 @@ function get_stats_path(dir)
     stats = joinpath(dir, "stats")
     if !ispath(stats)
         stat_files = glob(relpath(abspath(joinpath(dir, "*.nc"))))
-        @assert length(stat_files) == 1
+        @assert length(stat_files) == 1 "$(length(stat_files)) stats files found with paths $stat_files"
         return stat_files[1]
     end
     try
         stat_files = glob(relpath(abspath(joinpath(stats, "*.nc"))))
-        @assert length(stat_files) == 1
+        @assert length(stat_files) == 1 "$(length(stat_files)) stats files found with paths $stat_files"
         return stat_files[1]
     catch e
         if isa(e, AssertionError)
