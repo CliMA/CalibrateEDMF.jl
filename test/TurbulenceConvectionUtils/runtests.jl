@@ -26,7 +26,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
     @testset "TC.jl error handling" begin
         # Choose same SCM to speed computation
         data_dir = mktempdir()
-        scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
+        scm_dirs = [joinpath(data_dir, "Output.Rico.000000")]
         # Violate CFL condition for TC.jl simulation to fail
         t_max = 2 * 3600.0
         namelist_args = [
@@ -41,7 +41,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             :y_names => [["u_mean", "v_mean"]],
             :y_dir => scm_dirs,
             :scm_dir => scm_dirs,
-            :case_name => ["Bomex"],
+            :case_name => ["Rico"],
             :t_start => [t_max - 3600],
             :t_end => [t_max],
             :Σ_t_start => [t_max - 2.0 * 3600],
@@ -54,9 +54,13 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             namelist_args = namelist_args,
         )
 
-        u = [0.15, 210.0]
-        u_names = ["entrainment_factor", "dt_max"]
-        constraints = Dict("entrainment_factor" => [bounded(0.0, 0.5)], "dt_max" => [bounded(200.0, 300.0)])
+        u_names = ["entrainment_factor", "dt_max", "τ_acnv_rai"]
+        u = [0.15, 210.0, 2500.0]
+        constraints = Dict(
+            "entrainment_factor" => [bounded(0.0, 0.5)],
+            "dt_max" => [bounded(200.0, 300.0)],
+            "τ_acnv_rai" => [no_constraint()],
+        )
         prior = construct_priors(constraints)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
