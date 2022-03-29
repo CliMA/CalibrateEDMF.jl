@@ -363,11 +363,17 @@ function run_SCM_handler(
         end
     end
 
-    # update parameter values, if provided
-    if !(isnothing(u) & isnothing(u_names))
-        @assert length(u_names) == length(u)
-        for (pName, pVal) in zip(u_names, u)
+    # update learnable parameter values
+    @assert length(u_names) == length(u)
+    for (pName, pVal) in zip(u_names, u)
+        if haskey(namelist["turbulence"]["EDMF_PrognosticTKE"], pName)
             namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
+        elseif haskey(namelist["microphysics"], pName)
+            namelist["microphysics"][pName] = pVal
+        elseif haskey(namelist["time_stepping"], pName)
+            namelist["time_stepping"][pName] = pVal
+        else
+            throw(ArgumentError("Parameter $pName cannot be calibrated. Consider adding namelist dictionary if needed."))
         end
     end
 
