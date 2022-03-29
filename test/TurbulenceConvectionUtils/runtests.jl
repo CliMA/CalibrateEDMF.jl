@@ -54,9 +54,9 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             namelist_args = namelist_args,
         )
 
-        u = [0.15]
-        u_names = ["entrainment_factor"]
-        constraints = Dict("entrainment_factor" => [bounded(0.0, 0.5)])
+        u = [0.15, 210.0]
+        u_names = ["entrainment_factor", "dt_max"]
+        constraints = Dict("entrainment_factor" => [bounded(0.0, 0.5)], "dt_max" => [bounded(200.0, 300.0)])
         prior = construct_priors(constraints)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
