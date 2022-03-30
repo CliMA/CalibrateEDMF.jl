@@ -51,7 +51,7 @@ run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = nameli
     tikhonov_modes = ["relative", "absolute", "relative", "relative"]
     modes = ["pmap", "hpc", "hpc", "pmap"]
     validations = [config["reference"], config["reference"], config["reference"], nothing]
-    algos = ["Sampler", "Unscented", "Unscented", "Inversion"]
+    algos = ["Sampler", "Unscented", "SparseInversion", "Inversion"]
 
     for (prior_mean, batch_size, augment, norm, dim_scaling, tikhonov_mode, mode, validation, algo, l2_reg) in
         zip(prior_means, batch_sizes, augments, norms, dim_scalings, tikhonov_modes, modes, validations, algos, l2_regs)

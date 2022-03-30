@@ -4,12 +4,7 @@ using SparseArrays
 using Statistics
 using Interpolations
 using LinearAlgebra
-using JLD2
-# EKP modules
-using EnsembleKalmanProcesses
-import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler
-import EnsembleKalmanProcesses: SampleSuccGauss, IgnoreFailures
-using EnsembleKalmanProcesses.ParameterDistributions
+
 using ..ReferenceModels
 using ..ModelTypes
 using ..LESUtils
@@ -19,8 +14,6 @@ using ..DistributionUtils
 export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA, pca
-export generate_ekp, generate_tekp
-export regularized_param_indices
 
 
 """
@@ -358,161 +351,6 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     return cov_mat, pool_var
-end
-
-"""
-    generate_ekp(
-        ref_stats::ReferenceStatistics,
-        process::Process,
-        u::Union{Matrix{T}, T} = nothing;
-        failure_handler::String = "ignore_failures",
-        outdir_path::String = pwd(),
-        to_file::Bool = true,
-    ) where {T}
-
-Generates, and possible writes to file, an EnsembleKalmanProcess
-from a parameter ensemble and reference statistics.
-
-Inputs:
- - ref_stats :: ReferenceStatistics defining the inverse problem.
- - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
- - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
- - failure_handler :: String describing what failure handler to use.
- - outdir_path :: Output path.
- - to_file :: Whether to write the serialized prior to a JLD2 file.
-
-Output:
- - The generated EnsembleKalmanProcess.
-"""
-function generate_ekp(
-    ref_stats::ReferenceStatistics,
-    process::Process,
-    u::Union{Matrix{T}, T} = nothing;
-    failure_handler::String = "ignore_failures",
-    outdir_path::String = pwd(),
-    to_file::Bool = true,
-) where {T}
-
-    @assert isa(process, Unscented) || !isnothing(u) "Incorrect EKP constructor."
-    @assert failure_handler in ["ignore_failures", "high_loss", "sample_succ_gauss"]
-    if failure_handler == "sample_succ_gauss"
-        fh = SampleSuccGauss()
-    else
-        fh = IgnoreFailures()
-    end
-    ekp = isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh) :
-        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh)
-    if to_file
-        jldsave(ekobj_path(outdir_path, 1); ekp)
-    end
-    return ekp
-end
-
-"""
-    generate_tekp(
-        ref_stats::ReferenceStatistics,
-        priors::ParameterDistribution,
-        process::Process,
-        u::Union{Matrix{T}, T} = nothing;
-        l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
-        failure_handler::String = "ignore_failures",
-        outdir_path::String = pwd(),
-        to_file::Bool = true,
-    ) where {T, R}
-
-Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
-from a parameter ensemble and reference statistics.
-
-Tikhonov regularization is implemented through output state augmentation
-with the input parameter vector. The input L2 regularization hyperparameter
-should be interpreted as the inverse of the variance of our prior belief in
-the magnitude of the parameters.
-
-Inputs:
- - ref_stats :: ReferenceStatistics defining the inverse problem.
- - priors :: Parameter priors used for L2 (i.e., Tikhonov) regularization
- - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
- - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
- - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
-        May be a float (isotropic regularization) or a dictionary of regularizations
-        per parameter.
- - failure_handler :: String describing what failure handler to use.
- - outdir_path :: Output path.
- - to_file :: Whether to write the serialized prior to a JLD2 file.
-
-Output:
- - The generated augmented EnsembleKalmanProcess.
-"""
-function generate_tekp(
-    ref_stats::ReferenceStatistics,
-    priors::ParameterDistribution,
-    process::Process,
-    u::Union{Matrix{T}, T} = nothing;
-    l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
-    failure_handler::String = "ignore_failures",
-    outdir_path::String = pwd(),
-    to_file::Bool = true,
-) where {T, R}
-
-    @assert isa(process, Unscented) || !isnothing(u) "Incorrect TEKP constructor."
-    @assert failure_handler in ["ignore_failures", "high_loss", "sample_succ_gauss"]
-    if failure_handler == "sample_succ_gauss"
-        fh = SampleSuccGauss()
-    else
-        fh = IgnoreFailures()
-    end
-
-    μ = vcat(mean(priors)...)
-    if isa(l2_reg, Dict)
-        # flatten l2_reg dict
-        if any(1 .< [length(val) for val in collect(values(l2_reg))])
-            _, l2_reg_values = flatten_config_dict(l2_reg)
-        else
-            l2_reg_values = collect(values(l2_reg))
-        end
-        l2_reg_values = vcat(l2_reg_values...)
-
-        # dict must be complete to preserve ordering
-        @assert length(μ) == length(l2_reg_values) "Dictionary of regularizations l2_reg must include all parameters."
-
-        # Augment exclusively with nonzero weights
-        aug_indices = regularized_param_indices(l2_reg)
-        l2_reg_values = l2_reg_values[aug_indices]
-        μ = μ[aug_indices]
-        Γ_θ = inv(Diagonal(l2_reg_values))
-
-    elseif !isnothing(l2_reg)
-        @assert l2_reg > eps(R) "If system is augmented, provide nonzero l2_reg."
-        Γ_θ = Diagonal(repeat([inv(l2_reg)], length(μ)))
-    else
-        Γ_θ = cov(priors)
-    end
-
-    # Augment system with regularization towards prior mean
-    y_aug = vcat([ref_stats.y, μ]...)
-    Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
-    Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
-
-    ekp = isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process, failure_handler_method = fh) :
-        EnsembleKalmanProcess(u, y_aug, Γ_aug, process, failure_handler_method = fh)
-    if to_file
-        jldsave(ekobj_path(outdir_path, 1); ekp)
-    end
-    return ekp
-end
-
-"Get indices of the parameters that are regularized for the augmented system"
-function regularized_param_indices(l2_reg::Dict{String, Vector{FT}}) where {FT}
-    # flatten l2_reg dict
-    if any(1 .< [length(val) for val in collect(values(l2_reg))])
-        _, l2_reg_values = flatten_config_dict(l2_reg)
-    else
-        l2_reg_values = collect(values(l2_reg))
-    end
-    l2_reg_values = vcat(l2_reg_values...)
-
-    reg_indices = findall(x -> x > eps(FT), l2_reg_values)
-    return reg_indices
 end
 
 end # module

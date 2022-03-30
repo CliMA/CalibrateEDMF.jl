@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=2:00:00   # walltime
+#SBATCH --time=1:00:00   # walltime
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "scm_run"   # job name

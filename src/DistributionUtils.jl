@@ -12,6 +12,63 @@ using EnsembleKalmanProcesses.ParameterDistributions
 export construct_priors, deserialize_prior
 export logmean_and_logstd, mean_and_std_from_ln
 export flatten_config_dict
+export flat_dict_keys_where, identity, above_eps
+
+"""
+    flatten_config_dict(param_dict::Dict{String, Vector{T}})
+
+For parameter names that correspond to vectors, assign a unique name to each vector component and treat as independent parameter.
+Inputs:
+    param_dict :: Dictionary of parameter names to constraints.
+Outputs:
+    u_names :: Vector{String} :: vector of parameter names
+    values :: Vector{Vector{T}} :: vector
+"""
+function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
+
+    u_names = Vector{String}()
+    values = Vector{Vector{T}}()
+    for (param, value) in param_dict
+        if length(value) > 1
+            for j in 1:length(value)
+                push!(u_names, "$(param)_{$j}")
+                push!(values, [value[j]])
+            end
+        else
+            push!(u_names, param)
+            push!(values, value)
+        end
+    end
+    return (u_names, values)
+end
+
+"Condition functions"
+above_eps(x::FT) where {FT <: Real} = x > eps(FT)
+identity(x) = x
+
+"""
+    flat_dict_keys_where(dict::Dict{String, Vector{T}}, condition::Function = identity) where {T}
+
+Flattens the values of a dictionary with parameter vectors as keys, and returns the indices of
+entries in the flattened dictionary satisfying a given condition.
+
+Inputs:
+    param_dict :: Dictionary of parameter names to vectors.
+    condition :: A condition function operating on each dictionary value.
+Outputs:
+    Indices of flattened entries satisfying the `condition`.
+"""
+function flat_dict_keys_where(param_dict::Dict{String, Vector{T}}, condition::Function = identity) where {T}
+    # flatten global dict
+    if any(1 .< [length(val) for val in collect(values(param_dict))])
+        _, dict_values = flatten_config_dict(param_dict)
+    else
+        dict_values = collect(values(param_dict))
+    end
+    dict_values = vcat(dict_values...)
+
+    return findall(x -> condition(x), dict_values)
+end
 
 """
     construct_priors(
@@ -78,34 +135,6 @@ function construct_priors(
     end
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
     return ParameterDistribution(distributions, constraints, u_names)
-end
-
-"""
-    flatten_config_dict(param_dict::Dict{String, Vector{T}})
-
-For parameter names that correspond to vectors, assign a unique name to each vector component and treat as independent parameter.
-Inputs:
-    param_dict :: Dictionary of parameter names to constraints.
-Outputs:
-    u_names :: Vector{String} :: vector of parameter names
-    values :: Vector{Vector{T}} :: vector
-"""
-function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
-
-    u_names = Vector{String}()
-    values = Vector{Vector{T}}()
-    for (param, value) in param_dict
-        if length(value) > 1
-            for j in 1:length(value)
-                push!(u_names, "$(param)_{$j}")
-                push!(values, [value[j]])
-            end
-        else
-            push!(u_names, param)
-            push!(values, value)
-        end
-    end
-    return (u_names, values)
 end
 
 """

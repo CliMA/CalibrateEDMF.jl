@@ -11,6 +11,8 @@ using ..ReferenceStats
 using ..TurbulenceConvectionUtils
 using ..NetCDFIO
 using ..HelperFuncs
+using ..KalmanProcessUtils
+
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -111,8 +113,19 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
     # parameters are sampled in unconstrained space
-    if algo_name == "Inversion" || algo_name == "Sampler"
-        algo = algo_name == "Inversion" ? Inversion() : Sampler(vcat(mean(priors)...), cov(priors))
+    if algo_name in ["Inversion", "Sampler", "SparseInversion"]
+        if algo_name == "Inversion"
+            algo = Inversion()
+        elseif algo_name == "SparseInversion"
+            γ = get_entry(proc_config, "l1_norm_limit", 1 / eps(Float64))
+            prune_below = get_entry(proc_config, "prune_below", 0.0)
+            sparse_params = get_entry(proc_config, "sparse_params", true)
+            sparse_idx = get_sparse_indices(sparse_params)
+            convex_opt_reg = get_entry(proc_config, "convex_opt_reg", 0.0)
+            algo = SparseInversion(γ, prune_below, sparse_idx, convex_opt_reg)
+        elseif algo_name == "Sampler"
+            algo = Sampler(vcat(mean(priors)...), cov(priors))
+        end
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
             ekobj = generate_tekp(
@@ -426,7 +439,7 @@ function ek_update(
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
     end
 
-    if isa(ekobj.process, Inversion)
+    if isa(ekobj.process, Inversion) || isa(ekobj.process, SparseInversion)
         update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map)
     elseif isa(ekobj.process, Unscented)
         update_ensemble!(ekobj, g, Δt_new = Δt)
@@ -801,27 +814,7 @@ function update_minibatch_inverse_problem(
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
 
-    if isa(process, Inversion) || isa(process, Sampler)
-        if augmented
-            ekp = generate_tekp(
-                ref_stats,
-                priors,
-                process,
-                get_u_final(ekp_old),
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
-        else
-            ekp = generate_ekp(
-                ref_stats,
-                process,
-                get_u_final(ekp_old),
-                failure_handler = failure_handler,
-                outdir_path = outdir_path,
-            )
-        end
-    elseif isa(process, Unscented)
+    if isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
         algo = Unscented(
             process.u_mean[end],
@@ -843,7 +836,25 @@ function update_minibatch_inverse_problem(
             ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
         end
     else
-        throw(ArgumentError("Process must be an Inversion, Sampler or Unscented Kalman process."))
+        if augmented
+            ekp = generate_tekp(
+                ref_stats,
+                priors,
+                process,
+                get_u_final(ekp_old),
+                outdir_path = outdir_path,
+                l2_reg = l2_reg,
+                failure_handler = failure_handler,
+            )
+        else
+            ekp = generate_ekp(
+                ref_stats,
+                process,
+                get_u_final(ekp_old),
+                failure_handler = failure_handler,
+                outdir_path = outdir_path,
+            )
+        end
     end
     return ekp, ref_models, ref_stats, ref_model_batch, batch_indices
 end
