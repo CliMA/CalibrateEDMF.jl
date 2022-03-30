@@ -103,9 +103,9 @@ version = "0.1.3"
 
 [[deps.BlockArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "34536355434c8419029d9546b7966e6b652ed520"
+git-tree-sha1 = "7278f5ffec86a6c10233bf9c6be1a9c593012299"
 uuid = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-version = "0.16.12"
+version = "0.16.13"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -155,7 +155,7 @@ uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
 [[deps.CalibrateEDMF]]
-deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dates", "Dierckx", "DiffEqNoiseProcess", "Distributions", "EnsembleKalmanProcesses", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
+deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dates", "Dierckx", "DiffEqNoiseProcess", "Distributions", "EnsembleKalmanProcesses", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "PackageCompiler", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
 path = ".."
 uuid = "fbaf683a-b9b3-4040-be64-6c4c04986dd0"
 version = "0.1.1"
@@ -338,9 +338,9 @@ version = "0.1.0+0"
 
 [[deps.DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "DEDataArrays", "DataStructures", "Distributions", "DocStringExtensions", "FastBroadcast", "ForwardDiff", "FunctionWrappers", "IterativeSolvers", "LabelledArrays", "LinearAlgebra", "Logging", "MuladdMacro", "NonlinearSolve", "Parameters", "PreallocationTools", "Printf", "RecursiveArrayTools", "RecursiveFactorization", "Reexport", "Requires", "SciMLBase", "Setfield", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "ZygoteRules"]
-git-tree-sha1 = "caada727813396d9402c26e5175a01def8fd89ce"
+git-tree-sha1 = "d1c8d8b645500d7dffec3355d29af6c4f8bfa6df"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.82.2"
+version = "6.82.3"
 
 [[deps.DiffEqJump]]
 deps = ["ArrayInterface", "Compat", "DataStructures", "DiffEqBase", "FunctionWrappers", "Graphs", "LinearAlgebra", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays", "TreeViews", "UnPack"]
@@ -464,9 +464,9 @@ version = "3.3.10+0"
 
 [[deps.FastBroadcast]]
 deps = ["LinearAlgebra", "Polyester", "Static"]
-git-tree-sha1 = "f39bcc05eb0dcbd2c0195762df7a5737041289b9"
+git-tree-sha1 = "b6bf57ec7a3f294c97ae46124705a9e6b906a209"
 uuid = "7034ab61-46d4-4ed7-9d0f-46aef9175898"
-version = "0.1.14"
+version = "0.1.15"
 
 [[deps.FastClosures]]
 git-tree-sha1 = "acebe244d53ee1b461970f8910c235b259e772ef"
@@ -579,15 +579,15 @@ version = "0.13.14"
 
 [[deps.GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "df5f5b0450c489fe6ed59a6c0a9804159c22684d"
+git-tree-sha1 = "af237c08bda486b74318c8070adb96efa6952530"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.64.1"
+version = "0.64.2"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "83578392343a7885147726712523c39edc714956"
+git-tree-sha1 = "cd6efcf9dc746b06709df14e462f0a3fe0786b1e"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.64.1+0"
+version = "0.64.2+0"
 
 [[deps.GaussQuadrature]]
 deps = ["SpecialFunctions"]
@@ -1179,6 +1179,12 @@ git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.11.7"
 
+[[deps.PackageCompiler]]
+deps = ["Artifacts", "LazyArtifacts", "Libdl", "Pkg", "Printf", "RelocatableFolders", "UUIDs"]
+git-tree-sha1 = "4ad92047603f8e955503f92767577b32508c39af"
+uuid = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+version = "2.0.5"
+
 [[deps.Parameters]]
 deps = ["OrderedCollections", "UnPack"]
 git-tree-sha1 = "34c0e9ad262e5f7fc75b10a9952ca7692cfc5fbe"
@@ -1187,9 +1193,9 @@ version = "0.12.3"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "85b5da0fa43588c75bb1ff986493443f821c70b7"
+git-tree-sha1 = "621f4f3b4977325b9128d5fae7a8b4829a0c2222"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.3"
+version = "2.2.4"
 
 [[deps.Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
