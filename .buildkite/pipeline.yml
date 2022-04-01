@@ -124,7 +124,7 @@ steps:
     command:
       - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config Bomex_sparseinversion_test_config.jl"
     artifact_paths:
-      - "integration_tests/output/Bomex_julia_parallel/*"
+      - "integration_tests/output/Bomex_sparse_julia_parallel/*"
     agents:
       config: cpu
       queue: central

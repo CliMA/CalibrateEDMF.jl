@@ -68,9 +68,9 @@ function get_process_config()
     config["N_iter"] = 10
     config["N_ens"] = 10
     config["algorithm"] = "SparseInversion" # "Sampler", "Unscented"
-    config["l1_norm_limit"] = 50.0
+    config["l1_norm_limit"] = 100.0
     config["prune_below"] = 0.0
-    config["convex_opt_reg"] = 1e-3
+    config["convex_opt_reg"] = 5e-3
     config["noisy_obs"] = false
     # Artificial time stepper of the EKI.
     config["Δt"] = 1.0
