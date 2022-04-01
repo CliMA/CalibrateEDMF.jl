@@ -10,6 +10,11 @@ env:
   JULIA_DEPOT_PATH: "${BUILDKITE_BUILD_PATH}/${BUILDKITE_PIPELINE_SLUG}/depot/cpu"
 
 steps:
+
+  # Report to Codecov
+  # - plugins:
+  #     - joscha/codecov#v2.1.6: ~
+
   - label: "init environment :computer:"
     key: "init_cpu_env"
     command:
@@ -31,7 +36,54 @@ steps:
 
   - wait
 
+  - label: "Bomex Inv julia_par"
+    key: "cpu_bomex_julia_p10"
+    command:
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config Bomex_inversion_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/Bomex_inversion_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 11
+
+  - label: "Bomex Inv continue"
+    key: "cpu_bomex_continue"
+    depends_on: "cpu_bomex_julia_p10"
+    command:
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/continue_julia_parallel_test.jl --config Bomex_inversion_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/Bomex_inversion_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 11
+
+  - label: "Bomex SparseInv julia_par"
+    key: "cpu_bomex_sparse"
+    command:
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config Bomex_sparseinversion_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/Bomex_sparseinversion_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 11
+
+  - label: "SCT1 julia parallel"
+    key: "cpu_sct1_julia_p10"
+    command:
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config SCT1_integration_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/SCT1_integration_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 11
+
   # Unit tests through CI: buildkite tends to produce irreproducible errors
+  #
+  #
   # - label: "helper_funcs"
   #   key: "cpu_helper_funcs"
   #   command:
@@ -95,49 +147,4 @@ steps:
   #   agents:
   #     config: cpu
   #     queue: central
-
-  - label: "Bomex Inv julia_par"
-    key: "cpu_bomex_julia_p10"
-    command:
-      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config Bomex_inversion_test_config.jl"
-    artifact_paths:
-      - "integration_tests/output/Bomex_julia_parallel/*"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 11
-
-  - label: "Bomex Inv continue"
-    key: "cpu_bomex_continue"
-    depends_on: "cpu_bomex_julia_p10"
-    command:
-      - "julia --color=yes -p 10 --project=integration_tests integration_tests/continue_julia_parallel_test.jl --config Bomex_inversion_test_config.jl"
-    artifact_paths:
-      - "integration_tests/output/Bomex_julia_parallel/*"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 11
-
-  - label: "Bomex SparseInv julia_par"
-    key: "cpu_bomex_sparse"
-    command:
-      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config Bomex_sparseinversion_test_config.jl"
-    artifact_paths:
-      - "integration_tests/output/Bomex_sparse_julia_parallel/*"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 11
-
-  - label: "SCT1 julia parallel"
-    key: "cpu_sct1_julia_p10"
-    command:
-      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config SCT1_integration_test_config.jl"
-    artifact_paths:
-      - "integration_tests/output/SCT1_julia_parallel/*"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 11
 
