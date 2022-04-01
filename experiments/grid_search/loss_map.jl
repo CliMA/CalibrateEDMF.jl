@@ -74,6 +74,7 @@ function compute_loss_map(config, sims_path, sim_type)
     end  # do-block
 end
 
+@everywhere begin
 """
     compute_loss(t) = compute_loss(t...)
     compute_loss(param1_ind, param2_ind, case_ind, ens_ind, nt)
@@ -91,8 +92,8 @@ nt          :: Named tuple that contains information that is constant across for
     parameter pair name, the config file, and the simulation type (reference or validation),
     respectively.
 """
-@everywhere compute_loss(t) = compute_loss(t...)
-@everywhere function compute_loss(param1_ind::I, param2_ind::I, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
+compute_loss(t) = compute_loss(t...)
+function compute_loss(param1_ind::I, param2_ind::I, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
     sim_type = nt.sim_type
 
     n_ens = get_entry(nt.config["grid_search"], "ensemble_size", nothing)
@@ -122,6 +123,7 @@ nt          :: Named tuple that contains information that is constant across for
     sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
     return sim_loss
 end
+end  # end @everywhere begin
 
 
 ### Run loss map script
