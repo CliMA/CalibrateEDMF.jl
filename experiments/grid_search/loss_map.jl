@@ -74,8 +74,25 @@ function compute_loss_map(config, sims_path, sim_type)
     end  # do-block
 end
 
+"""
+    compute_loss(t) = compute_loss(t...)
+    compute_loss(param1_ind, param2_ind, case_ind, ens_ind, nt)
+
+Compute loss function from forward model output data.
+
+Arguments:
+param1_ind  :: index of a parameter value (in config > grid_search > parameters > param1)
+param2_ind  :: index of a parameter value (in config > grid_search > parameters > param2)
+case_ind    :: index of a case name (in config > reference/validation > case_name)
+ens_ind     :: index of the ensemble member
+nt          :: Named tuple that contains information that is constant across forward model data.
+    Has the entries `pval1`, `pval2`, `sims_path`, `group_name`, `config`, `sim_type`, denoting
+    the values for param1, the values for param2, the root path to forward model data, the 
+    parameter pair name, the config file, and the simulation type (reference or validation),
+    respectively.
+"""
 @everywhere compute_loss(t) = compute_loss(t...)
-@everywhere function compute_loss(p1_i, p2_j, case_k, ens_l, nt)
+@everywhere function compute_loss(param1_ind::I, param2_ind::I, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
     sim_type = nt.sim_type
 
     n_ens = get_entry(nt.config["grid_search"], "ensemble_size", nothing)
@@ -86,22 +103,22 @@ end
     y_dir = get_entry(nt.config[sim_type], "y_dir", nothing)
     y_ref_type = get_entry(nt.config[sim_type], "y_reference_type", nothing)
 
-    p1 = nt.pval1[p1_i]
-    p2 = nt.pval2[p2_j]
+    p1 = nt.pval1[param1_ind]
+    p2 = nt.pval2[param2_ind]
     param_path = joinpath(nt.sims_path, nt.group_name, "$(p1)_$(p2)")
-    case_name = case_names[case_k]
-    sim_path = joinpath(param_path, "$case_name/Output.$case_name.$ens_l")
+    case_name = case_names[case_ind]
+    sim_path = joinpath(param_path, "$case_name/Output.$case_name.$ens_ind")
     nc_file = joinpath(sim_path, "stats/Stats.$case_name.nc")
     # compute mse
     z_scm = get_height(nc_file)
-    filename = y_dir[case_k]
+    filename = y_dir[case_ind]
     y_loss_names = if (y_ref_type isa LES)
-        get_les_names(loss_names[case_k], filename)
+        get_les_names(loss_names[case_ind], filename)
     else
-        loss_names[case_k]
+        loss_names[case_ind]
     end
-    y_full_case = get_profile(filename, y_loss_names, ti = t_start[case_k], tf = t_end[case_k], z_scm = z_scm)
-    g_full_case_i = get_profile(nc_file, loss_names[case_k], ti = t_start[case_k], tf = t_end[case_k], z_scm = z_scm)
+    y_full_case = get_profile(filename, y_loss_names, ti = t_start[case_ind], tf = t_end[case_ind], z_scm = z_scm)
+    g_full_case_i = get_profile(nc_file, loss_names[case_ind], ti = t_start[case_ind], tf = t_end[case_ind], z_scm = z_scm)
     sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
     return sim_loss
 end

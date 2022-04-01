@@ -37,7 +37,7 @@ using ArgParse
         run_sims(t) = run_sims(t...)
         run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
 
-    Run one forward simulation of the SCM given a case and pair of parameter values to be modified
+    Run one forward simulation of the SCM given a case and pair of parameter values to be modified.
 
     Parameters:
     - param_values  :: Tuple of two values that are to be modified when running the model
@@ -46,13 +46,13 @@ using ArgParse
     - nt            :: Named tuple that contains information that is constant across all simulations. 
         Has the entires `output_dir`, `param_pair`, `namelist_args`, denoting the simulation output 
         directory, names of parameters corresponding to `param_values`, and additional namelist 
-        arguments to be modified with respect to the default namelist.
+        arguments to be modified with respect to the default namelist, respectively.
     """
     run_sims(t) = run_sims(t...)
     function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
         # Create path to store forward model output
-        param_dir = joinpath(nt.output_dir, "$(join(param_values, "_"))")  # output_2020-01-01_10_30/0.1_0.1
-        case_dir = joinpath(param_dir, "$case")  # output_2020-01-01_10_30/0.1_0.1/Bomex
+        param_dir = joinpath(nt.output_dir, "$(join(param_values, "_"))")  # e.g. output/220101_abc/param1.param2/0.1_0.2
+        case_dir = joinpath(param_dir, "$case")
         mkpath(case_dir)
 
         # Get namelist for case
