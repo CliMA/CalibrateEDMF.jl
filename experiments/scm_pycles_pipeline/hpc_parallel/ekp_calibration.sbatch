@@ -26,17 +26,21 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
 julia --project -e 'using Pkg; Pkg.precompile()'
 
-# First call to calibrate.jl will create the ensemble files from the priors
-id_init_ens=$(sbatch --parsable -A esm init.sbatch $config $job_id)
 for it in $(seq 1 1 $n_it)
 do
 # Parallel runs of forward model
 if [ "$it" = "1" ]; then
+    # Generate system image
+    id_so=$(sbatch --parsable -A esm sysimage.sbatch)
+    # Initialize calibration
+    id_init_ens=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so init.sbatch $config $job_id)
+    # Precondition parameters
     id_precond=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_init_ens --array=1-$n precondition_prior.sbatch $it $job_id)
+    # Run ensemble of forward models
     id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_precond --array=1-$n single_scm_eval.sbatch $it $job_id)
 else
     id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ek_upd --array=1-$n single_scm_eval.sbatch $it $job_id)
 fi
+# Update ensemble
 id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n step_ekp.sbatch $it $job_id)
 done
-

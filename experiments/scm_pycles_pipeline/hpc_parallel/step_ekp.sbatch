@@ -11,5 +11,5 @@ iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 job_dir=$(head $job_id".txt" | tail -1)
 
-julia --project step_ekp.jl --iteration $iteration_ --job_dir $job_dir
+julia --project -JCEDMF.so step_ekp.jl --iteration $iteration_ --job_dir $job_dir
 echo "Ensemble at iteration ${iteration_} stepped forward."

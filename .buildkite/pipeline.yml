@@ -31,69 +31,70 @@ steps:
 
   - wait
 
-  - label: "helper_funcs"
-    key: "cpu_helper_funcs"
-    command:
-      - "julia --color=yes --project test/helper_funcs/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # Unit tests through CI: buildkite tends to produce irreproducible errors
+  # - label: "helper_funcs"
+  #   key: "cpu_helper_funcs"
+  #   command:
+  #     - "julia --color=yes --project test/helper_funcs/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "DistributionUtils"
-    key: "cpu_distributionutils"
-    command:
-      - "julia --color=yes --project test/DistributionUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "DistributionUtils"
+  #   key: "cpu_distributionutils"
+  #   command:
+  #     - "julia --color=yes --project test/DistributionUtils/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "LESUtils"
-    key: "cpu_lesutils"
-    command:
-      - "julia --color=yes --project test/LESUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "LESUtils"
+  #   key: "cpu_lesutils"
+  #   command:
+  #     - "julia --color=yes --project test/LESUtils/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "TurbulenceConvectionUtils"
-    key: "cpu_turbulenceconvectionutils"
-    command:
-      - "julia --color=yes --project test/TurbulenceConvectionUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "TurbulenceConvectionUtils"
+  #   key: "cpu_turbulenceconvectionutils"
+  #   command:
+  #     - "julia --color=yes --project test/TurbulenceConvectionUtils/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "ReferenceModels"
-    key: "cpu_referencemodels"
-    command:
-      - "julia --color=yes --project test/ReferenceModels/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "ReferenceModels"
+  #   key: "cpu_referencemodels"
+  #   command:
+  #     - "julia --color=yes --project test/ReferenceModels/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "ReferenceStats"
-    key: "cpu_referencestats"
-    command:
-      - "julia --color=yes --project test/ReferenceStats/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "ReferenceStats"
+  #   key: "cpu_referencestats"
+  #   command:
+  #     - "julia --color=yes --project test/ReferenceStats/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "Pipeline"
-    key: "cpu_pipeline"
-    command:
-      - "julia --color=yes --project test/Pipeline/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "Pipeline"
+  #   key: "cpu_pipeline"
+  #   command:
+  #     - "julia --color=yes --project test/Pipeline/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
-  - label: "NetCDFIO"
-    key: "cpu_netcdfio"
-    command:
-      - "julia --color=yes --project test/NetCDFIO/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
+  # - label: "NetCDFIO"
+  #   key: "cpu_netcdfio"
+  #   command:
+  #     - "julia --color=yes --project test/NetCDFIO/runtests.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
 
   - label: "Bomex Inv julia_par"
     key: "cpu_bomex_julia_p10"
