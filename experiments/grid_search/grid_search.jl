@@ -2,21 +2,6 @@ using Distributed
 @everywhere using Pkg
 @everywhere Pkg.activate(dirname(dirname(@__DIR__)))
 using ArgParse
-s = ArgParseSettings()
-@add_arg_table s begin
-    "--config"
-    help = "config file"
-    arg_type = String
-    default = "config.jl"
-    "--out_dir"
-    help = "output directory"
-    arg_type = String
-    default = "output"
-end
-parsed_args = parse_args(ARGS, s)
-config_path = parsed_args["config"]
-out_dir = parsed_args["out_dir"]
-include(config_path)
 
 @everywhere begin
     import Dates
@@ -48,8 +33,23 @@ include(config_path)
     end
 
 
+    """
+        run_sims(t) = run_sims(t...)
+        run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
+
+    Run one forward simulation of the SCM given a case and pair of parameter values to be modified
+
+    Parameters:
+    - param_values  :: Tuple of two values that are to be modified when running the model
+    - case          :: Name of the simulation case to be run (e.g. Bomex)
+    - ens_ind       :: Integer value for which ensemble member is to be run 
+    - nt            :: Named tuple that contains information that is constant across all simulations. 
+        Has the entires `output_dir`, `param_pair`, `namelist_args`, denoting the simulation output 
+        directory, names of parameters corresponding to `param_values`, and additional namelist 
+        arguments to be modified with respect to the default namelist.
+    """
     run_sims(t) = run_sims(t...)
-    function run_sims(param_values, case, j, nt)
+    function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
         # Create path to store forward model output
         param_dir = joinpath(nt.output_dir, "$(join(param_values, "_"))")  # output_2020-01-01_10_30/0.1_0.1
         case_dir = joinpath(param_dir, "$case")  # output_2020-01-01_10_30/0.1_0.1/Bomex
@@ -57,8 +57,8 @@ include(config_path)
 
         # Get namelist for case
         # namelist = NameList.default_namelist(case, write=false, set_seed=false)
-        namelist = NameList.default_namelist(case, write=false) # until the next release where set_seed PR will be included in TC.jl
-        
+        namelist = NameList.default_namelist(case, write = false) # until the next release where set_seed PR will be included in TC.jl
+
         # If any parameters are vector components, also provide the rest of the vector using the namelist
         # fetch relevant default vector parameters from namelist
         turbconv_params = namelist["turbulence"]["EDMF_PrognosticTKE"]
@@ -67,11 +67,9 @@ include(config_path)
         params = Dict(k => v for (k, v) in turbconv_params if k ∈ vector_params)
         params = flatten_vector_parameters(params)
         # update params with custom parameters
-        for (k, v) in zip(nt.param_pair, param_values) params[k] = v end
-
-        @show collect(String, keys(params))
-        @show collect(Float64, values(params))
-        @show ""
+        for (k, v) in zip(nt.param_pair, param_values)
+            params[k] = v
+        end
 
         # Run forward model
         run_SCM_handler(
@@ -81,19 +79,15 @@ include(config_path)
             u_names = collect(String, keys(params)),
             namelist = namelist,
             namelist_args = nt.namelist_args,
-            uuid = "$j",
+            uuid = "$ens_ind",
             les = get(namelist["meta"], "lesfile", nothing),
         )
     end
 end  # end @everywhere
 
-function grid_search(
-    sim_type = "reference",
-    root = pwd(),
-)
-    @assert sim_type in ("reference", "validation", )
+function grid_search(config::Dict, sim_type::String, root::String = pwd())
+    @assert sim_type in ("reference", "validation")
     # fetch config file
-    config = get_config()
 
     # get entries
     parameters = get_entry(config["grid_search"], "parameters", nothing)
@@ -107,7 +101,7 @@ function grid_search(
     suffix = Random.randstring(3) # ensure output folder is unique
     out_dir = joinpath(root, "output", "$(now)_$(suffix)")
     mkpath(out_dir)
-    cp(config_path, joinpath(out_dir, "config.jl"), force=true)
+    cp(config_path, joinpath(out_dir, "config.jl"), force = true)
 
     # Loop through parameter pairs
     param_names = collect(keys(parameters))
@@ -120,11 +114,27 @@ function grid_search(
         output_dir = joinpath(out_dir, "$(param_string)")
         mkpath(output_dir)  # output/220101_abc/param1.param2
 
-        nt = (;output_dir, param_pair, namelist_args)
-        sim_configs = vec(collect(Iterators.product(param_values, case_names, 1:n_ens, [nt] )))
+        nt = (; output_dir, param_pair, namelist_args)
+        sim_configs = vec(collect(Iterators.product(param_values, case_names, 1:n_ens, [nt])))
         # run simulations
         pmap(run_sims, sim_configs)
     end
 end
 
-grid_search()
+s = ArgParseSettings()
+@add_arg_table s begin
+    "--config"
+    help = "config file"
+    arg_type = String
+    default = "config.jl"
+    "--sim_type"
+    help = "Type of simulations to consider (`reference` or `validation`)"
+    arg_type = String
+    default = "reference"
+end
+parsed_args = parse_args(ARGS, s)
+config_path = parsed_args["config"]
+sim_type = parsed_args["sim_type"]
+include(config_path)
+config = get_config()
+grid_search(config, sim_type)

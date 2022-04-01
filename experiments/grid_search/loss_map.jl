@@ -14,19 +14,15 @@ using Distributed
     using ArgParse
 end
 
-function compute_loss_map(
-    config,
-    sims_path,
-    sim_type,
-)
-    @assert sim_type in ("reference", "validation", )
+function compute_loss_map(config, sims_path, sim_type)
+    @assert sim_type in ("reference", "validation")
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
     case_names = get_entry(config[sim_type], "case_name", nothing)
 
     # param_paths = filter(isdir, readdir(sims_path, join=true))
     parameters = get_entry(config["grid_search"], "parameters", nothing)
     param_names = collect(keys(parameters))
-    NC.Dataset(joinpath(sims_path,"loss_hypercube.nc"),"c") do ds
+    NC.Dataset(joinpath(sims_path, "loss_hypercube.nc"), "c") do ds
         for (param1, param2) in combinations(param_names, 2)
             group_name = "$param1.$param2"
             NC.defGroup(ds, group_name, attrib = [])
@@ -49,7 +45,7 @@ function compute_loss_map(
 
             nt = (; pval1, pval2, sims_path, group_name, config, sim_type)
 
-            loss_configs = vec(collect( Iterators.product(1:n_pval1, 1:n_pval2, 1:n_cases, 1:n_ens, [nt]) ))
+            loss_configs = vec(collect(Iterators.product(1:n_pval1, 1:n_pval2, 1:n_cases, 1:n_ens, [nt])))
 
             @time begin
                 sim_loss = pmap(compute_loss, loss_configs)
@@ -70,10 +66,10 @@ function compute_loss_map(
             # param1 and param2 values
             ncvar = NC.defVar(group_root, param1, pval1, ("param1",))
             ncvar[:] = pval1
-            ncvar = NC.defVar(group_root, param2,pval2,("param2",))
+            ncvar = NC.defVar(group_root, param2, pval2, ("param2",))
             ncvar[:] = pval2
             ncvar = NC.defVar(group_root, "loss_data", loss, ("param1", "param2", "case", "ensemble_member"))
-            ncvar[:,:,:,:] = loss
+            ncvar[:, :, :, :] = loss
         end
     end  # do-block
 end
@@ -105,9 +101,7 @@ end
         loss_names[case_k]
     end
     y_full_case = get_profile(filename, y_loss_names, ti = t_start[case_k], tf = t_end[case_k], z_scm = z_scm)
-    g_full_case_i = get_profile(
-        nc_file, loss_names[case_k], ti = t_start[case_k], tf = t_end[case_k], z_scm = z_scm
-    )
+    g_full_case_i = get_profile(nc_file, loss_names[case_k], ti = t_start[case_k], tf = t_end[case_k], z_scm = z_scm)
     sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
     return sim_loss
 end
@@ -120,7 +114,7 @@ s = ArgParseSettings()
     help = "Path to forward simulation output"
     arg_type = String
     "--sim_type"
-    help = "Path to forward simulation output"
+    help = "Type of simulations to consider (`reference` or `validation`)"
     arg_type = String
     default = "reference"
 end
