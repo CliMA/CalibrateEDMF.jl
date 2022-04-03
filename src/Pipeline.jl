@@ -120,7 +120,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
             γ = get_entry(proc_config, "l1_norm_limit", 1 / eps(Float64))
             prune_below = get_entry(proc_config, "prune_below", 0.0)
             sparse_params = get_entry(proc_config, "sparse_params", true)
-            sparse_idx = get_sparse_indices(sparse_params)
+            sparse_idx = get_sparse_indices(sparse_params, n_param)
             convex_opt_reg = get_entry(proc_config, "convex_opt_reg", 0.0)
             algo = SparseInversion(γ, prune_below, sparse_idx, convex_opt_reg)
         elseif algo_name == "Sampler"
@@ -433,7 +433,6 @@ function ek_update(
     if augmented
         reg_config = config["regularization"]
         l2_reg = get_entry(reg_config, "l2_reg", nothing)
-        # aug_indices = regularized_param_indices(l2_reg)
         g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors, l2_reg)
     else
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
@@ -705,7 +704,7 @@ function get_ensemble_g_eval_aug(
     scm_outputs = load(scm_path(first(versions)))
 
     aug_indices =
-        isa(l2_reg, Dict) ? regularized_param_indices(l2_reg) : 1:length(scm_outputs["model_evaluator"].param_cons)
+        isa(l2_reg, Dict) ? get_regularized_indices(l2_reg) : 1:length(scm_outputs["model_evaluator"].param_cons)
 
     # Set dimensionality
     d = length(scm_outputs["g_scm_pca"])

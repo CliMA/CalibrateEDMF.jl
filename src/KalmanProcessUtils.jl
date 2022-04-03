@@ -22,7 +22,7 @@ using ..DistributionUtils
 
 
 export generate_ekp, generate_tekp
-export get_sparse_indices
+export get_sparse_indices, get_regularized_indices
 
 
 """
@@ -141,7 +141,7 @@ function generate_tekp(
         @assert length(μ) == length(l2_reg_values) "Dictionary of regularizations l2_reg must include all parameters."
 
         # Augment exclusively with nonzero weights
-        aug_indices = flat_dict_keys_where(l2_reg, above_eps)
+        aug_indices = get_regularized_indices(l2_reg)
         l2_reg_values = l2_reg_values[aug_indices]
         μ = μ[aug_indices]
         Γ_θ = inv(Diagonal(l2_reg_values))
@@ -166,8 +166,10 @@ function generate_tekp(
     return ekp
 end
 
-function get_sparse_indices(sparsity_config)
+"Returns the sparse parameter indices given the sparsity configuration and the number of parameters."
+function get_sparse_indices(sparsity_config, p)
     if isa(sparsity_config, Dict{String, Vector{Bool}})
+        @assert sum(map(length, collect(values(sparsity_config)))) == p
         return flat_dict_keys_where(sparsity_config)
     elseif isa(sparsity_config, Bool) && sparsity_config
         return Colon()
@@ -175,5 +177,8 @@ function get_sparse_indices(sparsity_config)
         throw(ArgumentError("Sparsity config entry not recognized, pass a Bool or Dict{String, Vector{Bool}}."))
     end
 end
+
+get_regularized_indices(l2_config::Dict) = flat_dict_keys_where(l2_config, above_eps)
+
 
 end # module
