@@ -32,19 +32,23 @@ export JULIA_MPI_BINARY=system
 export JULIA_CUDA_USE_BINARYBUILDER=false
 
 # run instantiate/precompile serial
-julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
-julia --project -e 'using Pkg; Pkg.precompile()'
+julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+julia --project -C skylake-avx512 -e 'using Pkg; Pkg.precompile()'
 
-# First call to calibrate.jl will create the ensemble files from the priors
-id_restart_ens=$(sbatch --parsable -A esm restart.sbatch $output_dir $job_id)
 for it in $(seq $first_new_iter 1 $n_it)
 do
 # Parallel runs of forward model
 if [ "$it" = "$first_new_iter" ]; then
+    # Generate system image
+    id_so=$(sbatch --parsable -A esm sysimage.sbatch)
+    # Restart calibration
+    id_restart_ens=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so restart.sbatch $output_dir $job_id)
+    # Run ensemble of forward models
     id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_restart_ens --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
 else
     id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
 fi
+# Update ensemble
 id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n step_ekp.sbatch $it $job_id)
 done
 

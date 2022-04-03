@@ -92,7 +92,7 @@ function get_reference_config(::Bomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
+    config["scm_suffix"] = ["000001"]
     config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
@@ -115,7 +115,7 @@ function get_reference_config(::ValidateBomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
+    config["scm_suffix"] = ["000001"]
     config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
