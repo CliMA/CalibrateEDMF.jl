@@ -20,6 +20,8 @@ If you are on the Caltech Central Cluster, you can run the project by adding it 
 
   >> sbatch ekp_par_calibration.sbatch ../config.jl
 
+The HPC pipeline parallelizes jobs using different Julia sessions per ensemble member and iteration. Due to the just-in-time compilation nature of Julia, this requires compiling the source code again for every new HPC node requested. In order to reduce the compilation overhead, this pipeline builds a system image of `EnsembleKalmanProcesses.jl`, `TurbulenceConvection.jl`, `CalibrateEDMF.jl` and all the functions called in the `CalibrateEDMF.jl` test suite. **This system image uses a *frozen* version of the source code, so it must be re-generated every time any of the precompiled packages is updated or modified by the user**.
+
 # Output
 
 While the simulations run, the results are dumped to a directory named *results_...* after every iteration of the calibration algorithm. The diagnostics are stored in NetCDF4 format in `Diagnostics.nc`, within the results folder. NetCDF files may be processed using python or julia. You may also access a human-readable version of the netCDF file in linux using `ncdump`:

@@ -38,6 +38,7 @@ s = ArgParseSettings()
 end
 parsed_args = parse_args(ARGS, s)
 config_rel_filepath = parsed_args["config"]
+config_basename = first(split(config_rel_filepath, "."))
 
 config_filename = joinpath(@__DIR__, config_rel_filepath)
 include(config_filename)
@@ -122,12 +123,12 @@ Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 
 Plots.plot(p1, p2; layout = (1, 2))
 case_name = first(split(config_rel_filepath, "_"))
-folder = joinpath(@__DIR__, "output", string(case_name, "_julia_parallel"))
+folder = joinpath(@__DIR__, "output", string(config_basename, "_julia_parallel"))
 mkpath(folder)
-Plots.savefig(joinpath(folder, string(algorithm, "_mse.png")))
-open(string(folder, case_name, ".txt"), "w") do io
+Plots.savefig(joinpath(folder, string(config_basename, "_mse.png")))
+open(string(folder, config_basename, ".txt"), "w") do io
     write(io, outdir_path)
-end;
+end
 
 using Test
 @testset "Julia Parallel Calibrate" begin

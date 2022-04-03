@@ -30,11 +30,11 @@ s = ArgParseSettings()
 end
 parsed_args = parse_args(ARGS, s)
 config_rel_filepath = parsed_args["config"]
-case_name = first(split(config_rel_filepath, "_"))
+config_basename = first(split(config_rel_filepath, "."))
 
-folder = joinpath(@__DIR__, "output", string(case_name, "_julia_parallel"))
+folder = joinpath(@__DIR__, "output", string(config_basename, "_julia_parallel"))
 @assert isdir(folder)
-outdir_path = open(f -> read(f, String), string(folder, case_name, ".txt"))
+outdir_path = open(f -> read(f, String), string(folder, config_basename, ".txt"))
 
 include(joinpath(outdir_path, "config.jl"))
 ekobjs = glob(joinpath(relpath(outdir_path), "ekobj_iter_*.jld2"))
@@ -121,9 +121,9 @@ Plots.ylabel!("Validation MSE (full)")
 Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 
 Plots.plot(p1, p2; layout = (1, 2))
-folder = joinpath(@__DIR__, "output", string(first(split(config_rel_filepath, "_")), "_julia_parallel"))
+folder = joinpath(@__DIR__, "output", string(config_basename, "_julia_parallel"))
 mkpath(folder)
-Plots.savefig(joinpath(folder, "mse.png"))
+Plots.savefig(joinpath(folder, string(config_basename, "_mse_continued.png")))
 
 using Test
 @testset "Julia Parallel Calibrate" begin
