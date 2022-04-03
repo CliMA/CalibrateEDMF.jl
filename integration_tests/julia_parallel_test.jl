@@ -122,7 +122,7 @@ Plots.ylabel!("Validation MSE (full)")
 Plots.plot!(; left_margin = 40 * Plots.PlotMeasures.px)
 
 Plots.plot(p1, p2; layout = (1, 2))
-case_name = first(split(config_rel_filepath, "_"))
+
 folder = joinpath(@__DIR__, "output", string(config_basename, "_julia_parallel"))
 mkpath(folder)
 Plots.savefig(joinpath(folder, string(config_basename, "_mse.png")))
@@ -132,7 +132,20 @@ end
 
 using Test
 @testset "Julia Parallel Calibrate" begin
-    # TODO: add better regression test (random seed)
-    @test mse_full_mean[end] < mse_full_mean[1]
-    @test mse_full_var[end] < mse_full_var[1]
+    batch_size = get_entry(config["reference"], "batch_size", nothing)
+    if isnothing(batch_size)
+        # Test convergence
+        @test mse_full_mean[end] < mse_full_mean[1]
+        # Test collapse
+        if algorithm != "Unscented"
+            @test mse_full_var[end] < mse_full_var[1]
+        end
+    else
+        # Test convergence
+        @test val_mse_full_mean[end] < val_mse_full_mean[1]
+        # Test collapse
+        if algorithm != "Unscented"
+            @test val_mse_full_var[end] < val_mse_full_var[1]
+        end
+    end
 end

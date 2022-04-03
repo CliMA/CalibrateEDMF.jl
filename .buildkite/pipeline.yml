@@ -81,6 +81,17 @@ steps:
       queue: central
       slurm_cpus_per_task: 11
 
+  - label: "Heterogeneous batching"
+    key: "cpu_het_batch"
+    command:
+      - "julia --color=yes -p 7 --project=integration_tests integration_tests/julia_parallel_test.jl --config Het_batch_unscented_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/Het_batch_unscented_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 8
+
   - label: "helper_funcs"
     key: "cpu_helper_funcs"
     command:
@@ -144,4 +155,7 @@ steps:
     agents:
       config: cpu
       queue: central
+
+
+
 

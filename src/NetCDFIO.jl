@@ -60,14 +60,15 @@ mutable struct NetCDFIO_Diags
             d_full = full_length(ref_stats)
             d = pca_length(ref_stats)
 
-            # Number of configurations, and fields per configuration
+            # Number of configurations
             C = length(ref_stats.pca_vec)
-            f = length(ref_stats.norm_vec[1])
+
+            # Max number of fields per configuration
+            f = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
+
             # Number of configuration per batch
             batch_size = get_entry(config["reference"], "batch_size", length(ref_stats.pca_vec))
             batch_size = isnothing(batch_size) ? length(ref_stats.pca_vec) : batch_size
-            # Output dimension for batched problem, low-dim enconding varies per batch
-            d_full_batch = Int(d_full * batch_size / C)
 
             particle = Array(1:N_ens)
             param = priors.names
@@ -76,7 +77,6 @@ mutable struct NetCDFIO_Diags
             configuration = Array(1:C)
             field = Array(1:f)
             batch_index = Array(1:batch_size)
-            out_full_batch = Array(1:d_full_batch)
 
             # Ensemble diagnostics (over all particles)
             ensemble_grp = NC.defGroup(root_grp, "ensemble_diags")
@@ -110,8 +110,8 @@ mutable struct NetCDFIO_Diags
             particle_grp = NC.defGroup(root_grp, "particle_diags")
             NC.defDim(particle_grp, "particle", N_ens)
             NC.defVar(particle_grp, "particle", particle, ("particle",))
-            NC.defDim(particle_grp, "out_full_batch", d_full_batch)
-            NC.defVar(particle_grp, "out_full_batch", out_full_batch, ("out_full_batch",))
+            NC.defDim(particle_grp, "out_full", d_full)
+            NC.defVar(particle_grp, "out_full", out_full, ("out_full",))
             NC.defDim(particle_grp, "out_aug", d)
             NC.defVar(particle_grp, "out_aug", Array(1:d), ("out_aug",))
             NC.defDim(particle_grp, "param", p)
@@ -127,20 +127,18 @@ mutable struct NetCDFIO_Diags
                 d_full_val = full_length(val_ref_stats)
                 d_val = pca_length(val_ref_stats)
                 C_val = length(val_ref_stats.pca_vec)
-                f_val = length(val_ref_stats.norm_vec[1])
+                f_val = maximum([length(norm_vec) for norm_vec in val_ref_stats.norm_vec])
                 batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
                 batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val
-                d_full_batch_val = Int(d_full_val * batch_size_val / C_val)
 
                 out_full_val = Array(1:d_full_val)
                 out_val = Array(1:d_val)
                 configuration_val = Array(1:C_val)
                 field_val = Array(1:f_val)
                 batch_index_val = Array(1:batch_size_val)
-                out_full_batch_val = Array(1:d_full_batch_val)
 
-                NC.defDim(particle_grp, "out_full_batch_val", d_full_val)
-                NC.defVar(particle_grp, "out_full_batch_val", out_full_batch_val, ("out_full_batch_val",))
+                NC.defDim(particle_grp, "out_full_val", d_full_val)
+                NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
                 NC.defDim(particle_grp, "out_val", d_val)
                 NC.defVar(particle_grp, "out_val", out_val, ("out_val",))
                 NC.defDim(particle_grp, "batch_index_val", batch_size_val)
@@ -358,11 +356,14 @@ function io_val_particle_diags(
     g_full::Matrix{FT},
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
+    # Dimension of the outputs
+    d_val = length(diags.particle_grp["out_val"])
+    d_full_val = length(diags.particle_grp["out_full_val"])
     # If not minibatching - training set size
     batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config_val"]) : batch_indices
 
     # Write eval diagnostics to file
-    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, batch_indices)
+    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, d_val, d_full_val, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -373,13 +374,14 @@ function io_particle_diags_eval(
     g_full::Matrix{FT},
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
-    # Dimension of the outputs - not augmented
+    # Dimension of the outputs
     d = length(diags.particle_grp["out_aug"])
+    d_full = length(diags.particle_grp["out_full"])
     # If not minibatching - training set size
     batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config"]) : batch_indices
 
     # Write eval diagnostics to file
-    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d, batch_indices)
+    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d, d_full, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
