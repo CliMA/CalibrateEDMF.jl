@@ -1,7 +1,7 @@
 name = "CalibrateEDMF"
 uuid = "fbaf683a-b9b3-4040-be64-6c4c04986dd0"
 authors = ["Climate Modeling Alliance"]
-version = "0.1.1"
+version = "0.2.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"

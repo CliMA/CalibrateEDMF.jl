@@ -158,7 +158,7 @@ version = "0.5.1"
 deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dates", "Dierckx", "DiffEqNoiseProcess", "Distributions", "EnsembleKalmanProcesses", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "PackageCompiler", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
 path = ".."
 uuid = "fbaf683a-b9b3-4040-be64-6c4c04986dd0"
-version = "0.1.1"
+version = "0.2.0"
 
 [[deps.Cassette]]
 git-tree-sha1 = "063b2e77c5537a548c5bf2f44161f1d3e1ab3227"
