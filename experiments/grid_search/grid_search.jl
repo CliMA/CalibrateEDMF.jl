@@ -49,13 +49,23 @@ using ArgParse
     end
 
     struct SimConfig
+        "Name of first parameter"
         parameter1::String
+        "Name of second parameter"
         parameter2::String
+        "Value of first parameter"
         value1::Number
+        "Value of second parameter"
         value2::Number
-        case_name::String
+        "Ensemble index"
         ens_i::Integer
+        "Case name"
+        case_name::String
+        "Case name index"
+        case_id::Integer
+        "Simulation output root directory"
         output_root::String
+        "Additional namelist arguments"
         namelist_args::Vector{Tuple}
     end
 
@@ -75,13 +85,13 @@ using ArgParse
         arguments to be modified with respect to the default namelist, respectively.
     """
     # run_sims(t) = run_sims(t...)
-    run_sims(s::SimConfig) = run_sims(s.parameter1, s.parameter2, s.value1, s.value2, s.case_name, s.ens_i, s.output_root, s.namelist_args)
+    run_sims(s::SimConfig) = run_sims(s.parameter1, s.parameter2, s.value1, s.value2, s.ens_i, s.case_name, s.case_id, s.output_root, s.namelist_args)
     # function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
     function run_sims(
-        param1::S, param2::S, value1::Number, value2::Number, case::S, ens_i::Integer, output_root::S, namelist_args::Vector{Tuple},
+        param1::S, param2::S, value1::Number, value2::Number, ens_i::Integer, case::S, case_id::Integer, output_root::S, namelist_args::Vector{Tuple},
     ) where {S <: String}
         # Create path to store forward model output
-        case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex
+        case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case.$case_id")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex.1
         mkpath(case_dir)
 
         # Get namelist for case
@@ -112,7 +122,13 @@ function grid_search(config::Dict, config_path::String, sim_type::String, root::
     parameters = get_entry(config["grid_search"], "parameters", nothing)
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
 
-    case_names = get_entry(config[sim_type], "case_name", nothing)
+    # Get cases and count repeat instances of same case names
+    cases = get_entry(config[sim_type], "case_name", nothing)
+    case_name_id = Tuple[]
+    for (i, case) in enumerate(cases)
+        case_id = length(cases[1:i][(cases.==case)[1:i]])
+        push!(case_name_id, (case, case_id))
+    end
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     # Make output folder
@@ -127,17 +143,20 @@ function grid_search(config::Dict, config_path::String, sim_type::String, root::
     param_pairs = combinations(param_names, 2)
     sim_configs = SimConfig[]
     for (param1, param2) in param_pairs
-        config_product = Iterators.product(parameters[param1], parameters[param2], case_names, 1:n_ens)
-        append!(sim_configs, SimConfig.(
-            param1,
-            param2,
-            getfield.(config_product, 1),  # param1 value
-            getfield.(config_product, 2),  # param2 value
-            getfield.(config_product, 3),  # case name
-            getfield.(config_product, 4),  # ensemble id
-            out_dir,
-            Ref(namelist_args),
-        ))
+        for (case, case_id) in case_name_id
+            config_product = Iterators.product(parameters[param1], parameters[param2], 1:n_ens)
+            append!(sim_configs, SimConfig.(
+                param1,
+                param2,
+                getfield.(config_product, 1),  # param1 value
+                getfield.(config_product, 2),  # param2 value
+                getfield.(config_product, 3),  # ensemble id
+                case,
+                case_id,
+                out_dir,
+                Ref(namelist_args),
+            ))
+        end
     end
     pmap(run_sims, sim_configs)
 end
