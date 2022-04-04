@@ -19,7 +19,7 @@ using ArgParse
     # parameter dictionary can consist of both scalar and vector parameters.
     # flatten to only scalar parameters s.t. a vector parameter 'vec' becomes 'vec_{1}', 'vec_{2}', etc.
     function flatten_vector_parameters(param_dict::Dict)
-        out_dict = Dict()
+        out_dict = Dict{String, Number}()
         for (param, value) in param_dict
             if value isa AbstractArray
                 for j in 1:length(value)
@@ -32,6 +32,32 @@ using ArgParse
         return out_dict
     end
 
+    function prepare_input_parameters(namelist::Dict, p1::S, p2::S, v1::Number, v2::Number) where {S <: String}
+        turbconv_params = namelist["turbulence"]["EDMF_PrognosticTKE"]
+
+        # If any parameters are vectors, fetch relevant defaults from namelist
+        param_pair = [p1, p2]
+        vec_params = param_pair[occursin.(r"(_{\d+})", param_pair)]
+        vec_param_names = unique(first.(split.(vec_params,r"(_{\d+})")))
+        params = flatten_vector_parameters(
+            Dict(k => v for (k, v) in turbconv_params if k ∈ vec_param_names)
+        )
+        # update params with custom parameters
+        params[p1] = v1
+        params[p2] = v2
+        return params
+    end
+
+    struct SimConfig
+        parameter1::String
+        parameter2::String
+        value1::Number
+        value2::Number
+        case_name::String
+        ens_i::Integer
+        output_root::String
+        namelist_args::Vector{Tuple}
+    end
 
     """
         run_sims(t) = run_sims(t...)
@@ -48,44 +74,38 @@ using ArgParse
         directory, names of parameters corresponding to `param_values`, and additional namelist 
         arguments to be modified with respect to the default namelist, respectively.
     """
-    run_sims(t) = run_sims(t...)
-    function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
+    # run_sims(t) = run_sims(t...)
+    run_sims(s::SimConfig) = run_sims(s.parameter1, s.parameter2, s.value1, s.value2, s.case_name, s.ens_i, s.output_root, s.namelist_args)
+    # function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
+    function run_sims(
+        param1::S, param2::S, value1::Number, value2::Number, case::S, ens_i::Integer, output_root::S, namelist_args::Vector{Tuple},
+    ) where {S <: String}
         # Create path to store forward model output
-        param_dir = joinpath(nt.output_dir, "$(join(param_values, "_"))")  # e.g. output/220101_abc/param1.param2/0.1_0.2
-        case_dir = joinpath(param_dir, "$case")
+
+        case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex
         mkpath(case_dir)
 
         # Get namelist for case
         # namelist = NameList.default_namelist(case, write=false, set_seed=false)
         namelist = NameList.default_namelist(case, write = false) # until the next release where set_seed PR will be included in TC.jl
 
-        # If any parameters are vector components, also provide the rest of the vector using the namelist
-        # fetch relevant default vector parameters from namelist
-        turbconv_params = namelist["turbulence"]["EDMF_PrognosticTKE"]
-        is_vec = occursin.(r"{?}", nt.param_pair)
-        vector_params = unique(first.(rsplit.(nt.param_pair[is_vec], "_", limit = 2)))
-        params = Dict(k => v for (k, v) in turbconv_params if k ∈ vector_params)
-        params = flatten_vector_parameters(params)
-        # update params with custom parameters
-        for (k, v) in zip(nt.param_pair, param_values)
-            params[k] = v
-        end
+        params = prepare_input_parameters(namelist, param1, param2, value1, value2)
 
         # Run forward model
         run_SCM_handler(
             case,
             case_dir;
-            u = collect(Float64, values(params)),
+            u = collect(Number, values(params)),
             u_names = collect(String, keys(params)),
             namelist = namelist,
-            namelist_args = nt.namelist_args,
-            uuid = "$ens_ind",
+            namelist_args = namelist_args,
+            uuid = "$ens_i",
             les = get(namelist["meta"], "lesfile", nothing),
         )
     end
 end  # end @everywhere
 
-function grid_search(config::Dict, sim_type::String, root::String = pwd())
+function grid_search(config::Dict, config_path::String, sim_type::String, root::String = pwd())
     @assert sim_type in ("reference", "validation")
     # fetch config file
 
@@ -103,22 +123,24 @@ function grid_search(config::Dict, sim_type::String, root::String = pwd())
     mkpath(out_dir)
     cp(config_path, joinpath(out_dir, "config.jl"), force = true)
 
-    # Loop through parameter pairs
+    # Construct simulation configs
     param_names = collect(keys(parameters))
-    for param_pair in combinations(param_names, 2)
-        A = parameters[param_pair[1]]
-        B = parameters[param_pair[2]]
-        param_values = vec(collect(Iterators.product(A, B)))
-        # output dir
-        param_string = join(param_pair, ".")
-        output_dir = joinpath(out_dir, "$(param_string)")
-        mkpath(output_dir)  # output/220101_abc/param1.param2
-
-        nt = (; output_dir, param_pair, namelist_args)
-        sim_configs = vec(collect(Iterators.product(param_values, case_names, 1:n_ens, [nt])))
-        # run simulations
-        pmap(run_sims, sim_configs)
+    param_pairs = combinations(param_names, 2)
+    sim_configs = SimConfig[]
+    for (param1, param2) in param_pairs
+        config_product = Iterators.product(parameters[param1], parameters[param2], case_names, 1:n_ens)
+        append!(sim_configs, SimConfig.(
+            param1,
+            param2,
+            getfield.(config_product, 1),  # param1 value
+            getfield.(config_product, 2),  # param2 value
+            getfield.(config_product, 3),  # case name
+            getfield.(config_product, 4),  # ensemble id
+            out_dir,
+            Ref(namelist_args),
+        ))
     end
+    pmap(run_sims, sim_configs)
 end
 
 s = ArgParseSettings()
@@ -137,4 +159,4 @@ config_path = parsed_args["config"]
 sim_type = parsed_args["sim_type"]
 include(config_path)
 config = get_config()
-grid_search(config, sim_type)
+grid_search(config, config_path, sim_type)
