@@ -40,7 +40,7 @@ function compute_loss_map(config, sims_path, sim_type)
 
             nt = (; param_val_1, param_val_2, sims_path, group_name, config, sim_type)
 
-            loss_configs = vec(collect(Iterators.product(1:n_param_val_1, 1:n_param_val_2, 1:n_cases, 1:n_ens, [nt])))
+            loss_configs = vec(collect(Iterators.product(param_val_1, param_val_2, 1:n_cases, 1:n_ens, [nt])))
 
             @time begin
                 sim_loss = pmap(compute_loss, loss_configs)
@@ -63,61 +63,64 @@ function compute_loss_map(config, sims_path, sim_type)
             ncvar[:] = param_val_1
             ncvar = NC.defVar(group_root, param_name_2, param_val_2, ("param_name_2",))
             ncvar[:] = param_val_2
-            ncvar = NC.defVar(group_root, "loss_data", loss_2D_sec, ("param_name_1", "param_name_2", "case", "ensemble_member"))
+            ncvar = NC.defVar(
+                group_root,
+                "loss_data",
+                loss_2D_sec,
+                ("param_name_1", "param_name_2", "case", "ensemble_member"),
+            )
             ncvar[:, :, :, :] = loss_2D_sec
         end
     end  # do-block
 end
 
 @everywhere begin
-"""
+    """
+        compute_loss(t) = compute_loss(t...)
+        compute_loss(param_name_1_ind, param_name_2_ind, case_ind, ens_ind, nt)
+
+    Compute loss function from forward model output data.
+
+    Arguments:
+    param_name_1_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_1)
+    param_name_2_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_2)
+    case_ind    :: index of a case name (in config > reference/validation > case_name)
+    ens_ind     :: index of the ensemble member
+    nt          :: Named tuple that contains information that is constant across forward model data.
+        Has the entries `param_val_1`, `param_val_2`, `sims_path`, `group_name`, `config`, `sim_type`, denoting
+        the values for param_name_1, the values for param_name_2, the root path to forward model data, the 
+        parameter pair name, the config file, and the simulation type (reference or validation),
+        respectively.
+    """
     compute_loss(t) = compute_loss(t...)
-    compute_loss(param_name_1_ind, param_name_2_ind, case_ind, ens_ind, nt)
+    function compute_loss(
+        param_val_1::Number,
+        param_val_2::Number,
+        case_ind::I,
+        ens_ind::I,
+        nt::NamedTuple,
+    ) where {I <: Integer}
+        # fetch from config
+        get_from_config(x) = nt.config[nt.sim_type][x][case_ind]
+        (case_name, loss_names, t_start, t_end, y_dir) =
+            get_from_config.(["case_name", "y_names", "t_start", "t_end", "y_dir"])
+        y_ref_type = nt.config[nt.sim_type]["y_reference_type"]
 
-Compute loss function from forward model output data.
-
-Arguments:
-param_name_1_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_1)
-param_name_2_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_2)
-case_ind    :: index of a case name (in config > reference/validation > case_name)
-ens_ind     :: index of the ensemble member
-nt          :: Named tuple that contains information that is constant across forward model data.
-    Has the entries `param_val_1`, `param_val_2`, `sims_path`, `group_name`, `config`, `sim_type`, denoting
-    the values for param_name_1, the values for param_name_2, the root path to forward model data, the 
-    parameter pair name, the config file, and the simulation type (reference or validation),
-    respectively.
-"""
-compute_loss(t) = compute_loss(t...)
-function compute_loss(param_name_1_ind::I, param_name_2_ind::I, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
-    sim_type = nt.sim_type
-
-    n_ens = get_entry(nt.config["grid_search"], "ensemble_size", nothing)
-    case_names = get_entry(nt.config[sim_type], "case_name", nothing)
-    loss_names = get_entry(nt.config[sim_type], "y_names", nothing)
-    t_start = get_entry(nt.config[sim_type], "t_start", nothing)
-    t_end = get_entry(nt.config[sim_type], "t_end", nothing)
-    y_dir = get_entry(nt.config[sim_type], "y_dir", nothing)
-    y_ref_type = get_entry(nt.config[sim_type], "y_reference_type", nothing)
-
-    p1 = nt.param_val_1[param_name_1_ind]
-    p2 = nt.param_val_2[param_name_2_ind]
-    param_path = joinpath(nt.sims_path, nt.group_name, "$(p1)_$(p2)")
-    case_name = case_names[case_ind]
-    sim_path = joinpath(param_path, "$case_name/Output.$case_name.$ens_ind")
-    nc_file = joinpath(sim_path, "stats/Stats.$case_name.nc")
-    # compute mse
-    z_scm = get_height(nc_file)
-    filename = y_dir[case_ind]
-    y_loss_names = if (y_ref_type isa LES)
-        get_les_names(loss_names[case_ind], filename)
-    else
-        loss_names[case_ind]
+        # path to .nc simulation data
+        param_path = joinpath(nt.sims_path, nt.group_name, "$(param_val_1)_$(param_val_2)")
+        nc_file = joinpath(param_path, "$case_name/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
+        # compute mse
+        z_scm = get_height(nc_file)
+        y_loss_names = if (y_ref_type isa LES)
+            get_les_names(loss_names, y_dir)
+        else
+            loss_names
+        end
+        y_full_case = get_profile(y_dir, y_loss_names, ti = t_start, tf = t_end, z_scm = z_scm)
+        g_full_case_i = get_profile(nc_file, loss_names, ti = t_start, tf = t_end, z_scm = z_scm)
+        sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
+        return sim_loss
     end
-    y_full_case = get_profile(filename, y_loss_names, ti = t_start[case_ind], tf = t_end[case_ind], z_scm = z_scm)
-    g_full_case_i = get_profile(nc_file, loss_names[case_ind], ti = t_start[case_ind], tf = t_end[case_ind], z_scm = z_scm)
-    sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
-    return sim_loss
-end
 end  # end @everywhere begin
 
 
