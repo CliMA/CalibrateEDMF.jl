@@ -81,7 +81,6 @@ using ArgParse
         param1::S, param2::S, value1::Number, value2::Number, case::S, ens_i::Integer, output_root::S, namelist_args::Vector{Tuple},
     ) where {S <: String}
         # Create path to store forward model output
-
         case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex
         mkpath(case_dir)
 
@@ -95,7 +94,7 @@ using ArgParse
         run_SCM_handler(
             case,
             case_dir;
-            u = collect(Number, values(params)),
+            u = collect(Float64, values(params)),
             u_names = collect(String, keys(params)),
             namelist = namelist,
             namelist_args = namelist_args,
