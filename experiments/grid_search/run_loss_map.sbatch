@@ -8,11 +8,9 @@
 #SBATCH -J "grd_src"   # job name
 #SBATCH --output=slurm_loss_map_%j.out
 
-sims_path=${1?Error: no simulation path given}
-# sim type should be 'reference' or 'validation'. Defaults to 'reference'
-sim_type=${2:-reference}
+sim_dir=${1?Error: no simulation path given}
 
 module purge
 module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
-julia --project -p 10 loss_map.jl --sims_path $sims_path --sim_type $sim_type
+julia --project -p 10 loss_map.jl --sim_dir $sim_dir

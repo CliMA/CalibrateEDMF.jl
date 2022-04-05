@@ -82,7 +82,6 @@ using ArgParse
         directory, names of parameters corresponding to `param_values`, and additional namelist 
         arguments to be modified with respect to the default namelist, respectively.
     """
-    # run_sims(t) = run_sims(t...)
     run_sims(s::SimConfig) = run_sims(
         s.parameter1,
         s.parameter2,
@@ -94,7 +93,6 @@ using ArgParse
         s.output_root,
         s.namelist_args,
     )
-    # function run_sims(param_values::Tuple{Number, Number}, case::String, ens_ind::Integer, nt::NamedTuple)
     function run_sims(
         param1::S,
         param2::S,
@@ -105,7 +103,7 @@ using ArgParse
         case_id::Integer,
         output_root::S,
         namelist_args::Union{AbstractVector, Nothing},
-    ) where {S <: String, T <: Tuple}
+    ) where {S <: AbstractString}
         # Create path to store forward model output
         case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case.$case_id")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex.1
         mkpath(case_dir)
@@ -130,14 +128,15 @@ using ArgParse
     end
 end  # end @everywhere
 
-function grid_search(config::Dict, config_path::String, sim_type::String)
-    root = pwd()
+function grid_search(config::Dict, config_path::String)
+    root = get_entry(config["grid_search"], "root_dir", pwd())
     now = Dates.format(Dates.now(), "YYmmdd")
     suffix = Random.randstring(3) # ensure output folder is unique
     out_dir = joinpath(root, "output", "$(now)_$(suffix)")
-    grid_search(config, config_path, sim_type, out_dir)
+    grid_search(config, config_path, out_dir)
 end
-function grid_search(config::Dict, config_path::String, sim_type::String, out_dir::String)
+function grid_search(config::Dict, config_path::String, out_dir::String)
+    sim_type = get_entry(config["grid_search"], "sim_type", "reference")
     @assert sim_type in ("reference", "validation")
 
     # Make output folder
@@ -180,7 +179,7 @@ function grid_search(config::Dict, config_path::String, sim_type::String, out_di
             )
         end
     end
-    pmap(run_sims, sim_configs)
+    pmap(run_sims, sim_configs, on_error = e -> NaN)
 end
 
 
@@ -192,20 +191,15 @@ function parse_commandline_gs()
         help = "config file"
         arg_type = String
         default = "config.jl"
-        "--sim_type"
-        help = "Type of simulations to consider (`reference` or `validation`)"
-        arg_type = String
-        default = "reference"
     end
 
-    return ArgParse.parse_args(s)  # parse_args(ARGS, s)
+    return ArgParse.parse_args(s)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     args = parse_commandline_gs()
     config_path = args["config"]
-    sim_type = args["sim_type"]
     include(config_path)
     config = get_config()
-    grid_search(config, config_path, sim_type)
+    grid_search(config, config_path)
 end

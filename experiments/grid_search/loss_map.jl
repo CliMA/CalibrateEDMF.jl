@@ -19,17 +19,26 @@ end
     get_case_ind(cases, case_i) = length(cases[1:case_i][(cases .== cases[case_i])[1:case_i]])
 end
 
-function compute_loss_map(config::Dict, sims_path::S, sim_type::S) where {S <: AbstractString}
+"""
+    compute_loss_map(config::Dict, sim_dir::AbstractString)
+
+Compute loss map for a set of simulations and store the output in a netcdf4 file
+
+Parameters:
+config  :: Dictionary of model calibration and grid search configuration options
+sim_dir :: Directory of grid search simulation output
+"""
+function compute_loss_map(config::Dict, sim_dir::AbstractString)
+    sim_type = get_entry(config["grid_search"], "sim_type", "reference")
     @assert sim_type in ("reference", "validation")
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
     cases = get_entry(config[sim_type], "case_name", nothing)
     case_names_unique = ["$case.$(get_case_ind(cases, i))" for (i, case) in enumerate(cases)]
     n_cases = length(cases)
 
-    # param_paths = filter(isdir, readdir(sims_path, join=true))
     parameters = get_entry(config["grid_search"], "parameters", nothing)
     param_names = collect(keys(parameters))
-    NC.Dataset(joinpath(sims_path, "loss_hypercube.nc"), "c") do ds
+    NC.Dataset(joinpath(sim_dir, "loss_hypercube.nc"), "c") do ds
         for (param_name_1, param_name_2) in combinations(param_names, 2)
             group_name = "$param_name_1.$param_name_2"
             NC.defGroup(ds, group_name, attrib = [])
@@ -44,12 +53,12 @@ function compute_loss_map(config::Dict, sims_path::S, sim_type::S) where {S <: A
 
             loss_2D_sec = zeros((n_value1, n_value2, n_cases, n_ens))
 
-            nt = (; sims_path, group_name, config, sim_type)
+            nt = (; sim_dir, group_name, config, sim_type)
 
             loss_configs = vec(collect(Iterators.product(value1, value2, 1:n_cases, 1:n_ens, [nt])))
 
             @time begin
-                sim_loss = pmap(compute_loss, loss_configs)
+                sim_loss = pmap(compute_loss, loss_configs, on_error = e -> NaN)
                 loss_2D_sec = reshape(sim_loss, size(loss_2D_sec))
             end
             ensemble_member = LinRange(1, n_ens, n_ens)
@@ -93,7 +102,7 @@ end
     case_ind    :: index of a case name (in config > reference/validation > case_name)
     ens_ind     :: index of the ensemble member
     nt          :: Named tuple that contains information that is constant across forward model data.
-        Has the entries `sims_path`, `group_name`, `config`, `sim_type`, denoting the root path to 
+        Has the entries `sim_dir`, `group_name`, `config`, `sim_type`, denoting the root path to 
         forward model data, the parameter pair name, the config file, and the simulation type 
         (reference or validation), respectively.
     """
@@ -109,7 +118,7 @@ end
         case_j = get_case_ind(cases, case_ind)
 
         # path to .nc simulation data
-        param_path = joinpath(nt.sims_path, nt.group_name, "$(value1)_$(value2)")
+        param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
         nc_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
         # compute mse
         z_scm = get_height(nc_file)
@@ -131,13 +140,9 @@ function parse_commandline_lm()
     s = ArgParseSettings(; description = "Run data path input")
 
     @add_arg_table s begin
-        "--sims_path"
-        help = "Path to forward simulation output"
+        "--sim_dir"
+        help = "Grid search simulations directory"
         arg_type = String
-        "--sim_type"
-        help = "Type of simulations to consider (`reference` or `validation`)"
-        arg_type = String
-        default = "reference"
     end
 
     return ArgParse.parse_args(s)  # parse_args(ARGS, s)
@@ -145,9 +150,8 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     args = parse_commandline_lm()
-    sims_path = args["sims_path"]
-    sim_type = args["sim_type"]
-    include(joinpath(sims_path, "config.jl"))
+    sim_dir = args["sim_dir"]
+    include(joinpath(sim_dir, "config.jl"))
     config = get_config()
-    compute_loss_map(config, sims_path, sim_type)
+    compute_loss_map(config, sim_dir)
 end

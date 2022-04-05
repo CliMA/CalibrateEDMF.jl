@@ -93,5 +93,7 @@ function get_grid_search_config()
         "entrainment_factor" => [0.1, 0.2],
     )
     config["ensemble_size"] = 2
+    # config["root_dir"] = pwd()  # provided explicitly in `grid_search_test.jl`
+    config["sim_type"] = "reference"  # `reference` or `validation`
     return config
 end

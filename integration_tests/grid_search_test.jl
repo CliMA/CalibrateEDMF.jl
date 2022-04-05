@@ -1,7 +1,7 @@
 using Distributed
+@everywhere using Pkg
+@everywhere Pkg.activate(@__DIR__)
 @everywhere begin
-    using Pkg
-    Pkg.activate(@__DIR__)
     using CalibrateEDMF
     ce = pkgdir(CalibrateEDMF)
     include(joinpath(ce, "experiments", "grid_search", "grid_search.jl"))
@@ -14,7 +14,7 @@ include(config_path)
 config = get_config()  # 
 out_dir = joinpath(pwd(), "output", "grid_search")
 # rm(out_dir, recursive = true, force = true)  # delete old test output
-grid_search(config, config_path, "reference", out_dir)
+grid_search(config, config_path, out_dir)
 
 y_root = joinpath(
     out_dir, 
@@ -30,4 +30,4 @@ y_dirs = [
 # update reference data paths
 config["reference"]["y_dir"] = y_dirs
 
-compute_loss_map(config, out_dir, "reference")
+compute_loss_map(config, out_dir)
