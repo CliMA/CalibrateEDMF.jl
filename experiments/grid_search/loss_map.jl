@@ -16,10 +16,10 @@ end
 
 @everywhere begin
     "Get index of a case, defined local to each case name"
-    get_case_ind(cases, case_i) = length(cases[1:case_i][(cases.==cases[case_i])[1:case_i]])
+    get_case_ind(cases, case_i) = length(cases[1:case_i][(cases .== cases[case_i])[1:case_i]])
 end
 
-function compute_loss_map(config, sims_path, sim_type)
+function compute_loss_map(config::Dict, sims_path::S, sim_type::S) where {S <: AbstractString}
     @assert sim_type in ("reference", "validation")
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
     cases = get_entry(config[sim_type], "case_name", nothing)
@@ -98,13 +98,7 @@ end
         (reference or validation), respectively.
     """
     compute_loss(t) = compute_loss(t...)
-    function compute_loss(
-        value1::Number,
-        value2::Number,
-        case_ind::I,
-        ens_ind::I,
-        nt::NamedTuple,
-    ) where {I <: Integer}
+    function compute_loss(value1::Number, value2::Number, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
         # fetch from config
         get_from_config(x) = nt.config[nt.sim_type][x][case_ind]
         (case_name, loss_names, t_start, t_end, y_dir) =
@@ -132,21 +126,28 @@ end
 end  # end @everywhere begin
 
 
-### Run loss map script
-s = ArgParseSettings()
-@add_arg_table s begin
-    "--sims_path"
-    help = "Path to forward simulation output"
-    arg_type = String
-    "--sim_type"
-    help = "Type of simulations to consider (`reference` or `validation`)"
-    arg_type = String
-    default = "reference"
-end
-parsed_args = parse_args(ARGS, s)
-sims_path = parsed_args["sims_path"]
-sim_type = parsed_args["sim_type"]
-include(joinpath(sims_path, "config.jl"))
-config = get_config()
+function parse_commandline_lm()
 
-compute_loss_map(config, sims_path, sim_type)
+    s = ArgParseSettings(; description = "Run data path input")
+
+    @add_arg_table s begin
+        "--sims_path"
+        help = "Path to forward simulation output"
+        arg_type = String
+        "--sim_type"
+        help = "Type of simulations to consider (`reference` or `validation`)"
+        arg_type = String
+        default = "reference"
+    end
+
+    return ArgParse.parse_args(s)  # parse_args(ARGS, s)
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    args = parse_commandline_lm()
+    sims_path = args["sims_path"]
+    sim_type = args["sim_type"]
+    include(joinpath(sims_path, "config.jl"))
+    config = get_config()
+    compute_loss_map(config, sims_path, sim_type)
+end
