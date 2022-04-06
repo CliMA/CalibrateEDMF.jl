@@ -52,23 +52,20 @@ end
 function get_reference_config(::GridSearchCases)
     config = Dict()
     config["case_name"] = ["TRMM_LBA", "Rico", "TRMM_LBA"]
+    n_cases = length(config["case_name"])
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = SCM()
-    config["Σ_reference_type"] = LES()
+    # config["Σ_reference_type"] = LES()
     # Fields to learn from during training
     config["y_names"] = repeat([
-        ["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]
-    ], 3)
+        ["ql_mean", "qt_mean", "total_flux_qt"]
+    ], n_cases)
     # LES data can be stored as an Artifact and downloaded lazily
-    config["y_dir"] = [
-        # only needed for loss map computation
-    ]
+    # config["y_dir"] = [...]  # only needed for loss map computation
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    # config["t_start"] = [22.0 * 3600]
-    # config["t_end"] = [24.0 * 3600]
-    config["t_start"] = [1000.0, 1000.0, 1000.0]
-    config["t_end"] = [2000.0, 2000.0, 2000.0]
+    config["t_start"] = repeat([100.0], n_cases)
+    config["t_end"] = repeat([200.0], n_cases)
     return config
 end
 
@@ -77,7 +74,7 @@ function get_scm_config()
     # List of tuples like [("time_stepping", "dt_min", 1.0)], or nothing
     config["namelist_args"] = nothing
     config["namelist_args"] = [
-        ("time_stepping", "t_max", 2200.0),
+        ("time_stepping", "t_max", 200.0),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "moisture_deficit"),
         ("turbulence", "EDMF_PrognosticTKE", "stochastic_entrainment", "prognostic_noisy_relaxation_process"),
         ("time_stepping", "adapt_dt", false),
@@ -89,8 +86,8 @@ function get_grid_search_config()
     config = Dict()
     config["parameters"] = Dict(
         "general_stochastic_ent_params_{1}" => [0.3, 0.4],
-        "general_stochastic_ent_params_{2}" => [0.25, 0.35],
-        "entrainment_factor" => [0.1, 0.2],
+        "general_stochastic_ent_params_{2}" => [0.25],
+        "entrainment_factor" => [0.1],
     )
     config["ensemble_size"] = 2
     # config["root_dir"] = pwd()  # provided explicitly in `grid_search_test.jl`

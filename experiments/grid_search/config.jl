@@ -189,5 +189,8 @@ function get_grid_search_config()
         # "sorting_power" => LinRange(0.45, 0.6, 3),
     )
     config["ensemble_size"] = 2
+    config["root_dir"] = pwd()
+    config["sim_type"] = "reference"  # `reference` or `validation`
+
     return config
 end
