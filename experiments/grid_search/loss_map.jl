@@ -99,7 +99,7 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
             nt = (; sim_dir, group_name, config, sim_type)
 
             loss_configs = vec(collect(Iterators.product(value1, value2, 1:n_cases, 1:n_ens, [nt])))
-            
+
             # compute loss
             sim_loss = pmap(compute_loss, loss_configs, on_error = e -> NaN)
             loss_2D_sec = reshape(sim_loss, size(loss_2D_sec))

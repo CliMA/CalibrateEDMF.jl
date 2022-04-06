@@ -57,9 +57,7 @@ function get_reference_config(::GridSearchCases)
     config["y_reference_type"] = SCM()
     # config["Σ_reference_type"] = LES()
     # Fields to learn from during training
-    config["y_names"] = repeat([
-        ["ql_mean", "qt_mean", "total_flux_qt"]
-    ], n_cases)
+    config["y_names"] = repeat([["ql_mean", "qt_mean", "total_flux_qt"]], n_cases)
     # LES data can be stored as an Artifact and downloaded lazily
     # config["y_dir"] = [...]  # only needed for loss map computation
     # provide list of dirs if different from `y_dir`
