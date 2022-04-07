@@ -7,7 +7,9 @@ using Distributed
     using CalibrateEDMF.HelperFuncs
     using CalibrateEDMF.ReferenceStats
     using CalibrateEDMF.LESUtils
+    using CalibrateEDMF.ReferenceModels
     import CalibrateEDMF.ModelTypes: LES
+    import CalibrateEDMF.Pipeline: get_ref_model_kwargs, get_ref_stats_kwargs
     using Combinatorics
     import NCDatasets
     const NC = NCDatasets
@@ -47,17 +49,49 @@ end
 
         # path to .nc simulation data
         param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
-        nc_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
+        scm_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
         # compute mse
-        z_scm = get_height(nc_file)
+        z_scm = get_height(scm_file)
         y_loss_names = if (y_ref_type isa LES)
             get_les_names(loss_names, y_dir)
         else
             loss_names
         end
-        y_full_case = get_profile(y_dir, y_loss_names, ti = t_start, tf = t_end, z_scm = z_scm)
-        g_full_case_i = get_profile(nc_file, loss_names, ti = t_start, tf = t_end, z_scm = z_scm)
-        sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
+
+        RS = nt.ref_stats
+        m = RS.RM[case_ind]
+        y_ncfile = get_stats_path(y_dir)
+        y_full_case = get_profile(m, y_ncfile, z_scm = get_z_obs(m))
+        y_norm = normalize_profile(y_full_case, length(m.y_names), RS.norm_vec[case_ind])
+        y_pca = RS.pca_vec[case_ind]' * y_norm
+
+        g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
+        g_norm = normalize_profile(g_full_case_i, length(m.y_names), RS.norm_vec[case_ind])
+        g_pca = RS.pca_vec[case_ind]' * g_norm
+
+        diff = y_pca - g_pca
+        X = RS.Γ \ diff # diff: column vector
+        sim_loss = dot(diff, X)
+
+        
+        # nt.ref_stats
+
+        # 0. create ReferenceModels
+        # 1. create ReferenceStatistics
+        # 2. Use RS to compute normalized profiles for each case
+        # 3. Compute covariance-normalized loss for each case
+
+        # compute ReferenceStatistics to get correct normalized profiles and loss        
+        # see eval_single_ref_model to correctly fetch profiles:
+        # g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+        # g_scm_pca = RS.pca_vec[m_index]' * g_scm
+
+
+        # correct loss computation
+        # diff = uki.obs_mean - mean_g
+        # X = uki.obs_noise_cov \ diff # diff: column vector
+        # newerr = dot(diff, X)
+        # sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
         return sim_loss
     end
 end  # end @everywhere begin
@@ -72,6 +106,17 @@ config  :: Dictionary of model calibration and grid search configuration options
 sim_dir :: Directory of grid search simulation output
 """
 function compute_loss_map(config::Dict, sim_dir::AbstractString)
+
+    # construct reference models and reference statistics
+    sim_type = get_entry(config["grid_search"], "sim_type", "reference")
+    ref_config = config[sim_type]  # or validation
+    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    reg_config = config["regularization"]
+    kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
+    # 
+
+
+
     sim_type = get_entry(config["grid_search"], "sim_type", "reference")
     @assert sim_type in ("reference", "validation")
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
@@ -95,8 +140,15 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
             n_value2 = length(value2)
 
             loss_2D_sec = zeros((n_value1, n_value2, n_cases, n_ens))
+            
+            # RM & RS
+            param_path = joinpath(sim_dir, group_name, "$(value1[1])_$(value2[1])")
+            scm_dir = joinpath.(param_path, case_names_unique, "Output.".*cases.*".1")
+            kwargs_ref_model[:scm_dir] = scm_dir
+            ref_models = construct_reference_models(kwargs_ref_model)
+            ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
 
-            nt = (; sim_dir, group_name, config, sim_type)
+            nt = (; sim_dir, group_name, config, sim_type, ref_stats)
 
             loss_configs = vec(collect(Iterators.product(value1, value2, 1:n_cases, 1:n_ens, [nt])))
 
