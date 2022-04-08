@@ -126,9 +126,9 @@ version = "0.1.1"
 
 [[deps.CLIMAParameters]]
 deps = ["Test"]
-git-tree-sha1 = "ffaa9024fcd19cdc64a05dc688477c0daa5ffbb0"
+git-tree-sha1 = "17ece0add9940728f8120a1561fc3361be6a6f26"
 uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
-version = "0.4.2"
+version = "0.4.3"
 
 [[deps.CPUSummary]]
 deps = ["IfElse", "Static"]
@@ -664,12 +664,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "303d70c961317c4c20fafaf5dbe0e6d610c38542"
 uuid = "e33a78d0-f292-5ffc-b300-72abe9b543c8"
 version = "2.7.1+0"
-
-[[deps.HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "SpecialFunctions", "Test"]
-git-tree-sha1 = "65e4589030ef3c44d3b90bdc5aac462b4bb05567"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.8"
 
 [[deps.IRTools]]
 deps = ["InteractiveUtils", "MacroTools", "Test"]
@@ -1283,9 +1277,9 @@ version = "2.4.2"
 
 [[deps.Quaternions]]
 deps = ["DualNumbers", "LinearAlgebra", "Random"]
-git-tree-sha1 = "3754f35199da1bb4a55211ddbfd64cb1efee2272"
+git-tree-sha1 = "f610e9d8ebed618b4a46617f532d596eab35a20b"
 uuid = "94ee1d12-ae83-5a48-8b1c-48b8ff168ae0"
-version = "0.5.4"
+version = "0.5.5"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1332,9 +1326,9 @@ version = "0.5.2"
 
 [[deps.RecursiveArrayTools]]
 deps = ["Adapt", "ArrayInterface", "ChainRulesCore", "DocStringExtensions", "FillArrays", "LinearAlgebra", "RecipesBase", "Requires", "StaticArrays", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "f5dd036acee4462949cc10c55544cc2bee2545d6"
+git-tree-sha1 = "bcae5f9c5c257e42c0b39d6a78499e0ce6558362"
 uuid = "731186ca-8d62-57ce-b412-fbd966d074cd"
-version = "2.25.1"
+version = "2.25.2"
 
 [[deps.RecursiveFactorization]]
 deps = ["LinearAlgebra", "LoopVectorization", "Polyester", "StrideArraysCore", "TriangularSolve"]
@@ -1524,10 +1518,10 @@ uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.16"
 
 [[deps.StatsFuns]]
-deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "72e6abd6fc9ef0fa62a159713c83b7637a14b2b8"
+deps = ["ChainRulesCore", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
+git-tree-sha1 = "5950925ff997ed6fb3e985dcce8eb1ba42a0bbe7"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.17"
+version = "0.9.18"
 
 [[deps.StochasticDiffEq]]
 deps = ["Adapt", "ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqJump", "DiffEqNoiseProcess", "DocStringExtensions", "FillArrays", "FiniteDiff", "ForwardDiff", "LevyArea", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "OrdinaryDiffEq", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SparseArrays", "SparseDiffTools", "StaticArrays", "UnPack"]
@@ -1646,9 +1640,9 @@ version = "0.3.3"
 
 [[deps.TurbulenceConvection]]
 deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "e8c4eb1c9d29ad01cd6fa1ddf65ec28c3dbaa6ed"
+git-tree-sha1 = "02c410782c78501ae9ab5d8fa8c641118f5eca49"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.17.4"
+version = "0.18.0"
 
 [[deps.URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
