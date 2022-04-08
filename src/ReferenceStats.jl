@@ -14,6 +14,7 @@ using ..DistributionUtils
 export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA, pca
+export pca_inds, full_inds
 
 
 """
@@ -22,7 +23,7 @@ export get_obs, get_profile, obs_PCA, pca
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
 """
-Base.@kwdef struct ReferenceStatistics{FT <: Real}
+Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
     "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
     y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
@@ -35,6 +36,10 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
     Γ_full::SparseMatrixCSC{FT, Int64}
+    "Degrees of freedom per case"
+    ndof_case::Vector{IT}
+    "Full degrees of freedom per case"
+    ndof_full_case::Vector{IT}
 
     """
         ReferenceStatistics(
@@ -82,6 +87,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Σ_type::ModelType = LES(),
         Δt::FT = 6 * 3600.0,
     ) where {FT <: Real}
+        IT = Int64
         # Init arrays
         y = FT[]
         Γ_vec = Matrix{FT}[]
@@ -89,6 +95,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Γ_full_vec = Matrix{FT}[]
         pca_vec = []
         norm_vec = Vector[]
+        ndof_case = IT[]
+        ndof_full_case = IT[]
 
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
@@ -100,14 +108,17 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
                 append!(y, y_pca)
                 push!(Γ_vec, y_var_pca)
                 push!(pca_vec, P_pca)
+                push!(ndof_case, length(y_pca))
             else
                 append!(y, y_)
                 push!(Γ_vec, y_var_)
                 push!(pca_vec, 1.0I)
+                push!(ndof_case, length(y_))
             end
             # Save full dimensionality (normalized) output for error computation
             append!(y_full, y_)
             push!(Γ_full_vec, y_var_)
+            push!(ndof_full_case, length(y_))
         end
 
         # Construct global observational covariance matrix, original space
@@ -128,14 +139,26 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
 
-        return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
+        return new{FT, IT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full, ndof_case, ndof_full_case)
     end
 
-    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT, IT}(y, args...)
 end
 
 pca_length(RS::ReferenceStatistics) = length(RS.y)
 full_length(RS::ReferenceStatistics) = length(RS.y_full)
+pca_length(RS::ReferenceStatistics, case_ind) = RS.ndof_case[case_ind]
+full_length(RS::ReferenceStatistics, case_ind) = RS.ndof_full_case[case_ind]
+
+pca_inds(RS::ReferenceStatistics, case_ind) = case_inds(RS.ndof_case, case_ind)
+full_inds(RS::ReferenceStatistics, case_ind) = case_inds(RS.ndof_full_case, case_ind)
+
+case_inds(ndofs::Vector{IT}, case_ind::IT) where {IT <: Integer} = begin
+    !(case_ind ≤ length(ndofs)) && throw(ArgumentError("Case index cannot exceed the number of cases"))
+    start_ind = (1, 1 .+ cumsum(ndofs)...)[case_ind]
+    stop_ind = cumsum(ndofs)[case_ind]
+    start_ind:stop_ind
+end 
 
 """
     get_obs(

@@ -91,7 +91,7 @@ function get_reference_config(::Bomex)
     # Fields to learn from during training
     config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
     # LES data can be stored as an Artifact and downloaded lazily
-    config["y_dir"] = ["/central/groups/esm/yair/TC_cases/Output.Bomex.01/stats/Stats.Bomex.nc"]
+    config["y_dir"] = ["/central/groups/esm/yair/TC_cases/Output.Bomex.01"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
     config["scm_suffix"] = ["000000"]

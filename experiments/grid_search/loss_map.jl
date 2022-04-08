@@ -22,26 +22,26 @@ end
 
     """
         compute_loss(t) = compute_loss(t...)
-        compute_loss(param_name_1_ind, param_name_2_ind, case_ind, ens_ind, nt)
+        compute_loss(value1::Number, value2::Number, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
 
     Compute loss function from forward model output data.
 
     Arguments:
-    param_name_1_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_1)
-    param_name_2_ind  :: index of a parameter value (in config > grid_search > parameters > param_name_2)
+    value1      :: a parameter value (in config > grid_search > parameters > param_name_1)
+    value2      :: a parameter value (in config > grid_search > parameters > param_name_2)
     case_ind    :: index of a case name (in config > reference/validation > case_name)
     ens_ind     :: index of the ensemble member
     nt          :: Named tuple that contains information that is constant across forward model data.
-        Has the entries `sim_dir`, `group_name`, `config`, `sim_type`, denoting the root path to 
-        forward model data, the parameter pair name, the config file, and the simulation type 
-        (reference or validation), respectively.
+        Has the entries `sim_dir`, `group_name`, `config`, `sim_type`, `ref_stats`, `ref_models`, denoting
+        the root path to forward model data, the parameter pair name, the config file, the simulation type
+        (reference or validation), the reference statistics, and the reference models, respectively.
+
     """
     compute_loss(t) = compute_loss(t...)
     function compute_loss(value1::Number, value2::Number, case_ind::I, ens_ind::I, nt::NamedTuple) where {I <: Integer}
         # fetch from config
         get_from_config(x) = nt.config[nt.sim_type][x][case_ind]
-        (case_name, loss_names, t_start, t_end, y_dir) =
-            get_from_config.(["case_name", "y_names", "t_start", "t_end", "y_dir"])
+        (case_name, loss_names, y_dir) = get_from_config.(["case_name", "y_names", "y_dir"])
         y_ref_type = nt.config[nt.sim_type]["y_reference_type"]
         # Get the case index for this case (if there are duplicate cases)
         cases = nt.config[nt.sim_type]["case_name"]
@@ -50,48 +50,33 @@ end
         # path to .nc simulation data
         param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
         scm_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
-        # compute mse
-        z_scm = get_height(scm_file)
+        # compute loss
         y_loss_names = if (y_ref_type isa LES)
             get_les_names(loss_names, y_dir)
         else
             loss_names
         end
-
+        
         RS = nt.ref_stats
-        m = RS.RM[case_ind]
-        y_ncfile = get_stats_path(y_dir)
-        y_full_case = get_profile(m, y_ncfile, z_scm = get_z_obs(m))
-        y_norm = normalize_profile(y_full_case, length(m.y_names), RS.norm_vec[case_ind])
-        y_pca = RS.pca_vec[case_ind]' * y_norm
+        m = nt.ref_models[case_ind]
 
+        # case PCA and covariance matrix
+        pca_vec = RS.pca_vec[case_ind]'
+        pca_case_inds = pca_inds(RS, case_ind)
+        Γ = RS.Γ[pca_case_inds, pca_case_inds]
+
+        # Reference data
+        y_full_case = get_profile(m, get_stats_path(y_dir), z_scm = get_z_obs(m))
+        y_norm = normalize_profile(y_full_case, length(m.y_names), RS.norm_vec[case_ind])
+
+        # SCM data
         g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
         g_norm = normalize_profile(g_full_case_i, length(m.y_names), RS.norm_vec[case_ind])
-        g_pca = RS.pca_vec[case_ind]' * g_norm
 
-        diff = y_pca - g_pca
-        X = RS.Γ \ diff # diff: column vector
-        sim_loss = dot(diff, X)
-
-        
-        # nt.ref_stats
-
-        # 0. create ReferenceModels
-        # 1. create ReferenceStatistics
-        # 2. Use RS to compute normalized profiles for each case
-        # 3. Compute covariance-normalized loss for each case
-
-        # compute ReferenceStatistics to get correct normalized profiles and loss        
-        # see eval_single_ref_model to correctly fetch profiles:
-        # g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
-        # g_scm_pca = RS.pca_vec[m_index]' * g_scm
-
-
-        # correct loss computation
-        # diff = uki.obs_mean - mean_g
-        # X = uki.obs_noise_cov \ diff # diff: column vector
-        # newerr = dot(diff, X)
-        # sim_loss = compute_mse([g_full_case_i], y_full_case)[1]
+        # PCA
+        yg_diff_pca = pca_vec * (y_norm - g_norm)
+        # loss
+        sim_loss = dot(yg_diff, Γ \ yg_diff)
         return sim_loss
     end
 end  # end @everywhere begin
@@ -109,16 +94,12 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
 
     # construct reference models and reference statistics
     sim_type = get_entry(config["grid_search"], "sim_type", "reference")
+    @assert sim_type in ("reference", "validation")
     ref_config = config[sim_type]  # or validation
     kwargs_ref_model = get_ref_model_kwargs(ref_config)
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
-    # 
 
-
-
-    sim_type = get_entry(config["grid_search"], "sim_type", "reference")
-    @assert sim_type in ("reference", "validation")
     n_ens = get_entry(config["grid_search"], "ensemble_size", nothing)
     cases = get_entry(config[sim_type], "case_name", nothing)
     case_names_unique = ["$case.$(get_case_ind(cases, i))" for (i, case) in enumerate(cases)]
@@ -148,7 +129,7 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
             ref_models = construct_reference_models(kwargs_ref_model)
             ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
 
-            nt = (; sim_dir, group_name, config, sim_type, ref_stats)
+            nt = (; sim_dir, group_name, config, sim_type, ref_stats, ref_models)
 
             loss_configs = vec(collect(Iterators.product(value1, value2, 1:n_cases, 1:n_ens, [nt])))
 
@@ -181,8 +162,8 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
                 ("param_name_1", "param_name_2", "case", "ensemble_member"),
             )
             ncvar[:, :, :, :] = loss_2D_sec
-        end
-    end  # do-block
+        end  # end for param combinations loop
+    end  # NC.Dataset do-block
 end
 
 
