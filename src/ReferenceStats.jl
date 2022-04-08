@@ -154,7 +154,7 @@ pca_inds(RS::ReferenceStatistics, case_ind) = case_inds(RS.ndof_case, case_ind)
 full_inds(RS::ReferenceStatistics, case_ind) = case_inds(RS.ndof_full_case, case_ind)
 
 case_inds(ndofs::Vector{IT}, case_ind::IT) where {IT <: Integer} = begin
-    !(case_ind ≤ length(ndofs)) && throw(ArgumentError("Case index cannot exceed the number of cases"))
+    !(1 ≤ case_ind ≤ length(ndofs)) && throw(ArgumentError("Case index cannot exceed the number of cases"))
     start_ind = (1, 1 .+ cumsum(ndofs)...)[case_ind]
     stop_ind = cumsum(ndofs)[case_ind]
     start_ind:stop_ind
