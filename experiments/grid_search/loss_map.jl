@@ -69,13 +69,14 @@ using Glob
         m = nt.ref_models[case_ind]
 
         # Check that the simulation interval fully covers the averaging interval (i.e. simulation completed)
-        t = nc_fetch(filename, "t")
+        t = nc_fetch(scm_file, "t")
         ti, tf = get_t_start(m), get_t_end(m)
         dt = (length(t) > 1) * mean(diff(t))
         if (t[end] < ti) || (t[end] < tf - dt)
             @warn string(
-                "The requested averaging interval: ($ti, $tf) is not in the simulation interval ($(t[1]), $(t[end])), ",
-                "which means the simulation stopped before reaching the requested t_end. Returning NaN",
+                "The requested averaging interval: ($ti s, $tf s) is not in the simulation interval ($(t[1]) s, $(t[end]) s), ",
+                "which means the simulation stopped before reaching the requested t_end. Returning NaN. ",
+                "\n Simulation file: $scm_file"
             )
             return NaN
         end
