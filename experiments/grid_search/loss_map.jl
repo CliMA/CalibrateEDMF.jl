@@ -10,11 +10,15 @@ using Distributed
     using CalibrateEDMF.ReferenceModels
     import CalibrateEDMF.ModelTypes: LES
     import CalibrateEDMF.Pipeline: get_ref_model_kwargs, get_ref_stats_kwargs
-    using Combinatorics
-    import NCDatasets
-    const NC = NCDatasets
-    using ArgParse
+    import LinearAlgebra: dot
+    import Statistics: mean
 end
+
+using Combinatorics
+import NCDatasets
+const NC = NCDatasets
+using ArgParse
+using Glob
 
 @everywhere begin
     "Get index of a case, defined local to each case name"
@@ -50,15 +54,31 @@ end
         # path to .nc simulation data
         param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
         scm_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
+        if !isfile(scm_file)
+            @warn("No NetCDF file found on path $scm_file")
+            return NaN  # if case data does not exist, return NaN
+        end
         # compute loss
         y_loss_names = if (y_ref_type isa LES)
-            get_les_names(loss_names, y_dir)
+            get_les_names(loss_names, get_stats_path(y_dir))
         else
             loss_names
         end
         
         RS = nt.ref_stats
         m = nt.ref_models[case_ind]
+
+        # Check that the simulation interval fully covers the averaging interval (i.e. simulation completed)
+        t = nc_fetch(filename, "t")
+        ti, tf = get_t_start(m), get_t_end(m)
+        dt = (length(t) > 1) * mean(diff(t))
+        if (t[end] < ti) || (t[end] < tf - dt)
+            @warn string(
+                "The requested averaging interval: ($ti, $tf) is not in the simulation interval ($(t[1]), $(t[end])), ",
+                "which means the simulation stopped before reaching the requested t_end. Returning NaN",
+            )
+            return NaN
+        end
 
         # case PCA and covariance matrix
         pca_vec = RS.pca_vec[case_ind]'
@@ -76,7 +96,7 @@ end
         # PCA
         yg_diff_pca = pca_vec * (y_norm - g_norm)
         # loss
-        sim_loss = dot(yg_diff, Γ \ yg_diff)
+        sim_loss = dot(yg_diff_pca, Γ \ yg_diff_pca)
         return sim_loss
     end
 end  # end @everywhere begin
@@ -110,7 +130,6 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
     NC.Dataset(joinpath(sim_dir, "loss_hypercube.nc"), "c") do ds
         for (param_name_1, param_name_2) in combinations(param_names, 2)
             group_name = "$param_name_1.$param_name_2"
-            NC.defGroup(ds, group_name, attrib = [])
 
             # iterate all folders, e.g. "0.1_0.2", ...
             # compute loss, store in matrix:
@@ -122,22 +141,37 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
 
             loss_2D_sec = zeros((n_value1, n_value2, n_cases, n_ens))
             
-            # RM & RS
-            param_path = joinpath(sim_dir, group_name, "$(value1[1])_$(value2[1])")
-            scm_dir = joinpath.(param_path, case_names_unique, "Output.".*cases.*".1")
-            kwargs_ref_model[:scm_dir] = scm_dir
+            # by default, we use as `scm_dirs` some fixed directories, that is assumed to exist ..
+            group_path = joinpath(sim_dir, group_name)
+            if !isdir(group_path)
+                @warn "No directory found for parameter pair ($param_name_1, $param_name_2). Skipping ..."
+                continue
+            end
+            param_path = joinpath(group_path, "$(value1[1])_$(value2[1])")
+            scm_dirs = joinpath.(param_path, case_names_unique, "Output." .* cases .* ".1")
+            not_scm_dirs = @. ~isdir(scm_dirs)
+            if any(not_scm_dirs)  # .. if any of the scm case directories do not exist, do a glob search for other candidate paths ..
+                alt_candidate_scm_paths = glob.("*/" .* case_names_unique[not_scm_dirs] .* "*/*/stats/*.nc", group_path)
+                if any(isempty.(alt_candidate_scm_paths))  # .. if no alternative paths are found for any cases ..
+                    @warn "For the parameter pair ($param_name_1, $param_name_2), no forward model data is found for the cases: $(join(case_names_unique[isempty.(alt_candidate_scm_paths)], ", "))"
+                    continue  # .. we ignore this parameter pair.
+                end
+            end
+            kwargs_ref_model[:scm_dir] = scm_dirs
+            # Construct `ReferenceModel`s and `ReferenceStatistics`
             ref_models = construct_reference_models(kwargs_ref_model)
             ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
 
+            # configurations for `compute_loss`
             nt = (; sim_dir, group_name, config, sim_type, ref_stats, ref_models)
-
             loss_configs = vec(collect(Iterators.product(value1, value2, 1:n_cases, 1:n_ens, [nt])))
 
             # compute loss
-            sim_loss = pmap(compute_loss, loss_configs, on_error = e -> NaN)
+            sim_loss = pmap(compute_loss, loss_configs)
             loss_2D_sec = reshape(sim_loss, size(loss_2D_sec))
 
             # save output
+            NC.defGroup(ds, group_name, attrib = [])
             ensemble_member = 1:n_ens
             group_root = ds.group[group_name]  # group is e.g. 'sorting_power.entrainment_factor'
             # Define dimensions: param_name_1, param_name_2, case, ensemble_member

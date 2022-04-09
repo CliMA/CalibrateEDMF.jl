@@ -129,7 +129,7 @@ using ArgParse
 end  # end @everywhere
 
 function grid_search(config::Dict, config_path::String)
-    root = get_entry(config["grid_search"], "root_dir", pwd())
+    root = get_entry(config["grid_search"], "output_root_dir", pwd())
     now = Dates.format(Dates.now(), "YYmmdd")
     suffix = Random.randstring(3) # ensure output folder is unique
     out_dir = joinpath(root, "output", "$(now)_$(suffix)")

@@ -82,13 +82,17 @@ end
 
 function get_grid_search_config()
     config = Dict()
+    # Grid search is performed over each pair of parameters, across all specified values
     config["parameters"] = Dict(
         "general_stochastic_ent_params_{1}" => [0.3, 0.4],
         "general_stochastic_ent_params_{2}" => [0.25],
         "entrainment_factor" => [0.1],
     )
+    # Number of simulations to run with identical configuration (except random seed)
     config["ensemble_size"] = 2
-    # config["root_dir"] = pwd()  # provided explicitly in `grid_search_test.jl`
-    config["sim_type"] = "reference"  # `reference` or `validation`
+    # grid search output data stored in `<output_root_dir>/output/YYmmdd_abc`
+    # config["output_root_dir"] = pwd()  # provided explicitly in `grid_search_test.jl`
+    # Perform grid search and loss map calculation for either the `reference` or `validation` set.
+    config["sim_type"] = "reference"
     return config
 end
