@@ -8,9 +8,10 @@
 #SBATCH -J "grd_src"   # job name
 #SBATCH --output=slurm_julia_par_%j.out
 
-#config=${1?Error: no config file given}
+config=${1?Error: no config file given}
+sim_type="reference"
 
 module purge
 module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
-julia --project -p 10 loss_map.jl
+julia --project -p 10 loss_map.jl --config $config --sim_type $sim_type

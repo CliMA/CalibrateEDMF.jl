@@ -41,7 +41,7 @@ include(config_path)
         run_SCM_handler(
             case,
             case_dir;
-            u = collect(param_values),
+            u = collect(Float64, param_values),
             u_names = nt.param_pair,
             namelist = namelist,
             namelist_args = nt.namelist_args,
