@@ -18,10 +18,10 @@ Given path to `Diagnostics.nc` file, return minimum mse across iterations. Use i
 A command line script for running `TurbulenceConvection.jl` with a set of optimal parameters determined from `CalibrateEDMF.jl`. Runs validation cases from config in `--results_dir` with optimal parameters by default.
 ### Usage 
 ```
-julia --project TCRunner.jl --results_dir=<CEDMF OUTPUT DIR> --tc_output_dir=<DIR TO STORE TC OUTPUTS>
+julia --project TCRunner.jl --results_dir=<CEDMF OUTPUT DIR> --output_dir=<DIR TO STORE TC OUTPUTS>
 ```
 or use optional arguments for determining optimal parameters. For example, to run TC using parameters of the particle with lowest mse on the validation set:
 ```
-julia --project TCRunner.jl --results_dir=<CEDMF OUTPUT DIR> --tc_output_dir=<DIR TO STORE TC OUTPUTS> --method="best_particle" --metric="val_mse_full"
+julia --project TCRunner.jl --results_dir=<CEDMF OUTPUT DIR> --output_dir=<DIR TO STORE TC OUTPUTS> --method="best_particle" --metric="val_mse_full"
 ```
 
