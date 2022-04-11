@@ -15,12 +15,20 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
 
 @testset "TurbulenceConvectionUtils" begin
     @testset "test create_parameter_vectors" begin
+        u_names = ["foo", "bar"]
+        u = [1.0, 2.0]
+        u_names_out, u_out = create_parameter_vectors(u_names, u)
+        @test all(u_names_out .∈ [["foo", "bar"]])
+        @test only(u_out[u_names_out .== "foo"]) == 1.0
+        @test only(u_out[u_names_out .== "bar"]) == 2.0
+
+
         u_names = ["bar_{2}", "foo", "bar_{1}"]
         u = [1.0, 2.0, 3.0]
         u_names_out, u_out = create_parameter_vectors(u_names, u)
         @test all(u_names_out .∈ [["foo", "bar"]])
         @test only(u_out[u_names_out .== "foo"]) == 2.0
-        @test only(u_out[u_names_out] .== "bar") == [3.0, 1.0]
+        @test only(u_out[u_names_out .== "bar"]) == [3.0, 1.0]
     end
 
     @test get_gcm_les_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") ==

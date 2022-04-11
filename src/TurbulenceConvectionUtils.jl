@@ -426,7 +426,7 @@ function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where 
 
     vector_param_inds = occursin.(r"{?}", u_names)
     pv_name_elem = rsplit.(u_names[vector_param_inds], "_", limit = 2) # get param name and element index
-    u_vec_names, uvi = eachrow(reduce(hcat, pv_name_elem))  # "transpose" `pv_name_elem`
+    u_vec_names, uvi = if ~isempty(pv_name_elem) eachrow(reduce(hcat, pv_name_elem)) else ([], []) end  # "transpose" `pv_name_elem`
     u_vec_inds = @. parse(Int64, only(split(uvi, (('{', '}'),), keepempty=false)))  # get `i` from "{i}" as Int64
 
     # collect scalar parameters
