@@ -19,6 +19,7 @@ import NCDatasets
 const NC = NCDatasets
 using ArgParse
 using Glob
+import JSON
 
 @everywhere begin
     "Get index of a case, defined local to each case name"
@@ -53,7 +54,8 @@ using Glob
 
         # path to .nc simulation data
         param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
-        scm_file = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind/stats/Stats.$case_name.nc")
+        output_dir = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind")
+        scm_file = joinpath(output_dir, "stats/Stats.$case_name.nc")
         if !isfile(scm_file)
             @warn("No NetCDF file found on path $scm_file")
             return NaN  # if case data does not exist, return NaN
@@ -73,6 +75,16 @@ using Glob
         ti, tf = get_t_start(m), get_t_end(m)
         dt = (length(t) > 1) * mean(diff(t))
         if (t[end] < ti) || (t[end] < tf - dt)
+            # check is simulation completed to t_max in the namelist
+            namelist_path = joinpath(output_dir, "namelist_$case.in")
+            namelist = open(namelist_path, "r") do io
+                JSON.parse(io; dicttype = Dict, inttype = Int64)
+            end
+            t_max = namelist["time_stepping"]["t_max"]
+            if t[end] < t_max
+                rm(output_dir, force=true, recursive=true)
+            end
+
             @warn string(
                 "The requested averaging interval: ($ti s, $tf s) is not in the simulation interval ($(t[1]) s, $(t[end]) s), ",
                 "which means the simulation stopped before reaching the requested t_end. Returning NaN. ",

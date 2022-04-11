@@ -4,8 +4,10 @@ using Distributed
 @everywhere begin
     using CalibrateEDMF
     ce = pkgdir(CalibrateEDMF)
-    include(joinpath(ce, "experiments", "grid_search", "grid_search.jl"))
-    include(joinpath(ce, "experiments", "grid_search", "loss_map.jl"))
+    gs = joinpath(ce, "experiments", "grid_search")
+    include(joinpath(gs, "grid_search.jl"))
+    include(joinpath(gs, "loss_map.jl"))
+    include(joinpath(gs, "quick_plots.jl"))
 end
 using Test
 
@@ -33,3 +35,5 @@ config["reference"]["y_dir"] = y_dirs
     compute_loss_map(config, out_dir)
     @info "Loss map complete"
 end
+
+quick_plots(joinpath(out_dir, "loss_hypercube.nc"))

@@ -8,6 +8,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
+using CalibrateEDMF.Pipeline: get_ref_model_kwargs
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
@@ -213,4 +214,14 @@ end
     for i in 1:config["process"]["N_ens"]
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
+end
+
+@testset "get ReferenceModel kwargs" begin
+    ref_config = Dict(
+        "case_name" => ["case1", "case2"]
+        
+    )
+
+    # @test_throws get_ref_model_kwargs
+
 end

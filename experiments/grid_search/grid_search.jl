@@ -106,11 +106,18 @@ using ArgParse
     ) where {S <: AbstractString}
         # Create path to store forward model output
         case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case.$case_id")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex.1
+        
+        # If the output simulation directory already exists, don't run a simulation for this configuration.
+        output_dir = joinpath(case_dir, "Output.$case_name.$ens_i")
+        if isdir(output_dir)
+            return nothing
+        end
+        
+        # Otherwise, create the case directory and run a simulation
         mkpath(case_dir)
 
         # Get namelist for case
-        # namelist = NameList.default_namelist(case, write=false, set_seed=false)
-        namelist = NameList.default_namelist(case, write = false) # until the next release where set_seed PR will be included in TC.jl
+        namelist = NameList.default_namelist(case, write = false, set_seed=false)
 
         params = prepare_input_parameters(namelist, param1, param2, value1, value2)
 
@@ -141,7 +148,9 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
 
     # Make output folder
     mkpath(out_dir)
-    cp(config_path, joinpath(out_dir, "config.jl"), force = true)
+    if config_path != joinpath(out_dir, "config.jl")
+        cp(config_path, joinpath(out_dir, "config.jl"), force = true)
+    end
 
     # get config entries
     parameters = config["grid_search"]["parameters"]
@@ -191,6 +200,14 @@ function parse_commandline_gs()
         help = "config file"
         arg_type = String
         default = "config.jl"
+        "--outdir"
+        help = "output directory"
+        arg_type = String
+        default = ""
+        "--mode"
+        help = "grid search mode (new or restart)"
+        arg_type = String
+        default = "new"
     end
 
     return ArgParse.parse_args(s)
@@ -198,8 +215,22 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     args = parse_commandline_gs()
-    config_path = args["config"]
-    include(config_path)
-    config = get_config()
-    grid_search(config, config_path)
+
+    mode = args["mode"]
+    if mode == "new"
+        @info "Starting new grid search"
+        config_path = args["config"]
+        include(config_path)
+        config = get_config()
+        grid_search(config, config_path)
+    elseif mode == "restart"
+        @info "Restarting / continuing existing grid search"
+        outdir = args["outdir"]
+        config_path = joinpath(outdir, "config.jl")
+        include(config_path)
+        config = get_config()
+        grid_search(config, config_path, outdir)
+    else
+        throw(ArgumentError("Invalid mode: $mode"))
+    end
 end

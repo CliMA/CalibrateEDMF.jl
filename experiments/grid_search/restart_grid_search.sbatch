@@ -8,9 +8,10 @@
 #SBATCH -J "grd_src"   # job name
 #SBATCH --output=slurm_grid_search_%j.out
 
-config=${1?Error: no config file given}
+outdir=${1?Error: no output directory given}
+# restart_partial_sims=${1?Error: no output directory given}
 
 module purge
 module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
-julia --project -p 15 grid_search.jl --config $config --mode new
+julia --project -p 15 grid_search.jl --outdir $outdir --mode restart
