@@ -421,30 +421,30 @@ Outputs:
 """
 function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
 
-    u_names_out = []
+    u_names_out = String[]
     u_out = []
-    u_vec_dict = Dict()
 
-    for i in 1:length(u_names)
-        param_name_i = u_names[i]
-        if occursin(r"{?}", param_name_i)
-            param_name_split = split(param_name_i, "_")
-            param_vec_name = join(param_name_split[1:(length(param_name_split) - 1)], "_")
-            if param_vec_name in keys(u_vec_dict)
-                push!(u_vec_dict[param_vec_name], u[i])
-            else
-                u_vec_dict[param_vec_name] = [u[i]]
-            end
-        else
-            push!(u_names_out, u_names[i])
-            push!(u_out, u[i])
+    vector_param_inds = occursin.(r"{?}", u_names)
+    pv_name_elem = rsplit.(u_names[vector_param_inds], "_", limit = 2) # get param name and element index
+    u_vec_names, uvi = eachrow(reduce(hcat, pv_name_elem))  # "transpose" `pv_name_elem`
+    u_vec_inds = @. parse(Int64, only(split(uvi, (('{', '}'),), keepempty=false)))  # get `i` from "{i}" as Int64
 
-        end
+    # collect scalar parameters
+    scalar_param_inds = .!vector_param_inds
+    append!(u_names_out, u_names[scalar_param_inds])
+    append!(u_out, u[scalar_param_inds])
+
+    # collect vector parameters
+    for u_name in unique(u_vec_names)
+        u_name_inds = u_vec_names .== u_name
+        u_vals = u[vector_param_inds][u_name_inds]
+        u_vals_sort_inds = u_vec_inds[u_name_inds]
+        permute!(u_vals, u_vals_sort_inds)
+        push!(u_names_out, u_name)
+        push!(u_out, u_vals)
     end
-    append!(u_names_out, collect(keys(u_vec_dict)))
-    append!(u_out, collect(values(u_vec_dict)))
 
-    return (u_names_out, u_out)
+    return u_names_out, u_out
 end
 
 """

@@ -7,6 +7,7 @@ using Distributed
     using CalibrateEDMF.HelperFuncs
     using CalibrateEDMF.ReferenceStats
     using CalibrateEDMF.LESUtils
+    import CalibrateEDMF.ModelTypes: LES
     using Combinatorics
     import NCDatasets
     const NC = NCDatasets
@@ -55,7 +56,7 @@ function compute_loss_map(
                 loss = reshape(sim_loss, size(loss))
             end
             ensemble_member = LinRange(1, n_ens, n_ens)
-            group_root = ds.group[group_name]  # group is 'sorting_power.entrainment_factor'
+            group_root = ds.group[group_name]  # group is e.g. 'sorting_power.entrainment_factor'
             # Define dimensions: param1, param2, case, ensemble_member
             NC.defDim(group_root, "param1", n_pval1)
             NC.defDim(group_root, "param2", n_pval2)
@@ -98,7 +99,7 @@ end
     # compute mse
     z_scm = get_height(nc_file)
     filename = y_dir[case_k]
-    y_loss_names = if (y_ref_type == LES)
+    y_loss_names = if (y_ref_type isa LES)
         get_les_names(loss_names[case_k], filename)
     else
         loss_names[case_k]

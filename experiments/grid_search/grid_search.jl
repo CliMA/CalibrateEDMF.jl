@@ -31,18 +31,54 @@ include(config_path)
     tc = pkgdir(TurbulenceConvection)
     include(joinpath(tc, "driver", "generate_namelist.jl"))
 
+    # parameter dictionary can consist of both scalar and vector parameters.
+    # flatten to only scalar parameters s.t. a vector parameter 'vec' becomes 'vec_{1}', 'vec_{2}', etc.
+    function flatten_vector_parameters(param_dict::Dict)
+        out_dict = Dict()
+        for (param, value) in param_dict
+            if value isa AbstractArray
+                for j in 1:length(value)
+                    out_dict["$(param)_{$j}"] = value[j]
+                end
+            else
+                out_dict[param] = value
+            end
+        end
+        return out_dict
+    end
+
+
     run_sims(t) = run_sims(t...)
     function run_sims(param_values, case, j, nt)
+        # Create path to store forward model output
         param_dir = joinpath(nt.output_dir, "$(join(param_values, "_"))")  # output_2020-01-01_10_30/0.1_0.1
         case_dir = joinpath(param_dir, "$case")  # output_2020-01-01_10_30/0.1_0.1/Bomex
         mkpath(case_dir)
-        # namelist = NameList.default_namelist(case, set_seed=false)
-        namelist = NameList.default_namelist(case) # until the next release where set_seed PR will be included in TC.jl
+
+        # Get namelist for case
+        # namelist = NameList.default_namelist(case, write=false, set_seed=false)
+        namelist = NameList.default_namelist(case, write=false) # until the next release where set_seed PR will be included in TC.jl
+        
+        # If any parameters are vector components, also provide the rest of the vector using the namelist
+        # fetch relevant default vector parameters from namelist
+        turbconv_params = namelist["turbulence"]["EDMF_PrognosticTKE"]
+        is_vec = occursin.(r"{?}", nt.param_pair)
+        vector_params = unique(first.(rsplit.(nt.param_pair[is_vec], "_", limit = 2)))
+        params = Dict(k => v for (k, v) in turbconv_params if k ∈ vector_params)
+        params = flatten_vector_parameters(params)
+        # update params with custom parameters
+        for (k, v) in zip(nt.param_pair, param_values) params[k] = v end
+
+        @show collect(String, keys(params))
+        @show collect(Float64, values(params))
+        @show ""
+
+        # Run forward model
         run_SCM_handler(
             case,
             case_dir;
-            u = collect(Float64, param_values),
-            u_names = nt.param_pair,
+            u = collect(Float64, values(params)),
+            u_names = collect(String, keys(params)),
             namelist = namelist,
             namelist_args = nt.namelist_args,
             uuid = "$j",
