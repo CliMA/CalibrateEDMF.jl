@@ -4,7 +4,7 @@ using NCDatasets
 using Statistics
 const NC = NCDatasets
 
-function quick_plots(ncfile)
+function quick_plots(ncfile, out_path)
     NC.Dataset(ncfile) do ds
         group_names = keys(ds.group)
         for group_name in group_names
@@ -102,5 +102,5 @@ if abspath(PROGRAM_FILE) == @__FILE__
     out_path = joinpath(sim_dir, "figures")
     mkpath(out_path)
     ncfile = joinpath(sim_dir, "loss_hypercube.nc")
-    quick_plots(ncfile)
+    quick_plots(ncfile, out_path)
 end

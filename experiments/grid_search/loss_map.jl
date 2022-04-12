@@ -12,6 +12,7 @@ using Distributed
     import CalibrateEDMF.Pipeline: get_ref_model_kwargs, get_ref_stats_kwargs
     import LinearAlgebra: dot
     import Statistics: mean
+    import JSON
 end
 
 using Combinatorics
@@ -19,7 +20,6 @@ import NCDatasets
 const NC = NCDatasets
 using ArgParse
 using Glob
-import JSON
 
 @everywhere begin
     "Get index of a case, defined local to each case name"
@@ -76,12 +76,13 @@ import JSON
         dt = (length(t) > 1) * mean(diff(t))
         if (t[end] < ti) || (t[end] < tf - dt)
             # check is simulation completed to t_max in the namelist
-            namelist_path = joinpath(output_dir, "namelist_$case.in")
+            namelist_path = joinpath(output_dir, "namelist_$case_name.in")
             namelist = open(namelist_path, "r") do io
                 JSON.parse(io; dicttype = Dict, inttype = Int64)
             end
             t_max = namelist["time_stepping"]["t_max"]
             if t[end] < t_max
+                @warn "Simulation did not finish during grid search deleting output directory: \n $output_dir"
                 rm(output_dir, force=true, recursive=true)
             end
 
@@ -99,12 +100,12 @@ import JSON
         Γ = RS.Γ[pca_case_inds, pca_case_inds]
 
         # Reference data
-        y_full_case = get_profile(m, get_stats_path(y_dir), z_scm = get_z_obs(m))
-        y_norm = normalize_profile(y_full_case, length(m.y_names), RS.norm_vec[case_ind])
+        y_full_case = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = get_z_obs(m))
+        y_norm = normalize_profile(y_full_case, num_vars(m), RS.norm_vec[case_ind])
 
         # SCM data
         g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
-        g_norm = normalize_profile(g_full_case_i, length(m.y_names), RS.norm_vec[case_ind])
+        g_norm = normalize_profile(g_full_case_i, num_vars(m), RS.norm_vec[case_ind])
 
         # PCA
         yg_diff_pca = pca_vec * (y_norm - g_norm)

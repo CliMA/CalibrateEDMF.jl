@@ -108,7 +108,7 @@ using ArgParse
         case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case.$case_id")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex.1
         
         # If the output simulation directory already exists, don't run a simulation for this configuration.
-        output_dir = joinpath(case_dir, "Output.$case_name.$ens_i")
+        output_dir = joinpath(case_dir, "Output.$case.$ens_i")
         if isdir(output_dir)
             return nothing
         end
@@ -188,7 +188,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
             )
         end
     end
-    pmap(run_sims, sim_configs, on_error = e -> NaN)
+    pmap(run_sims, sim_configs, on_error = e -> @warn "Worker failure" exception=(e, catch_backtrace()))  #, on_error = e -> NaN)
 end
 
 
@@ -216,14 +216,14 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     args = parse_commandline_gs()
 
-    mode = args["mode"]
-    if mode == "new"
+    sim_mode = args["mode"]
+    if sim_mode == "new"
         @info "Starting new grid search"
         config_path = args["config"]
         include(config_path)
         config = get_config()
         grid_search(config, config_path)
-    elseif mode == "restart"
+    elseif sim_mode == "restart"
         @info "Restarting / continuing existing grid search"
         outdir = args["outdir"]
         config_path = joinpath(outdir, "config.jl")
@@ -231,6 +231,6 @@ if abspath(PROGRAM_FILE) == @__FILE__
         config = get_config()
         grid_search(config, config_path, outdir)
     else
-        throw(ArgumentError("Invalid mode: $mode"))
+        throw(ArgumentError("Invalid mode: $sim_mode"))
     end
 end
