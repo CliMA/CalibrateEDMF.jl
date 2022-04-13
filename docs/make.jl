@@ -7,8 +7,14 @@ ENV["GKSwstype"] = "nul"
 bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
 #! format: off
+api = [
+    "ReferenceModels" => "API/ReferenceModels.md",
+    "ReferenceStats" => "API/ReferenceStats.md",
+]
+
 pages = Any[
     "Home" => "index.md",
+    "API" => api,
     "References" => "References.md",
 ]
 
