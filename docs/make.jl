@@ -10,6 +10,12 @@ bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 api = [
     "ReferenceModels" => "API/ReferenceModels.md",
     "ReferenceStats" => "API/ReferenceStats.md",
+    "Pipeline" => "API/Pipeline.md",
+    "TurbulenceConvectionUtils" => "API/TurbulenceConvectionUtils.md",
+    "KalmanProcessUtils" => "API/KalmanProcessUtils.md",
+    "DistributionUtils" => "API/DistributionUtils.md",
+    "LESUtils" => "API/LESUtils.md",
+    "HelperFuncs" => "API/HelperFuncs.md",
 ]
 
 pages = Any[
