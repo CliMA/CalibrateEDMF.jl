@@ -54,64 +54,65 @@ using Glob
 
         # path to .nc simulation data
         param_path = joinpath(nt.sim_dir, nt.group_name, "$(value1)_$(value2)")
-        output_dir = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind")
-        scm_file = joinpath(output_dir, "stats/Stats.$case_name.nc")
-        if !isfile(scm_file)
-            @warn("No NetCDF file found on path $scm_file")
-            return NaN  # if case data does not exist, return NaN
-        end
+        @warn("path $param_path")
+        #output_dir = joinpath(param_path, "$case_name.$case_j/Output.$case_name.$ens_ind")
+        #scm_file = joinpath(output_dir, "stats/Stats.$case_name.nc")
+        #if !isfile(scm_file)
+        #    @warn("No NetCDF file found on path $scm_file")
+        #    return NaN  # if case data does not exist, return NaN
+        #end
         # compute loss
-        y_loss_names = if (y_ref_type isa LES)
-            get_les_names(loss_names, get_stats_path(y_dir))
-        else
-            loss_names
-        end
+        #y_loss_names = if (y_ref_type isa LES)
+        #    get_les_names(loss_names, get_stats_path(y_dir))
+        #else
+        #    loss_names
+        #end
         
-        RS = nt.ref_stats
-        m = nt.ref_models[case_ind]
+        #RS = nt.ref_stats
+        #m = nt.ref_models[case_ind]
 
         # Check that the simulation interval fully covers the averaging interval (i.e. simulation completed)
-        t = nc_fetch(scm_file, "t")
-        ti, tf = get_t_start(m), get_t_end(m)
-        dt = (length(t) > 1) * mean(diff(t))
-        if (t[end] < ti) || (t[end] < tf - dt)
+        #t = nc_fetch(scm_file, "t")
+        #ti, tf = get_t_start(m), get_t_end(m)
+        #dt = (length(t) > 1) * mean(diff(t))
+        #if (t[end] < ti) || (t[end] < tf - dt)
             # check is simulation completed to t_max in the namelist
-            namelist_path = joinpath(output_dir, "namelist_$case_name.in")
-            namelist = open(namelist_path, "r") do io
-                JSON.parse(io; dicttype = Dict, inttype = Int64)
-            end
-            t_max = namelist["time_stepping"]["t_max"]
-            if t[end] < t_max
-                @warn "Simulation did not finish during grid search deleting output directory: \n $output_dir"
-                rm(output_dir, force=true, recursive=true)
-            end
-
-            @warn string(
-                "The requested averaging interval: ($ti s, $tf s) is not in the simulation interval ($(t[1]) s, $(t[end]) s), ",
-                "which means the simulation stopped before reaching the requested t_end. Returning NaN. ",
-                "\n Simulation file: $scm_file"
-            )
-            return NaN
-        end
+        #    namelist_path = joinpath(output_dir, "namelist_$case_name.in")
+        #    namelist = open(namelist_path, "r") do io
+        #        JSON.parse(io; dicttype = Dict, inttype = Int64)
+        #    end
+        #    t_max = namelist["time_stepping"]["t_max"]
+        #    if t[end] < t_max
+        #        @warn "Simulation did not finish during grid search deleting output directory: \n $output_dir"
+        #        rm(output_dir, force=true, recursive=true)
+        #    end
+#
+ #           @warn string(
+ #               "The requested averaging interval: ($ti s, $tf s) is not in the simulation interval ($(t[1]) s, $(t[end]) s), ",
+ #               "which means the simulation stopped before reaching the requested t_end. Returning NaN. ",
+  #              "\n Simulation file: $scm_file"
+   #         )
+    #        return NaN
+      #  end
 
         # case PCA and covariance matrix
-        pca_vec = RS.pca_vec[case_ind]'
-        pca_case_inds = pca_inds(RS, case_ind)
-        Γ = RS.Γ[pca_case_inds, pca_case_inds]
+       # pca_vec = RS.pca_vec[case_ind]'
+       # pca_case_inds = pca_inds(RS, case_ind)
+       # Γ = RS.Γ[pca_case_inds, pca_case_inds]
 
         # Reference data
-        y_full_case = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = get_z_obs(m))
-        y_norm = normalize_profile(y_full_case, num_vars(m), RS.norm_vec[case_ind])
+       # y_full_case = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = get_z_obs(m))
+        #y_norm = normalize_profile(y_full_case, num_vars(m), RS.norm_vec[case_ind])
 
         # SCM data
-        g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
-        g_norm = normalize_profile(g_full_case_i, num_vars(m), RS.norm_vec[case_ind])
+        #g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
+        #g_norm = normalize_profile(g_full_case_i, num_vars(m), RS.norm_vec[case_ind])
 
         # PCA
-        yg_diff_pca = pca_vec * (y_norm - g_norm)
+        #yg_diff_pca = pca_vec * (y_norm - g_norm)
         # loss
-        sim_loss = dot(yg_diff_pca, Γ \ yg_diff_pca)
-        return sim_loss
+        #sim_loss = dot(yg_diff_pca, Γ \ yg_diff_pca)
+        return 0 #sim_loss
     end
 end  # end @everywhere begin
 
