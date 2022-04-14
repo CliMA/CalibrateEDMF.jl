@@ -178,6 +178,7 @@ function get_sparse_indices(sparsity_config, p)
     end
 end
 
+"Returns the indices of parameters to be regularized, given the l2 regularization configuration dictionary."
 get_regularized_indices(l2_config::Dict) = flat_dict_keys_where(l2_config, above_eps)
 
 

@@ -25,11 +25,11 @@ export init_calibration, ek_update, versioned_model_eval, restart_calibration
 
 Initializes a calibration process given a configuration, and a pipeline mode.
 
-    Inputs:
-    - job_id :: Unique job identifier for sbatch communication.
-    - config :: User-defined configuration dictionary.
-    - mode :: Whether the calibration process is parallelized through HPC resources
-      or using Julia's pmap.
+Inputs:
+
+ - job_id :: Unique job identifier for sbatch communication.
+ - config :: User-defined configuration dictionary.
+ - mode :: Whether the calibration process is parallelized through HPC resources or using Julia's pmap.
 """
 function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::String = "12345", config_path = nothing)
     @info "Initialize calibration on $(Dates.now())"
@@ -480,7 +480,7 @@ function ek_update(
 end
 
 """
-    function restart_calibration(
+    restart_calibration(
         ekobj::EnsembleKalmanProcess,
         priors::ParameterDistribution,
         last_iteration::Int64,
@@ -501,8 +501,7 @@ Inputs:
  - last_iteration :: Last iteration of the calibration process to be restarted.
  - config         :: Configuration dictionary.
  - outdir_path    :: Output path directory of the calibration process to be restarted.
- - mode :: Whether the calibration process is parallelized through HPC resources
-  or using Julia's pmap.
+ - mode :: Whether the calibration process is parallelized through HPC resources or using Julia's pmap.
  - job_id :: Unique job identifier for sbatch communication.
 """
 function restart_calibration(
@@ -907,13 +906,13 @@ end
 
 Creates a diagnostics netcdf file.
 
-    Inputs:
-    - config :: User-defined configuration dictionary.
-    - outdir_path :: Path of results directory.
-    - ref_stats :: ReferenceStatistics.
-    - ekp :: Initial EnsembleKalmanProcess, containing parameter information,
-     but no forward model evaluations.
-    - priors:: Prior distributions of the parameters.
+Inputs:
+
+ - config :: User-defined configuration dictionary.
+ - outdir_path :: Path of results directory.
+ - ref_stats :: ReferenceStatistics.
+ - ekp :: Initial EnsembleKalmanProcess, containing parameter information, but no forward model evaluations.
+ - priors:: Prior distributions of the parameters.
 """
 function init_diagnostics(
     config::Dict{Any, Any},
@@ -948,15 +947,16 @@ end
 Appends diagnostics of the current iteration evaluations (i.e., forward model output metrics)
 and the next iteration state (i.e., parameters and parameter metrics) to a diagnostics netcdf file.
 
-    Inputs:
-    - outdir_path :: Path of results directory.
-    - ekp :: Current EnsembleKalmanProcess.
-    - priors:: Prior distributions of the parameters.
-    - ref_stats :: ReferenceStatistics.
-    - g_full :: The forward model evaluation in primitive space.
-    - versions :: Version identifiers of the forward model evaluations at the current iteration.
-    - val_config :: The validation configuration, if given.
-    - batch_indices :: The indices of the ReferenceModels used in the current batch.
+Inputs:
+
+ - outdir_path :: Path of results directory.
+ - ekp :: Current EnsembleKalmanProcess.
+ - priors:: Prior distributions of the parameters.
+ - ref_stats :: ReferenceStatistics.
+ - g_full :: The forward model evaluation in primitive space.
+ - versions :: Version identifiers of the forward model evaluations at the current iteration.
+ - val_config :: The validation configuration, if given.
+ - batch_indices :: The indices of the ReferenceModels used in the current batch.
 """
 function update_diagnostics(
     outdir_path::String,
