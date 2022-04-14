@@ -83,15 +83,16 @@ end
 Given information about an LES run from [Shen2021](@cite),
 fetch LES directory on central cluster.
 
-    Inputs:
-    - cfsite_number  :: cfsite number
-    - forcing_model :: {"HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1", "IPSL-CM6A-LR"} - name of climate model used for forcing.
-        Currently, only "HadGEM2-A" simulations are available reliably.
-    - month :: {1, 4, 7, 10} - month of simulation.
-    - experiment :: {"amip", "amip4K"} - experiment from which LES was forced.
+Inputs:
 
-   Outputs:
-    - les_dir - path to les simulation containing stats folder
+ - cfsite_number  :: cfsite number
+ - forcing_model :: {"HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1", "IPSL-CM6A-LR"} - name of climate model used for forcing. Currently, only "HadGEM2-A" simulations are available reliably.
+ - month :: {1, 4, 7, 10} - month of simulation.
+ - experiment :: {"amip", "amip4K"} - experiment from which LES was forced.
+
+Outputs:
+
+ - les_dir - path to les simulation containing stats folder
 """
 function get_cfsite_les_dir(
     cfsite_number::Integer;

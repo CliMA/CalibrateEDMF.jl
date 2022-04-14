@@ -8,21 +8,21 @@ Lopez-Gomez, I., Christopoulos, C., Langeland Ervik, H. L., Dunbar, O. R. A., Co
 
 The manuscript also includes results for an extended eddy-diffusivity mass-flux (EDMF) closure of turbulence and convection trained using this package. The EDMF closure is implemented in [TurbulenceConvection.jl](https://github.com/CliMA/TurbulenceConvection.jl).
 
-If you use this package for your own research, or find any of the ideas presented useful, consider citing our work.
+If you use this package for your own research, or find any of the ideas presented useful, please cite our work.
 
 |||
 |---------------------:|:----------------------------------------------|
+| **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]    |
 | **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
-| **Documentation**    | [![dev][docs-dev-img]][docs-dev-url]          |
 | **GHA CI**           | [![gha ci][gha-ci-img]][gha-ci-url]           |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
 | **Bors enabled**     | [![bors][bors-img]][bors-url]                 |
 
+[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
+
 [docs-bld-img]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/docs.yml/badge.svg
 [docs-bld-url]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/docs.yml
-
-[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[docs-dev-url]: https://CliMA.github.io/CalibrateEDMF.jl/dev/
 
 [gha-ci-img]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/ci.yml/badge.svg
 [gha-ci-url]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/ci.yml
@@ -32,6 +32,10 @@ If you use this package for your own research, or find any of the ideas presente
 
 [bors-img]: https://bors.tech/images/badge_small.svg
 [bors-url]: https://app.bors.tech/repositories/37644
+
+### Requirements
+
+Julia version 1.5+ 
 
 # Installation
 
@@ -47,7 +51,7 @@ Before calibration, we need to compile the project.
 
 >> pkg> instantiate
 
-# Installation in dev mode
+# Installation in dev mode (advanced)
 
 Since both `TurbulenceConvection.jl` and `EnsembleKalmanProcesses.jl` are under rapid development, we may want to access a recent unpublished version of these packages when working with `CalibrateEDMF.jl`, or even use a version with local changes. If this is the case, clone the latest `EnsembleKalmanProcesses.jl` (resp. `EnsembleKalmanProcesses.jl`) version from GitHub (whichever you want to dev with),
 

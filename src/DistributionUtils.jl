@@ -17,12 +17,17 @@ export flat_dict_keys_where, identity, above_eps
 """
     flatten_config_dict(param_dict::Dict{String, Vector{T}})
 
-For parameter names that correspond to vectors, assign a unique name to each vector component and treat as independent parameter.
+Given a dictionary of parameter names to parameter vectors of arbitrary length,
+return a new dictionary that maps a unique parameter name to each element of the full
+flattened vector of parameters.
+
 Inputs:
-    param_dict :: Dictionary of parameter names to constraints.
+
+ - param_dict :: Dictionary of parameter names to constraints.
+
 Outputs:
-    u_names :: Vector{String} :: vector of parameter names
-    values :: Vector{Vector{T}} :: vector
+ - u_names :: Vector{String} :: vector of parameter names
+ - values :: Vector{Vector{T}} :: vector of single-valued vectors encapsulating parameter values.
 """
 function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
 
@@ -42,8 +47,10 @@ function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
     return (u_names, values)
 end
 
-"Condition functions"
+"Boolean specifying whether the input value is significant to machine precision"
 above_eps(x::FT) where {FT <: Real} = x > eps(FT)
+
+"Identity function"
 identity(x) = x
 
 """
