@@ -19,7 +19,7 @@ If you use this package for your own research, or find any of the ideas presente
 | **Bors enabled**     | [![bors][bors-img]][bors-url]                 |
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: https://CliMA.github.io/EnsembleKalmanProcesses.jl/dev/
+[docs-latest-url]: https://CliMA.github.io/CalibrateEDMF.jl/dev/
 
 [docs-bld-img]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/docs.yml/badge.svg
 [docs-bld-url]: https://github.com/CliMA/CalibrateEDMF.jl/actions/workflows/docs.yml
