@@ -12,7 +12,7 @@ export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
 """
     get_LES_library
 
-Hierarchical dictionary of available LES simulations described in `Shen et al. 2021`.
+Hierarchical dictionary of available LES simulations described in [Shen2022](@cite).
 The following cfsites are available across listed models, months,
 and experiments.
 """
@@ -80,7 +80,7 @@ end
         month::Integer = 7,
         experiment::String = "amip",)
 
-Given information about an LES run from [Shen2021](@cite),
+Given information about an LES run from [Shen2022](@cite),
 fetch LES directory on central cluster.
 
 Inputs:

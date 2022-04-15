@@ -48,9 +48,9 @@ using Random
 Returns the netcdf variable var_name interpolated to heights z_scm.
 
 Inputs:
- - var_name :: Name of variable in the netcdf dataset.
- - filename :: nc filename
- - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - `var_name` :: Name of variable in the netcdf dataset.
+ - `filename` :: nc filename
+ - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated vector.
 """
@@ -82,9 +82,9 @@ end
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
 
 Inputs:
- - var_name :: Name of variable in the netcdf dataset.
- - filename :: nc filename
- - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - `var_name` :: Name of variable in the netcdf dataset.
+ - `filename` :: nc filename
+ - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated vector.
 """
@@ -108,9 +108,9 @@ variable needs to be transformed to be equivalent to an SCM variable, applies th
 transformation as well.
 
 Inputs:
- - var_name :: Name of variable in the netcdf dataset.
- - filename :: nc filename
- - z_scm :: Vertical coordinate vector onto which var_name is interpolated.
+ - `var_name` :: Name of variable in the netcdf dataset.
+ - `filename` :: nc filename
+ - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated and transformed vector.
 """
@@ -388,8 +388,8 @@ end
 Changes the entry of a nested dictionary, giving a tuple of all its keys and the new value
 
 Inputs:
- - dict           :: Parent dictionary with an arbitrary number of nested dictionaries.
- - keys_and_value :: Tuple of keys from the parent dictionary to the entry to be modified,
+ - `dict`           :: Parent dictionary with an arbitrary number of nested dictionaries.
+ - `keys_and_value` :: Tuple of keys from the parent dictionary to the entry to be modified,
                      and the value to use to modify it.
 """
 function change_entry!(dict, keys_and_value)

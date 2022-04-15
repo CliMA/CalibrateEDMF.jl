@@ -217,11 +217,11 @@ Scalar metrics dictionary.
 Elements:
 
  - `loss_mean_g` :: (ḡ - y)'Γ_inv(ḡ - y).
- - `mse_full_mean` :: Ensemble mean of MSE(g_full, y_full).
- - `mse_full_min` :: Ensemble min of MSE(g_full, y_full).
- - `mse_full_max` :: Ensemble max of MSE(g_full, y_full).
- - `mse_full_var` :: Variance estimate of MSE(g_full, y_full), empirical (EKI/EKS) or quadrature (UKI).
- - `mse_full_nn_mean` :: MSE(g_full, y_full) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
+ - `mse_full_mean` :: Ensemble mean of MSE(`g_full`, `y_full`).
+ - `mse_full_min` :: Ensemble min of MSE(`g_full`, `y_full`).
+ - `mse_full_max` :: Ensemble max of MSE(`g_full`, `y_full`).
+ - `mse_full_var` :: Variance estimate of MSE(`g_full`, `y_full`), empirical (EKI/EKS) or quadrature (UKI).
+ - `mse_full_nn_mean` :: MSE(`g_full`, `y_full`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
  - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures.
  - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space.
 """
@@ -335,7 +335,7 @@ Elements:
 
  - `g` :: Forward model evaluation in inverse problem space.
  - `g_full` :: Forward model evaluation in primitive output space, normalized using the pooled field covariance.
- - `mse_full` :: Particle-wise evaluation of MSE(g_full, y_full).
+ - `mse_full` :: Particle-wise evaluation of MSE(`g_full`, `y_full`).
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(

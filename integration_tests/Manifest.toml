@@ -710,9 +710,9 @@ version = "0.13.5"
 
 [[deps.IntervalSets]]
 deps = ["Dates", "Statistics"]
-git-tree-sha1 = "be25da7314bea50ad8303325ba08d9257bf19f9c"
+git-tree-sha1 = "eb381d885e30ef859068fce929371a8a5d06a914"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
-version = "0.6.0"
+version = "0.6.1"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
