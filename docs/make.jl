@@ -8,6 +8,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
 #! format: off
 api = [
+    "Diagnostics" => "API/Diagnostics.md",
     "ReferenceModels" => "API/ReferenceModels.md",
     "ReferenceStats" => "API/ReferenceStats.md",
     "Pipeline" => "API/Pipeline.md",
