@@ -28,15 +28,15 @@ define a well-posed inverse problem.
 $(TYPEDFIELDS)
 """
 Base.@kwdef struct ReferenceStatistics{FT <: Real}
-    "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
+    "Reference data, length: `nSim * n_vars * n_zLevels` (possibly reduced by PCA)"
     y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
     Γ::Matrix{FT}
-    "Vector (length: nSim) of normalizing factors (length: n_vars)"
+    "Vector (length: `nSim`) of normalizing factors (length: `n_vars`)"
     norm_vec::Vector{Vector{FT}}
-    "Vector (length: nSim) of PCA projection matrices with leading eigenvectors as columns"
+    "Vector (length: `nSim`) of PCA projection matrices with leading eigenvectors as columns"
     pca_vec::Vector{Union{Matrix{FT}, UniformScaling}}
-    "Full reference data vector, length: nSim * n_vars * n_zLevels"
+    "Full reference data vector, length: `nSim * n_vars * n_zLevels`"
     y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
     Γ_full::SparseMatrixCSC{FT, Int64}
@@ -200,13 +200,16 @@ Perform dimensionality reduction using principal component analysis on
 the variance y_var. Only eigenvectors with eigenvalues that contribute
 to the leading 1-allowed_var_loss variance are retained.
 Inputs:
- - y_mean           :: Mean of the observations.
- - y_var            :: Variance of the observations.
- - allowed_var_loss :: Maximum variance loss allowed.
+
+ - `y_mean`           :: Mean of the observations.
+ - `y_var`            :: Variance of the observations.
+ - `allowed_var_loss` :: Maximum variance loss allowed.
+
 Outputs:
- - y_pca            :: Projection of y_mean onto principal subspace spanned by eigenvectors.
- - y_var_pca        :: Projection of y_var on principal subspace.
- - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+
+ - `y_pca`            :: Projection of `y_mean` onto principal subspace spanned by eigenvectors.
+ - `y_var_pca`        :: Projection of `y_var` on principal subspace.
+ - `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function obs_PCA(y_mean::Vector{FT}, y_var::Matrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
     λ_pca, P_pca = pca(y_var, allowed_var_loss)
@@ -223,11 +226,11 @@ Perform dimensionality reduction using principal component analysis on
 the variance covmat.
 
 Inputs:
- - covmat           :: Variance of the observations.
- - allowed_var_loss :: Maximum variance loss allowed.
+ - `covmat`           :: Variance of the observations.
+ - `allowed_var_loss` :: Maximum variance loss allowed.
 Outputs:
- - λ_pca            :: Principal eigenvalues, ordered in increasing value order.
- - P_pca            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+ - `λ_pca`            :: Principal eigenvalues, ordered in increasing value order.
+ - `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function pca(covmat::AbstractMatrix{FT}, allowed_var_loss::FT) where {FT <: Real}
     eigvals, eigvecs = eigen(covmat)

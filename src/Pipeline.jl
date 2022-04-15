@@ -870,12 +870,12 @@ end
 Creates and writes to file the ModelEvaluators for the current particle ensemble.
 
 Inputs:
- - ekp         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
- - priors      :: The parameter priors.
- - ref_models  :: The ReferenceModels defining the new model evaluations.
- - ref_stats   :: The ReferenceStatistics corresponding to passed ref_models.
- - outdir_path :: The output directory.
- - iteration   :: The current process iteration.
+ - `ekp`         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
+ - `priors`      :: The parameter priors.
+ - `ref_models`  :: The ReferenceModels defining the new model evaluations.
+ - `ref_stats`   :: The ReferenceStatistics corresponding to passed `ref_models`.
+ - `outdir_path` :: The output directory.
+ - `iteration`   :: The current process iteration.
 """
 function write_model_evaluators(
     ekp::EnsembleKalmanProcess,

@@ -66,18 +66,18 @@ after normalization and projection onto lower dimensional
 space using PCA.
 
 Inputs:
- - u               :: Values of parameters to be used in simulations.
- - u_names         :: SCM names for parameters `u`.
- - RM              :: Vector of `ReferenceModel`s
- - RS              :: reference statistics for simulation
- - error_check     :: Returns as an additional argument whether the SCM call errored.
- - namelist_args   :: Additional arguments passed to the TurbulenceConvection namelist.
- - failure_handler :: Method used to handle failed simulations.
+ - `u`               :: Values of parameters to be used in simulations.
+ - `u_names`         :: SCM names for parameters `u`.
+ - `RM`              :: Vector of `ReferenceModel`s
+ - `RS`              :: reference statistics for simulation
+ - `error_check`     :: Returns as an additional argument whether the SCM call errored.
+ - `namelist_args`   :: Additional arguments passed to the TurbulenceConvection namelist.
+ - `failure_handler` :: Method used to handle failed simulations.
 Outputs:
- - sim_dirs    :: Vector of simulation output directories
- - g_scm       :: Vector of model evaluations concatenated for all flow configurations.
- - g_scm_pca   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - model_error :: Whether the simulation errored with the requested configuration.
+ - `sim_dirs`    :: Vector of simulation output directories
+ - `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
+ - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+ - `model_error` :: Whether the simulation errored with the requested configuration.
 """
 function run_SCM(
     u::Vector{FT},
@@ -142,18 +142,18 @@ the forward model evaluation in both the original and the latent
 PCA space.
 
 Inputs:
- - m_index       :: The index of the ReferenceModel within the overarching
+ - `m_index`       :: The index of the ReferenceModel within the overarching
                     ref_models vector used to construct the ReferenceStatistics.
- - m             :: A ReferenceModel.
- - RS            :: reference statistics for simulation
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+ - `m`             :: A ReferenceModel.
+ - `RS`            :: reference statistics for simulation
+ - `u`             :: Values of parameters to be used in simulations.
+ - `u_names`       :: SCM names for parameters `u`.
+ - `namelist_args` :: Additional arguments passed to the TurbulenceConvection namelist.
 Outputs:
- - sim_dir     ::  Simulation output directory.
- - g_scm       :: Forward model evaluation in original output space.
- - g_scm_pca   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - model_error :: Whether the simulation errored with the requested configuration.
+ - `sim_dir`     ::  Simulation output directory.
+ - `g_scm`       :: Forward model evaluation in original output space.
+ - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+ - `model_error` :: Whether the simulation errored with the requested configuration.
 """
 function eval_single_ref_model(
     m_index::IT,
@@ -202,10 +202,10 @@ Run the single-column model (SCM) for a reference model object
 using default parameters.
 
 Inputs:
- - m                    :: A `ReferenceModel`.
- - overwrite            :: if true, overwrite existing simulation files.
- - run_single_timestep  :: if true, run only one time step.
- - namelist_args        :: Additional arguments passed to the TurbulenceConvection namelist.
+ - `m`                    :: A `ReferenceModel`.
+ - `overwrite`            :: if true, overwrite existing simulation files.
+ - `run_single_timestep`  :: if true, run only one time step.
+ - `namelist_args`        :: Additional arguments passed to the TurbulenceConvection namelist.
 """
 function run_reference_SCM(
     m::ReferenceModel;
@@ -413,11 +413,14 @@ Given vector of parameter names and corresponding values, combine any vector com
 into single parameter vectors for input into SCM.
 
 Inputs:
-    u_names :: SCM names for parameters `u`, which may contain vector components.
-    u :: Values of parameters to be used in simulations, which may contain vector components.
+
+ - `u_names` :: SCM names for parameters `u`, which may contain vector components.
+ - `u` :: Values of parameters to be used in simulations, which may contain vector components.
+
 Outputs:
-    u_names_out :: SCM names for parameters `u`.
-    u_out :: Values of parameters to be used in simulations.
+
+ -  `u_names_out` :: SCM names for parameters `u`.
+ -  `u_out` :: Values of parameters to be used in simulations.
 """
 function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
 
@@ -481,7 +484,7 @@ end
         forcing_model::String,
         month::Integer,
         experiment::String,)
-Generate unique and self-describing uuid given information about a GCM-driven LES simulation from `Shen et al. 2021`.
+Generate unique and self-describing uuid given information about a GCM-driven LES simulation from `Shen et al. 2022`.
 """
 function get_gcm_les_uuid(
     cfsite_number::Integer;
