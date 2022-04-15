@@ -158,7 +158,7 @@ version = "0.5.1"
 deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dates", "Dierckx", "DiffEqNoiseProcess", "Distributions", "DocStringExtensions", "EnsembleKalmanProcesses", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "PackageCompiler", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
 path = ".."
 uuid = "fbaf683a-b9b3-4040-be64-6c4c04986dd0"
-version = "0.2.0"
+version = "0.3.0"
 
 [[deps.Cassette]]
 git-tree-sha1 = "063b2e77c5537a548c5bf2f44161f1d3e1ab3227"
@@ -428,10 +428,10 @@ uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.8+0"
 
 [[deps.ExponentialUtilities]]
-deps = ["ArrayInterface", "LinearAlgebra", "Printf", "Requires", "SparseArrays", "libblastrampoline_jll"]
-git-tree-sha1 = "b026981973ccbe38682fbb4ccb0732fd6b1e1207"
+deps = ["ArrayInterface", "GenericSchur", "LinearAlgebra", "Printf", "Requires", "SparseArrays", "libblastrampoline_jll"]
+git-tree-sha1 = "951c44b4af9d1e061d5cf789a30881471604c14c"
 uuid = "d4d017d3-3776-5f7e-afef-a10c40355c18"
-version = "1.13.0"
+version = "1.14.0"
 
 [[deps.ExprTools]]
 git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
@@ -594,6 +594,12 @@ deps = ["SpecialFunctions"]
 git-tree-sha1 = "45bf52a9fb04350d8771ad694772c18c878683b6"
 uuid = "d54b0c1a-921d-58e0-8e36-89d8069c0969"
 version = "0.5.7"
+
+[[deps.GenericSchur]]
+deps = ["LinearAlgebra", "Printf"]
+git-tree-sha1 = "fb69b2a645fa69ba5f474af09221b9308b160ce6"
+uuid = "c145ed77-6b09-5dd9-b285-bf645a82121e"
+version = "0.5.3"
 
 [[deps.GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
