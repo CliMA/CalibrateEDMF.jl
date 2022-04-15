@@ -4,6 +4,7 @@ using SparseArrays
 using Statistics
 using Interpolations
 using LinearAlgebra
+using DocStringExtensions
 
 using ..ReferenceModels
 using ..ModelTypes
@@ -17,10 +18,14 @@ export get_obs, get_profile, obs_PCA, pca
 
 
 """
-    struct ReferenceStatistics{FT <: Real}
+    ReferenceStatistics{FT <: Real}
 
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct ReferenceStatistics{FT <: Real}
     "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"

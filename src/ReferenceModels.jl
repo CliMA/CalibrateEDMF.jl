@@ -3,6 +3,7 @@ module ReferenceModels
 using JLD2
 using ..HelperFuncs
 using Random
+using DocStringExtensions
 
 export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
@@ -14,11 +15,15 @@ export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
 export time_shift_reference_model, write_val_ref_model_batch
 
 """
-    struct ReferenceModel
+    ReferenceModel
 
 A structure containing information about the 'true' reference model
 and the observation map used to compare the parameterized and
 reference models.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct ReferenceModel
     "Vector of reference variable names"
@@ -151,10 +156,12 @@ num_vars(m::ReferenceModel) = length(m.y_names)
 Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lists.
 
 Inputs:
- - kwarg_ld     :: Dictionary of keyword argument lists
+
+ - `kwarg_ld`     :: Dictionary of keyword argument lists
+
 Outputs:
- - ref_models   :: Vector where the i-th ReferenceModel is constructed from the i-th element
-    of every keyword argument list of the dictionary.
+
+ - `ref_models`   :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument list of the dictionary.
 """
 function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::Vector{ReferenceModel}
     n_RM = length(kwarg_ld[:case_name])
@@ -194,9 +201,12 @@ Returns a time-shifted ReferenceModel, considering an interval relative to the l
 available time step of the original model.
 
 Inputs:
- - m     :: A ReferenceModel.
- - Δt  :: [LES last time - SCM start time (LES timeframe)]
+
+ - `m`     :: A ReferenceModel.
+ - `Δt`  :: [LES last time - SCM start time (LES timeframe)]
+
 Outputs:
+
  - The time-shifted ReferenceModel.
 """
 function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
@@ -249,9 +259,12 @@ end
 Returns a ::ReferenceModelBatch given a dictionary of keyword argument lists.
 
 Inputs:
- - kwarg_ld     :: Dictionary of keyword argument lists
- - shuffling    :: Whether to shuffle the order of ReferenceModels.
+
+ - `kwarg_ld`     :: Dictionary of keyword argument lists
+ - `shuffling`    :: Whether to shuffle the order of ReferenceModels.
+
 Outputs:
+
  - A ReferenceModelBatch.
 """
 function construct_ref_model_batch(
@@ -277,9 +290,12 @@ The size of the minibatch is either the requested size, or the remainder of the
 elements in the eval_order for this epoch.
 
 Inputs:
- - ref_model_batch :: A ReferenceModelBatch.
- - batch_size      :: The number of `ReferenceModel`s to retrieve.
+
+ - `ref_model_batch` :: A ReferenceModelBatch.
+ - `batch_size`      :: The number of `ReferenceModel`s to retrieve.
+
 Outputs:
+
  - A vector of `ReferenceModel`s.
  - The indices of the returned `ReferenceModel`s.
 """
