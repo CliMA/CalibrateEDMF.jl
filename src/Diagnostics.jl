@@ -162,13 +162,13 @@ Parameter prior diagnostics dictionary.
 
 Elements:
 
- - u_mean_prior :: Prior mean in unconstrained parameter space.
- - phi_mean_prior :: Prior mean in constrained parameter space.
- - u_var_prior :: Diagonal of the prior covariance in unconstrained space.
- - phi_low_unc_prior :: Lower uncertainty bound (μ-1σ_prior) of prior in constrained space.
- - phi_upp_unc_prior :: Upper uncertainty bound (μ+1σ_prior) of prior in constrained space.
- - phi_low_std_prior :: Lower standard bound (μ-1) of prior in constrained space. Useful measure of minimum allowed values for bounded parameters.
- - phi_upp_std_prior :: Upper standard bound (μ+1) of prior in constrained space. Useful measure of maximum allowed values for bounded parameters.
+ - `u_mean_prior` :: Prior mean in unconstrained parameter space.
+ - `phi_mean_prior` :: Prior mean in constrained parameter space.
+ - `u_var_prior` :: Diagonal of the prior covariance in unconstrained space.
+ - `phi_low_unc_prior` :: Lower uncertainty bound (μ-1σ_prior) of prior in constrained space.
+ - `phi_upp_unc_prior` :: Upper uncertainty bound (μ+1σ_prior) of prior in constrained space.
+ - `phi_low_std_prior` :: Lower standard bound (μ-1) of prior in constrained space. Useful measure of minimum allowed values for bounded parameters.
+ - `phi_upp_std_prior` :: Upper standard bound (μ+1) of prior in constrained space. Useful measure of maximum allowed values for bounded parameters.
 """
 function io_dictionary_prior()
     io_dict = Dict(
@@ -216,14 +216,14 @@ Scalar metrics dictionary.
 
 Elements:
 
- - loss_mean_g :: (ḡ - y)'Γ_inv(ḡ - y).
- - mse_full_mean :: Ensemble mean of MSE(g_full, y_full).
- - mse_full_min :: Ensemble min of MSE(g_full, y_full).
- - mse_full_max :: Ensemble max of MSE(g_full, y_full).
- - mse_full_var :: Variance estimate of MSE(g_full, y_full), empirical (EKI/EKS) or quadrature (UKI).
- - mse_full_nn_mean :: MSE(g_full, y_full) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
- - failures :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures.
- - nn_mean_index :: Particle index of the nearest neighbor to the ensemble mean in parameter space.
+ - `loss_mean_g` :: (ḡ - y)'Γ_inv(ḡ - y).
+ - `mse_full_mean` :: Ensemble mean of MSE(g_full, y_full).
+ - `mse_full_min` :: Ensemble min of MSE(g_full, y_full).
+ - `mse_full_max` :: Ensemble max of MSE(g_full, y_full).
+ - `mse_full_var` :: Variance estimate of MSE(g_full, y_full), empirical (EKI/EKS) or quadrature (UKI).
+ - `mse_full_nn_mean` :: MSE(g_full, y_full) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
+ - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures.
+ - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space.
 """
 function io_dictionary_metrics()
     io_dict = Dict(
@@ -307,8 +307,8 @@ Dictionary of particle-wise parameter diagnostics, not involving forward model e
 
 Elements:
 
- - u   :: Parameters in unconstrained (inverse problem) space.
- - phi :: Parameters in constrained (physical) space.
+ - `u`   :: Parameters in unconstrained (inverse problem) space.
+ - `phi` :: Parameters in constrained (physical) space.
 """
 function io_dictionary_particle_state()
     io_dict = Dict(
@@ -333,9 +333,9 @@ Dictionary of particle-wise parameter diagnostics involving forward model evalua
 
 Elements:
 
- - g :: Forward model evaluation in inverse problem space.
- - g_full :: Forward model evaluation in primitive output space, normalized using the pooled field covariance.
- - mse_full :: Particle-wise evaluation of MSE(g_full, y_full).
+ - `g` :: Forward model evaluation in inverse problem space.
+ - `g_full` :: Forward model evaluation in primitive output space, normalized using the pooled field covariance.
+ - `mse_full` :: Particle-wise evaluation of MSE(g_full, y_full).
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(
@@ -480,9 +480,8 @@ calibration method.
 
 Inputs:
 
- - ekp    :: The EnsembleKalmanProcess.
- - priors :: The priors defining transformations between constrained and
-    unconstrained space.
+ - `ekp`    :: The EnsembleKalmanProcess.
+ - `priors` :: The priors defining transformations between constrained and unconstrained space.
 
 Outputs:
 
