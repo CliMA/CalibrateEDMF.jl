@@ -372,6 +372,8 @@ function run_SCM_handler(
             namelist["microphysics"][pName] = pVal
         elseif haskey(namelist["time_stepping"], pName)
             namelist["time_stepping"][pName] = pVal
+        elseif haskey(namelist["grid"]["stretch"], pName)
+            namelist["grid"]["stretch"][pName] = pVal
         else
             throw(ArgumentError("Parameter $pName cannot be calibrated. Consider adding namelist dictionary if needed."))
         end

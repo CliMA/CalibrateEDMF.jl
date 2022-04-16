@@ -164,6 +164,8 @@ end
 function get_scm_config()
     config = Dict()
     # List of tuples like [("time_stepping", "dt_min", 1.0)], or nothing
+    # you must verify that the desired namelist changes correcpond to
+    # the if-else starting at line 368 in src/TurbulenceConvectionUtils.jl
     config["namelist_args"] = nothing
     return config
 end
