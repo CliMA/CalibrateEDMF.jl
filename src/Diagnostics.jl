@@ -18,7 +18,31 @@ export io_dictionary_particle_state, io_dictionary_particle_eval
 export io_dictionary_val_metrics, io_dictionary_val_particle_eval
 export io_dictionary_val_reference, io_dictionary_prior
 
-"""Reference diagnostics dictionary."""
+"""
+    io_dictionary_reference()
+    io_dictionary_reference(
+        ref_stats::ReferenceStatistics,
+        ref_models::Vector{ReferenceModel},
+        write_full_stats::Bool = true,
+    )
+
+Dictionary of diagnostics pertaining to the `ReferenceModel`s and `ReferenceStatistics` that define the inverse problem.
+
+Elements:
+
+ - `Gamma` :: Covariance matrix in the inverse problem latent space (regularized low-dimensional encoding).
+ - `Gamma_full` :: Covariance matrix of normalized observed variables in full space (possibly ill-conditioned). Only written to file if `write_full_stats` is true.
+ - `Gamma_full_diag` :: Diagonal of `Gamma_full`, useful when `Gamma_full` is not written to file.
+ - `y` :: Observations in the inverse problem latent space (low-dimensional encoding).
+ - `y_full` :: Normalized observations in full space.
+ - `P_pca` :: PCA projection matrix from full space to low-dimensional latent space.
+ - `num_vars` :: Maximum number of observed fields (not dimensions) per `ReferenceModel`.
+ - `var_dof` :: Maximum number of degrees of freedom of each field per `ReferenceModel`.
+ - `config_pca_dim` :: Dimensionality of the latent space associated with each `ReferenceModel`.
+ - `config_name` :: Name of each `ReferenceModel` used to construct the inverse problem.
+ - `config_dz` :: Vertical resolution of the observations of each `ReferenceModel`.
+ - `norm_factor` :: Pooled variance used to normalize each field of each `ReferenceModel`.
+"""
 function io_dictionary_reference()
     io_dict = Dict(
         "Gamma" => (; dims = ("out", "out"), group = "reference", type = Float64),
@@ -87,6 +111,31 @@ function io_dictionary_reference(
     return io_dict
 end
 
+"""
+    io_dictionary_val_reference()
+    io_dictionary_val_reference(
+        ref_stats::ReferenceStatistics,
+        ref_models::Vector{ReferenceModel},
+        write_full_stats::Bool = true,
+    )
+
+Dictionary of diagnostics pertaining to the `ReferenceModel`s and `ReferenceStatistics` in the validation set.
+
+Elements:
+
+ - `Gamma_val` :: Covariance matrix in latent space, using the same truncation as for the training set.
+ - `Gamma_full_val` :: Covariance matrix of normalized observed variables in full space. Only written to file if `write_full_stats` is true.
+ - `Gamma_full_diag_val` :: Diagonal of `Gamma_full_val`, useful when `Gamma_full_val` is not written to file.
+ - `y_val` :: Observations in latent space, for observed fields in the validation set.
+ - `y_full_val` :: Normalized observations in full space, for the validation set.
+ - `P_pca_val` :: PCA projection matrix from full space to low-dimensional latent space, for the validation set.
+ - `num_vars_val` :: Maximum number of observed fields (not dimensions) per validation `ReferenceModel`.
+ - `var_dof_val` :: Maximum number of degrees of freedom of each field per validation `ReferenceModel`.
+ - `config_pca_dim_val` :: Dimensionality of the latent space associated with each validation `ReferenceModel`.
+ - `config_name_val` :: Name of each `ReferenceModel` in the validation set.
+ - `config_dz_val` :: Vertical resolution of the observations of each validation `ReferenceModel`.
+ - `norm_factor_val` :: Pooled variance used to normalize each field of each validation `ReferenceModel`.
+"""
 function io_dictionary_val_reference()
     io_dict = Dict(
         "Gamma_val" => (; dims = ("out_val", "out_val"), group = "reference", type = Float64),
@@ -157,6 +206,7 @@ end
 
 """
     io_dictionary_prior()
+    io_dictionary_prior(priors::ParameterDistribution)
 
 Parameter prior diagnostics dictionary.
 
@@ -211,6 +261,7 @@ end
 
 """
     io_dictionary_metrics()
+    io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
 
 Scalar metrics dictionary.
 
@@ -267,6 +318,20 @@ function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT})
     return io_dict
 end
 
+"""
+    io_dictionary_val_metrics()
+    io_dictionary_val_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+
+Dictionary of scalar validation metrics.
+
+Elements:
+
+ - `val_mse_full_mean` :: Ensemble mean of MSE(`g_full_val`, `y_full_val`).
+ - `val_mse_full_min` :: Ensemble min of MSE(`g_full_val`, `y_full_val`).
+ - `val_mse_full_max` :: Ensemble max of MSE(`g_full_val`, `y_full_val`).
+ - `val_mse_full_var` :: Variance estimate of MSE(`g_full_val`, `y_full_val`), empirical (EKI/EKS) or quadrature (UKI).
+ - `val_mse_full_nn_mean` :: MSE(`g_full_val`, `y_full_val`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
+"""
 function io_dictionary_val_metrics()
     io_dict = Dict(
         "val_mse_full_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
@@ -302,6 +367,7 @@ end
 
 """
     io_dictionary_particle_state()
+    io_dictionary_particle_state(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
 
 Dictionary of particle-wise parameter diagnostics, not involving forward model evaluations.
 
@@ -328,14 +394,23 @@ end
 
 """
     io_dictionary_particle_eval()
+    io_dictionary_particle_eval(
+        ekp::EnsembleKalmanProcess,
+        g_full::Matrix{FT},
+        mse_full::Vector{FT},
+        d::IT,
+        d_full::IT,
+        batch_indices::Vector{IT},
+    ) where {FT <: Real, IT <: Integer}
 
-Dictionary of particle-wise parameter diagnostics involving forward model evaluations.
+Dictionary of particle-wise diagnostics involving forward model evaluations.
 
 Elements:
 
  - `g` :: Forward model evaluation in inverse problem space.
  - `g_full` :: Forward model evaluation in primitive output space, normalized using the pooled field covariance.
  - `mse_full` :: Particle-wise evaluation of MSE(`g_full`, `y_full`).
+ - `batch_indices` :: Indices of `ReferenceModel`s evaluated per iteration.
 """
 function io_dictionary_particle_eval()
     io_dict = Dict(
@@ -375,6 +450,26 @@ function io_dictionary_particle_eval(
     return io_dict
 end
 
+"""
+    io_dictionary_val_particle_eval()
+    io_dictionary_val_particle_eval(
+        g::Matrix{FT},
+        g_full::Matrix{FT},
+        mse_full::Vector{FT},
+        d::IT,
+        d_full::IT,
+        batch_indices::Vector{IT},
+    ) where {FT <: Real, IT <: Integer}
+
+Dictionary of particle-wise validation diagnostics involving forward model evaluations.
+
+Elements:
+
+ - `val_g` :: Validation forward model evaluation in reduced space.
+ - `val_g_full` :: Validation forward model evaluation in primitive output space, normalized using the pooled field covariance.
+ - `val_mse_full` :: Particle-wise evaluation of MSE(`val_g_full`, `val_y_full`).
+ - `val_batch_indices` :: Indices of validation `ReferenceModel`s evaluated per iteration.
+"""
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => (; dims = ("particle", "out_val", "iteration"), group = "particle_diags", type = Float64),
@@ -412,7 +507,21 @@ function io_dictionary_val_particle_eval(
     return io_dict
 end
 
-"""Ensemble diagnostics dictionary."""
+"""
+    io_dictionary_ensemble()
+    io_dictionary_ensemble(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Dictionary of ensemble parameter diagnostics.
+
+Elements:
+
+ - `u_mean` :: Ensemble mean parameter in unconstrained (inverse problem) space.
+ - `phi_mean` :: Ensemble mean parameter in constrained (physical) space.
+ - `u_cov` :: Sample parameter covariance in unconstrained (inverse problem) space.
+ - `phi_cov` :: Sample parameter covariance in constrained (physical) space.
+ - `phi_low_unc` :: Parameter value located one standard deviation below the mean, in constrained space.
+ - `phi_upp_unc` :: Parameter value located one standard deviation above the mean, in constrained space.
+"""
 function io_dictionary_ensemble()
     io_dict = Dict(
         "u_mean" => (; dims = ("param", "iteration"), group = "ensemble_diags", type = Float64),
