@@ -4,6 +4,8 @@ import Logging
 using JLD2
 using JSON
 using Random
+using DocStringExtensions
+
 using ..ReferenceModels
 using ..ReferenceStats
 # EKP modules
@@ -23,10 +25,14 @@ export save_full_ensemble_data
 export precondition
 
 """
-    struct ModelEvaluator
+    ModelEvaluator
 
 A structure containing the information required to perform
 a forward model evaluation at a given parameter vector.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct ModelEvaluator{FT <: Real}
     "Parameter vector in constrained (i.e. physical) space"
@@ -59,13 +65,23 @@ end
         namelist_args = nothing,
         failure_handler = "high_loss",
     ) where {FT <: Real}
+    run_SCM(
+        ME::ModelEvaluator;
+        error_check::Bool = false,
+        namelist_args = nothing,
+        failure_handler = "high_loss",
+    ) where {FT <: Real}
 
-Run the single-column model (SCM) using a set of parameters u
+Run the single-column model (SCM) using a set of parameters
 and return the value of outputs defined in y_names, possibly
 after normalization and projection onto lower dimensional
 space using PCA.
 
+The function also outputs a boolean diagnosing whether the
+requested SCM simulation failed.
+
 Inputs:
+
  - `u`               :: Values of parameters to be used in simulations.
  - `u_names`         :: SCM names for parameters `u`.
  - `RM`              :: Vector of `ReferenceModel`s
@@ -73,7 +89,9 @@ Inputs:
  - `error_check`     :: Returns as an additional argument whether the SCM call errored.
  - `namelist_args`   :: Additional arguments passed to the TurbulenceConvection namelist.
  - `failure_handler` :: Method used to handle failed simulations.
+
 Outputs:
+
  - `sim_dirs`    :: Vector of simulation output directories
  - `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
  - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
@@ -142,6 +160,7 @@ the forward model evaluation in both the original and the latent
 PCA space.
 
 Inputs:
+
  - `m_index`       :: The index of the ReferenceModel within the overarching
                     ref_models vector used to construct the ReferenceStatistics.
  - `m`             :: A ReferenceModel.
@@ -149,7 +168,9 @@ Inputs:
  - `u`             :: Values of parameters to be used in simulations.
  - `u_names`       :: SCM names for parameters `u`.
  - `namelist_args` :: Additional arguments passed to the TurbulenceConvection namelist.
+
 Outputs:
+
  - `sim_dir`     ::  Simulation output directory.
  - `g_scm`       :: Forward model evaluation in original output space.
  - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
@@ -183,6 +204,7 @@ end
     get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
 
 Fetch the namelist stored in `scm_dir(m)`.
+
 Generate a new namelist if it doesn't exist or `overwrite=true`.
 """
 function get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
@@ -199,7 +221,7 @@ end
     run_reference_SCM(m::ReferenceModel; overwrite::Bool = false)
 
 Run the single-column model (SCM) for a reference model object
-using default parameters.
+using default parameters, and write the output to file.
 
 Inputs:
  - `m`                    :: A `ReferenceModel`.
@@ -269,12 +291,15 @@ Run a case using a set of parameters `u_names` with values `u`,
 and return directory pointing to where data is stored for simulation run.
 
 Inputs:
+
  - m             :: Reference model
  - tmpdir        :: Temporary directory to store simulation results in
  - u             :: Values of parameters to be used in simulations.
  - u_names       :: SCM names for parameters `u`.
  - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
+
 Outputs:
+
  - output_dir   :: directory containing output data from the SCM run.
  - model_error   :: Boolean specifying whether the simulation failed.
 """
@@ -484,7 +509,9 @@ end
         forcing_model::String,
         month::Integer,
         experiment::String,)
-Generate unique and self-describing uuid given information about a GCM-driven LES simulation from `Shen et al. 2022`.
+
+Generate unique and self-describing uuid given information about a GCM-driven LES
+simulation from [Shen2022](@cite).
 """
 function get_gcm_les_uuid(
     cfsite_number::Integer;
@@ -535,17 +562,19 @@ Substitute parameter vector `param` by a parameter vector drawn
 from the same prior, conditioned on the forward model being stable.
 
 Inputs:
- - param      :: A parameter vector that may possibly result in unstable
+
+ - `param`      :: A parameter vector that may possibly result in unstable
     forward model evaluations (in unconstrained space).
- - priors      :: Priors from which the parameters were drawn.
- - ref_models  :: Vector of ReferenceModels to check stability for.
- - ref_stats   :: ReferenceStatistics of the ReferenceModels.
- - namelist_args :: Arguments passed to the TC.jl namelist.
- - counter :: Accumulator tracking number of recursive calls to preconditioner.
- - max_counter :: Maximum number of recursive calls to the preconditioner.
+ - `priors`      :: Priors from which the parameters were drawn.
+ - `ref_models`  :: Vector of ReferenceModels to check stability for.
+ - `ref_stats`   :: ReferenceStatistics of the ReferenceModels.
+ - `namelist_args` :: Arguments passed to the TC.jl namelist.
+ - `counter` :: Accumulator tracking number of recursive calls to preconditioner.
+ - `max_counter` :: Maximum number of recursive calls to the preconditioner.
+
 Outputs:
- - new_param  :: A new parameter vector drawn from the prior, conditioned on
-  simulations being stable (in unconstrained space).
+
+ - `new_param` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
 """
 function precondition(
     param::Vector{FT},
