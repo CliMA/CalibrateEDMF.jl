@@ -73,7 +73,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Minibatch mode
     if !isnothing(batch_size)
         @info "Training using mini-batches."
-        ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
+        ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         # Create input scm stats and namelist file if files don't already exist
         run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
@@ -294,7 +294,7 @@ function init_validation(
 
     if !isnothing(batch_size)
         @info "Validation using mini-batches."
-        ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
+        ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
         run_reference_SCM.(ref_model_batch.ref_models, overwrite = overwrite, namelist_args = namelist_args)
         ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)

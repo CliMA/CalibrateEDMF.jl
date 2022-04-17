@@ -41,41 +41,12 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     "Full covariance matrix, dims: (y,y)"
     Γ_full::SparseMatrixCSC{FT, Int64}
 
-    """
-        ReferenceStatistics(
-            RM::Vector{ReferenceModel};
-            perform_PCA::Bool = true,
-            normalize::Bool = true,
-            variance_loss::FT = 0.1,
-            tikhonov_noise::FT = 0.0,
-            tikhonov_mode::String = "absolute",
-            dim_scaling::Bool = false,
-            y_type::ModelType = LES(),
-            Σ_type::ModelType = LES(),
-            Δt::FT = 6 * 3600.0,
-        ) where {FT <: Real}
+    # Inner constructor
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
+end
 
-    Constructs the ReferenceStatistics defining the inverse problem.
-
-    Inputs:
-     - RM               :: Vector of `ReferenceModel`s.
-     - perform_PCA      :: Boolean specifying whether to perform PCA.
-     - normalize        :: Boolean specifying whether to normalize the data.
-     - variance_loss    :: Fraction of variance loss when performing PCA.
-     - tikhonov_noise   :: Tikhonov regularization factor for covariance matrices.
-     - tikhonov_mode    :: If "relative", tikhonov_noise is scaled by the maximum
-        eigenvalue in the covariance matrix considered, having the interpretation of
-        the inverse of the desired condition number. This value is enforced to be
-        larger than the sqrt of the machine precision for stability.
-     - dim_scaling      :: Whether to scale covariance blocks by their size.
-     - y_type           :: Type of reference mean data. Either LES() or SCM().
-     - Σ_type           :: Type of reference covariance data. Either LES() or SCM().
-     - Δt               :: [LES last time - SCM start time (LES timeframe)] for
-       LES_driven_SCM cases.
-    Outputs:
-     - A ReferenceStatistics struct.
-    """
-    function ReferenceStatistics(
+"""
+    ReferenceStatistics(
         RM::Vector{ReferenceModel};
         perform_PCA::Bool = true,
         normalize::Bool = true,
@@ -87,56 +58,87 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Σ_type::ModelType = LES(),
         Δt::FT = 6 * 3600.0,
     ) where {FT <: Real}
-        # Init arrays
-        y = FT[]
-        Γ_vec = Matrix{FT}[]
-        y_full = FT[]
-        Γ_full_vec = Matrix{FT}[]
-        pca_vec = []
-        norm_vec = Vector[]
 
-        for m in RM
-            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
-            # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
-            push!(norm_vec, pool_var)
-            if perform_PCA
-                y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
-                append!(y, y_pca)
-                push!(Γ_vec, y_var_pca)
-                push!(pca_vec, P_pca)
-            else
-                append!(y, y_)
-                push!(Γ_vec, y_var_)
-                push!(pca_vec, 1.0I)
-            end
-            # Save full dimensionality (normalized) output for error computation
-            append!(y_full, y_)
-            push!(Γ_full_vec, y_var_)
-        end
+Constructs the ReferenceStatistics defining the inverse problem.
 
-        # Construct global observational covariance matrix, original space
-        Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
+Inputs:
+ - `RM`               :: Vector of `ReferenceModel`s.
+ - `perform_PCA`      :: Boolean specifying whether to perform PCA.
+ - `normalize`        :: Boolean specifying whether to normalize the data.
+ - `variance_loss`    :: Fraction of variance loss when performing PCA.
+ - `tikhonov_noise`   :: Tikhonov regularization factor for covariance matrices.
+ - `tikhonov_mode`    :: If "relative", tikhonov_noise is scaled by the maximum
+    eigenvalue in the covariance matrix considered, having the interpretation of
+    the inverse of the desired condition number. This value is enforced to be
+    larger than the sqrt of the machine precision for stability.
+ - `dim_scaling`      :: Whether to scale covariance blocks by their size.
+ - `y_type`           :: Type of reference mean data. Either LES() or SCM().
+ - `Σ_type`           :: Type of reference covariance data. Either LES() or SCM().
+ - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for LES_driven_SCM cases.
 
-        # Scale by number of dimensions (averaging loss per dimension)
-        Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
-        # Construct global observational covariance matrix, PCA
-        Γ = cat(Γ_vec..., dims = (1, 2))
-        # Condition global covariance matrix, PCA
-        if tikhonov_mode == "relative"
-            @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
-            tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
-            Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
+Outputs:
+
+ - A ReferenceStatistics struct.
+"""
+function ReferenceStatistics(
+    RM::Vector{ReferenceModel};
+    perform_PCA::Bool = true,
+    normalize::Bool = true,
+    variance_loss::FT = 0.1,
+    tikhonov_noise::FT = 0.0,
+    tikhonov_mode::String = "absolute",
+    dim_scaling::Bool = false,
+    y_type::ModelType = LES(),
+    Σ_type::ModelType = LES(),
+    Δt::FT = 6 * 3600.0,
+) where {FT <: Real}
+    # Init arrays
+    y = FT[]
+    Γ_vec = Matrix{FT}[]
+    y_full = FT[]
+    Γ_full_vec = Matrix{FT}[]
+    pca_vec = []
+    norm_vec = Vector[]
+
+    for m in RM
+        model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
+        # Get (interpolated and pool-normalized) observations, get pool variance vector
+        y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
+        push!(norm_vec, pool_var)
+        if perform_PCA
+            y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
+            append!(y, y_pca)
+            push!(Γ_vec, y_var_pca)
+            push!(pca_vec, P_pca)
         else
-            Γ = Γ + tikhonov_noise * I
+            append!(y, y_)
+            push!(Γ_vec, y_var_)
+            push!(pca_vec, 1.0I)
         end
-
-        @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
-
-        return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
+        # Save full dimensionality (normalized) output for error computation
+        append!(y_full, y_)
+        push!(Γ_full_vec, y_var_)
     end
 
-    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
+    # Construct global observational covariance matrix, original space
+    Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
+
+    # Scale by number of dimensions (averaging loss per dimension)
+    Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
+    # Construct global observational covariance matrix, PCA
+    Γ = cat(Γ_vec..., dims = (1, 2))
+    # Condition global covariance matrix, PCA
+    if tikhonov_mode == "relative"
+        @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
+        tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
+        Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
+    else
+        Γ = Γ + tikhonov_noise * I
+    end
+
+    @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
+
+    return ReferenceStatistics(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
 end
 
 pca_length(RS::ReferenceStatistics) = length(RS.y)
@@ -155,13 +157,13 @@ Get observations for variables y_names, interpolated to
 z_scm (if given), and possibly normalized with respect to the pooled variance.
 
 Inputs:
- - obs_type     :: Either :les or :scm
- - m            :: Reference model
- - z_scm        :: If given, interpolate LES observations to given levels.
+ - `obs_type`     :: Either :les or :scm
+ - `m`            :: Reference model
+ - `z_scm`        :: If given, interpolate LES observations to given levels.
 Outputs:
- - y            :: Mean of observations, possibly interpolated to z_scm levels.
- - Σ            :: Observational covariance matrix, possibly pool-normalized.
- - pool_var     :: Vector of vertically averaged time-variance, one entry for each variable
+ - `y`            :: Mean of observations, possibly interpolated to z_scm levels.
+ - `Σ`            :: Observational covariance matrix, possibly pool-normalized.
+ - `pool_var`     :: Vector of vertically averaged time-variance, one entry for each variable
 """
 function get_obs(
     m::ReferenceModel,
@@ -255,12 +257,11 @@ Get profiles for variables var_names, interpolated to
 z_scm (if given), and concatenated into a single output vector.
 
 Inputs:
- - filename  :: nc filename
- - var_names   :: Names of variables to be retrieved.
- - z_scm :: If given, interpolate LES observations to given levels.
+ - `filename`  :: nc filename
+ - `var_names`   :: Names of variables to be retrieved.
+ - `z_scm` :: If given, interpolate LES observations to given levels.
 Outputs:
- - y :: Output vector used in the inverse problem, which concatenates the
-   requested profiles.
+ - `y` :: Output vector used in the inverse problem, which concatenates the requested profiles.
 """
 function get_profile(
     filename::String,
@@ -333,10 +334,11 @@ end
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
+
 Inputs:
- - m            :: Reference model.
- - var_names    :: List of variable names to be included.
- - z_scm        :: If given, interpolates covariance matrix to this locations.
+ - `m`            :: Reference model.
+ - `var_names`    :: List of variable names to be included.
+ - `z_scm`        :: If given, interpolates covariance matrix to this locations.
 """
 function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
     filename = Σ_nc_file(m)

@@ -37,7 +37,7 @@ end
         :t_start => repeat([0.0], 2),
         :t_end => repeat([10.0], 2),
     )
-    ref_model_batch = construct_ref_model_batch(kwargs_ref_model)
+    ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
     @test length(ref_model_batch.ref_models) == 2
     @test length(ref_model_batch.eval_order) == 2
 
