@@ -265,16 +265,23 @@ end
 
 Scalar metrics dictionary.
 
+Evaluations of the data-model mismatch in inverse problem (i.e., latent) space are denoted `loss`.
+Errors computed in normalized physical (i.e., full) space are denoted `mse_full`. Differences between
+these two metrics include:
+ - Covariance matrix defining the inner product (covariance weighting in `loss` vs L2 norm in `mse_full`),
+ - Treatment of trailing eigenvalues (truncation and regularization vs considering all eigenmodes).
+ - The current implementation of `loss` does not filter out `NaN`s, but `mse_full` does.
+
 Elements:
 
- - `loss_mean_g` :: (ḡ - y)'Γ_inv(ḡ - y).
+ - `loss_mean_g` :: (ḡ - y)'Γ_inv(ḡ - y). This is the ensemble mean loss seen by the Kalman inversion process.
  - `mse_full_mean` :: Ensemble mean of MSE(`g_full`, `y_full`).
  - `mse_full_min` :: Ensemble min of MSE(`g_full`, `y_full`).
  - `mse_full_max` :: Ensemble max of MSE(`g_full`, `y_full`).
  - `mse_full_var` :: Variance estimate of MSE(`g_full`, `y_full`), empirical (EKI/EKS) or quadrature (UKI).
  - `mse_full_nn_mean` :: MSE(`g_full`, `y_full`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
- - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures.
- - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space.
+ - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures due to masking.
+ - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space. This index is used to construct `..._nn_mean` metrics.
 """
 function io_dictionary_metrics()
     io_dict = Dict(
@@ -373,8 +380,8 @@ Dictionary of particle-wise parameter diagnostics, not involving forward model e
 
 Elements:
 
- - `u`   :: Parameters in unconstrained (inverse problem) space.
- - `phi` :: Parameters in constrained (physical) space.
+ - `u`   :: Parameter ensemble in unconstrained (inverse problem) space.
+ - `phi` :: Parameter ensemble in constrained (physical) space.
 """
 function io_dictionary_particle_state()
     io_dict = Dict(
@@ -519,8 +526,8 @@ Elements:
  - `phi_mean` :: Ensemble mean parameter in constrained (physical) space.
  - `u_cov` :: Sample parameter covariance in unconstrained (inverse problem) space.
  - `phi_cov` :: Sample parameter covariance in constrained (physical) space.
- - `phi_low_unc` :: Parameter value located one standard deviation below the mean, in constrained space.
- - `phi_upp_unc` :: Parameter value located one standard deviation above the mean, in constrained space.
+ - `phi_low_unc` :: Lower uncertainty bound (μ-1σ) of the parameter value in constrained (physical) space.
+ - `phi_upp_unc` :: Upper uncertainty bound (μ+1σ) of the parameter value in constrained (physical) space.
 """
 function io_dictionary_ensemble()
     io_dict = Dict(
@@ -612,6 +619,25 @@ function get_ϕ_cov(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     end
 end
 
+"""
+    get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {FT <: Real}
+
+Computes the ensemble variance of a scalar metric.
+
+For ensemble methods, the sample variance of the metric is returned. For unscented methods,
+the variance is computed through a quadrature. Ensemble members where the metric is `NaN`
+are filtered out of the computation.
+
+Inputs:
+
+ - `ekp`    :: The EnsembleKalmanProcess.
+ - `metric` :: A vector containing the value of the metric for each ensemble member.
+
+Outputs:
+
+ - The ensemble variance of `metric`.
+
+"""
 function get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {FT <: Real}
     if isa(ekp.process, Unscented)
         if any(isnan.(metric))
@@ -627,7 +653,11 @@ function get_metric_var(ekp::EnsembleKalmanProcess, metric::Vector{FT}) where {F
     end
 end
 
-"""Returns the index of the nearest neighbor to the ensemble mean parameter"""
+"""
+    get_mean_nearest_neighbor(ekp::EnsembleKalmanProcess)
+
+Returns the index of the nearest neighbor to the ensemble mean parameter, in unconstrained space.
+"""
 function get_mean_nearest_neighbor(ekp::EnsembleKalmanProcess)
     u = get_u_final(ekp)
     u_mean = mean(u, dims = 2)

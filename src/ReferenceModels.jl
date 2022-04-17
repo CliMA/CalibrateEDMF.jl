@@ -10,7 +10,7 @@ export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
 export y_dir, Σ_dir, scm_dir, num_vars, uuid
 export y_nc_file, Σ_nc_file, scm_nc_file
 export data_directory, namelist_directory
-export construct_reference_models, construct_ref_model_batch
+export construct_reference_models
 export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
 export time_shift_reference_model, write_val_ref_model_batch
 
@@ -62,10 +62,8 @@ end  # ReferenceModel struct
         Σ_t_end::Union{Real, Nothing} = nothing,
     )
 
-Construct `ReferenceModel` allowing for any or all of
-`Σ_dir`, `Σ_t_start`, `Σ_t_end` to be unspecified, in
-which case they take their values from
-`y_dir`, `t_start` and `t_end`, respectively.
+Construct `ReferenceModel` allowing for any or all of `Σ_dir`, `Σ_t_start`, `Σ_t_end` to be
+unspecified, in which case they take their values from `y_dir`, `t_start` and `t_end`, respectively.
 """
 function ReferenceModel(
     y_names::Vector{String},
@@ -100,7 +98,7 @@ end
         Σ_t_end::Union{Real, Nothing} = nothing,
     )
 
-Constructor using `scm_parent_dir`, `case_name`, `scm_suffix`, to define `scm_dir`.
+`ReferenceModel` constructor using `scm_parent_dir`, `case_name`, `scm_suffix`, to define `scm_dir`.
 
 """
 function ReferenceModel(
@@ -241,22 +239,24 @@ end
 """
     struct ReferenceModelBatch
 
-A structure containing a batch of ReferenceModels and a mutable evaluation
+A structure containing a batch of ReferenceModels and an evaluation
 order for ReferenceModels within the current epoch.
+
+# Fields
+
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct ReferenceModelBatch
-    "Vector of reference models"
+    "Vector containing all reference models"
     ref_models::Vector{ReferenceModel}
+    "Vector of indices defining the `ReferenceModel` evaluation order when batching"
     eval_order::Vector{Int}
 end
 
 """
-    construct_ref_model_batch(
-        kwarg_ld::Dict{Symbol, Vector{T} where T},
-        shuffling::Bool = true,
-    )::ReferenceModelBatch
+    ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
 
-Returns a ::ReferenceModelBatch given a dictionary of keyword argument lists.
+::ReferenceModelBatch constructor given a dictionary of keyword argument lists.
 
 Inputs:
 
@@ -267,15 +267,17 @@ Outputs:
 
  - A ReferenceModelBatch.
 """
-function construct_ref_model_batch(
-    kwarg_ld::Dict{Symbol, Vector{T} where T},
-    shuffling::Bool = true,
-)::ReferenceModelBatch
+function ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
     ref_models = construct_reference_models(kwarg_ld)
     eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
     return ReferenceModelBatch(ref_models, eval_order)
 end
-function construct_ref_model_batch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)::ReferenceModelBatch
+"""
+    ReferenceModelBatch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)
+
+::ReferenceModelBatch constructor given a vector of `ReferenceModel`s.
+"""
+function ReferenceModelBatch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)
     eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
     return ReferenceModelBatch(ref_models, eval_order)
 end
@@ -309,7 +311,7 @@ end
 function reshuffle_on_epoch_end(ref_model_batch::ReferenceModelBatch, shuffling::Bool = true)
     if isempty(ref_model_batch.eval_order)
         @info "Current epoch finished. Reshuffling dataset."
-        return construct_ref_model_batch(ref_model_batch.ref_models, shuffling)
+        return ReferenceModelBatch(ref_model_batch.ref_models, shuffling)
     else
         return ref_model_batch
     end
