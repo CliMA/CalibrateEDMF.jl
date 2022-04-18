@@ -24,6 +24,38 @@ reference models.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+    ReferenceModel(
+        y_names::Vector{String},
+        y_dir::String,
+        scm_dir::String,
+        case_name::String,
+        t_start::Real,
+        t_end::Real;
+        Σ_dir::Union{String, Nothing} = nothing,
+        Σ_t_start::Union{Real, Nothing} = nothing,
+        Σ_t_end::Union{Real, Nothing} = nothing,
+    )
+
+`ReferenceModel` constructor allowing for any or all of `Σ_dir`, `Σ_t_start`, `Σ_t_end` to be
+unspecified, in which case they take their values from `y_dir`, `t_start` and `t_end`, respectively.
+
+    ReferenceModel(
+        y_names::Vector{String},
+        y_dir::String,
+        scm_parent_dir::String,
+        scm_suffix::String,
+        case_name::String,
+        t_start::Real,
+        t_end::Real;
+        Σ_dir::Union{String, Nothing} = nothing,
+        Σ_t_start::Union{Real, Nothing} = nothing,
+        Σ_t_end::Union{Real, Nothing} = nothing,
+    )
+
+`ReferenceModel` constructor using `scm_parent_dir`, `case_name`, `scm_suffix`, to define `scm_dir`.
 """
 Base.@kwdef struct ReferenceModel
     "Vector of reference variable names"
@@ -49,22 +81,6 @@ Base.@kwdef struct ReferenceModel
     n_obs::Union{Integer, Nothing}
 end  # ReferenceModel struct
 
-"""
-    ReferenceModel(
-        y_names::Vector{String},
-        y_dir::String,
-        scm_dir::String,
-        case_name::String,
-        t_start::Real,
-        t_end::Real;
-        Σ_dir::Union{String, Nothing} = nothing,
-        Σ_t_start::Union{Real, Nothing} = nothing,
-        Σ_t_end::Union{Real, Nothing} = nothing,
-    )
-
-Construct `ReferenceModel` allowing for any or all of `Σ_dir`, `Σ_t_start`, `Σ_t_end` to be
-unspecified, in which case they take their values from `y_dir`, `t_start` and `t_end`, respectively.
-"""
 function ReferenceModel(
     y_names::Vector{String},
     y_dir::String,
@@ -84,23 +100,6 @@ function ReferenceModel(
     ReferenceModel(y_names, y_dir, Σ_dir, scm_dir, case_name, t_start, t_end, Σ_t_start, Σ_t_end, n_obs)
 end
 
-"""
-    ReferenceModel(
-        y_names::Vector{String},
-        y_dir::String,
-        scm_parent_dir::String,
-        scm_suffix::String,
-        case_name::String,
-        t_start::Real,
-        t_end::Real;
-        Σ_dir::Union{String, Nothing} = nothing,
-        Σ_t_start::Union{Real, Nothing} = nothing,
-        Σ_t_end::Union{Real, Nothing} = nothing,
-    )
-
-`ReferenceModel` constructor using `scm_parent_dir`, `case_name`, `scm_suffix`, to define `scm_dir`.
-
-"""
 function ReferenceModel(
     y_names::Vector{String},
     y_dir::String,
@@ -245,6 +244,22 @@ order for ReferenceModels within the current epoch.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+    
+    ReferenceModelBatch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)
+
+`ReferenceModelBatch` constructor given a vector of `ReferenceModel`s.
+
+
+    ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
+
+`ReferenceModelBatch` constructor given a dictionary of keyword argument lists.
+
+Inputs:
+
+ - `kwarg_ld`     :: Dictionary of keyword argument lists
+ - `shuffling`    :: Whether to shuffle the order of ReferenceModels.
 """
 Base.@kwdef struct ReferenceModelBatch
     "Vector containing all reference models"
@@ -253,30 +268,12 @@ Base.@kwdef struct ReferenceModelBatch
     eval_order::Vector{Int}
 end
 
-"""
-    ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
-
-::ReferenceModelBatch constructor given a dictionary of keyword argument lists.
-
-Inputs:
-
- - `kwarg_ld`     :: Dictionary of keyword argument lists
- - `shuffling`    :: Whether to shuffle the order of ReferenceModels.
-
-Outputs:
-
- - A ReferenceModelBatch.
-"""
 function ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
     ref_models = construct_reference_models(kwarg_ld)
     eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
     return ReferenceModelBatch(ref_models, eval_order)
 end
-"""
-    ReferenceModelBatch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)
 
-::ReferenceModelBatch constructor given a vector of `ReferenceModel`s.
-"""
 function ReferenceModelBatch(ref_models::Vector{ReferenceModel}, shuffling::Bool = true)
     eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
     return ReferenceModelBatch(ref_models, eval_order)
