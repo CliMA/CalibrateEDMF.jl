@@ -26,26 +26,10 @@ define a well-posed inverse problem.
 # Fields
 
 $(TYPEDFIELDS)
-"""
-Base.@kwdef struct ReferenceStatistics{FT <: Real}
-    "Reference data, length: `nSim * n_vars * n_zLevels` (possibly reduced by PCA)"
-    y::Vector{FT}
-    "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
-    Γ::Matrix{FT}
-    "Vector (length: `nSim`) of normalizing factors (length: `n_vars`)"
-    norm_vec::Vector{Vector{FT}}
-    "Vector (length: `nSim`) of PCA projection matrices with leading eigenvectors as columns"
-    pca_vec::Vector{Union{Matrix{FT}, UniformScaling}}
-    "Full reference data vector, length: `nSim * n_vars * n_zLevels`"
-    y_full::Vector{FT}
-    "Full covariance matrix, dims: (y,y)"
-    Γ_full::SparseMatrixCSC{FT, Int64}
 
-    # Inner constructor
-    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
-end
+# Constructors
 
-"""
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real}
     ReferenceStatistics(
         RM::Vector{ReferenceModel};
         perform_PCA::Bool = true,
@@ -74,74 +58,92 @@ Inputs:
  - `dim_scaling`      :: Whether to scale covariance blocks by their size.
  - `y_type`           :: Type of reference mean data. Either LES() or SCM().
  - `Σ_type`           :: Type of reference covariance data. Either LES() or SCM().
- - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for LES_driven_SCM cases.
-
-Outputs:
-
- - A ReferenceStatistics struct.
+ - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
 """
-function ReferenceStatistics(
-    RM::Vector{ReferenceModel};
-    perform_PCA::Bool = true,
-    normalize::Bool = true,
-    variance_loss::FT = 0.1,
-    tikhonov_noise::FT = 0.0,
-    tikhonov_mode::String = "absolute",
-    dim_scaling::Bool = false,
-    y_type::ModelType = LES(),
-    Σ_type::ModelType = LES(),
-    Δt::FT = 6 * 3600.0,
-) where {FT <: Real}
-    # Init arrays
-    y = FT[]
-    Γ_vec = Matrix{FT}[]
-    y_full = FT[]
-    Γ_full_vec = Matrix{FT}[]
-    pca_vec = []
-    norm_vec = Vector[]
+Base.@kwdef struct ReferenceStatistics{FT <: Real}
+    "Reference data, length: `nSim * n_vars * n_zLevels` (possibly reduced by PCA)"
+    y::Vector{FT}
+    "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
+    Γ::Matrix{FT}
+    "Vector (length: `nSim`) of normalizing factors (length: `n_vars`)"
+    norm_vec::Vector{Vector{FT}}
+    "Vector (length: `nSim`) of PCA projection matrices with leading eigenvectors as columns"
+    pca_vec::Vector{Union{Matrix{FT}, UniformScaling}}
+    "Full reference data vector, length: `nSim * n_vars * n_zLevels`"
+    y_full::Vector{FT}
+    "Full covariance matrix, dims: (y,y)"
+    Γ_full::SparseMatrixCSC{FT, Int64}
 
-    for m in RM
-        model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
-        # Get (interpolated and pool-normalized) observations, get pool variance vector
-        y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
-        push!(norm_vec, pool_var)
-        if perform_PCA
-            y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
-            append!(y, y_pca)
-            push!(Γ_vec, y_var_pca)
-            push!(pca_vec, P_pca)
-        else
-            append!(y, y_)
-            push!(Γ_vec, y_var_)
-            push!(pca_vec, 1.0I)
+    # Constructors
+
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
+
+    function ReferenceStatistics(
+        RM::Vector{ReferenceModel};
+        perform_PCA::Bool = true,
+        normalize::Bool = true,
+        variance_loss::FT = 0.1,
+        tikhonov_noise::FT = 0.0,
+        tikhonov_mode::String = "absolute",
+        dim_scaling::Bool = false,
+        y_type::ModelType = LES(),
+        Σ_type::ModelType = LES(),
+        Δt::FT = 6 * 3600.0,
+    ) where {FT <: Real}
+        # Init arrays
+        y = FT[]
+        Γ_vec = Matrix{FT}[]
+        y_full = FT[]
+        Γ_full_vec = Matrix{FT}[]
+        pca_vec = []
+        norm_vec = Vector[]
+
+        for m in RM
+            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
+            # Get (interpolated and pool-normalized) observations, get pool variance vector
+            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(m))
+            push!(norm_vec, pool_var)
+            if perform_PCA
+                y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
+                append!(y, y_pca)
+                push!(Γ_vec, y_var_pca)
+                push!(pca_vec, P_pca)
+            else
+                append!(y, y_)
+                push!(Γ_vec, y_var_)
+                push!(pca_vec, 1.0I)
+            end
+            # Save full dimensionality (normalized) output for error computation
+            append!(y_full, y_)
+            push!(Γ_full_vec, y_var_)
         end
-        # Save full dimensionality (normalized) output for error computation
-        append!(y_full, y_)
-        push!(Γ_full_vec, y_var_)
+
+        # Construct global observational covariance matrix, original space
+        Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
+
+        # Scale by number of dimensions (averaging loss per dimension)
+        Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
+        # Construct global observational covariance matrix, PCA
+        Γ = cat(Γ_vec..., dims = (1, 2))
+        # Condition global covariance matrix, PCA
+        if tikhonov_mode == "relative"
+            @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
+            tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
+            Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
+        else
+            Γ = Γ + tikhonov_noise * I
+        end
+
+        @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
+
+        return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
     end
-
-    # Construct global observational covariance matrix, original space
-    Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
-
-    # Scale by number of dimensions (averaging loss per dimension)
-    Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
-    # Construct global observational covariance matrix, PCA
-    Γ = cat(Γ_vec..., dims = (1, 2))
-    # Condition global covariance matrix, PCA
-    if tikhonov_mode == "relative"
-        @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
-        tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
-        Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
-    else
-        Γ = Γ + tikhonov_noise * I
-    end
-
-    @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
-
-    return ReferenceStatistics(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
 end
 
+"Returns dimensionality of the ReferenceStatistics in low-dimensional latent space"
 pca_length(RS::ReferenceStatistics) = length(RS.y)
+
+"Returns full dimensionality of the ReferenceStatistics, before latent space encoding"
 full_length(RS::ReferenceStatistics) = length(RS.y_full)
 
 """
@@ -152,14 +154,26 @@ full_length(RS::ReferenceStatistics) = length(RS.y_full)
         normalize::Bool;
         z_scm::Union{Vector{FT}, Nothing} = nothing,
     )
+    get_obs(
+        m::ReferenceModel,
+        y_type::Union{LES, SCM},
+        Σ_type::Union{LES, SCM},
+        normalize::Bool;
+        z_scm::Union{Vector{FT}, Nothing},
+    )
 
-Get observations for variables y_names, interpolated to
-z_scm (if given), and possibly normalized with respect to the pooled variance.
+Get observations for variables `y_names`, interpolated to
+`z_scm` (if given), and possibly normalized with respect to the pooled variance.
 
 Inputs:
- - `obs_type`     :: Either :les or :scm
  - `m`            :: Reference model
+ - `y_names`      :: Names of observed fields from the ReferenceModel `m`.
+ - `Σ_names`      :: Names of fields used to construct covariances, may be different than `y_names`
+    if there are LES/SCM name discrepancies.
+ - `normalize`    :: Whether to normalize the observations.
  - `z_scm`        :: If given, interpolate LES observations to given levels.
+ - `y_type`       :: ModelType used to construct observations, ::LES or ::SCM.
+ - `y_type`       :: ModelType used to construct noise covariances, ::LES or ::SCM.
 Outputs:
  - `y`            :: Mean of observations, possibly interpolated to z_scm levels.
  - `Σ`            :: Observational covariance matrix, possibly pool-normalized.
@@ -199,8 +213,8 @@ end
     obs_PCA(y_mean, y_var, allowed_var_loss = 1.0e-1)
 
 Perform dimensionality reduction using principal component analysis on
-the variance y_var. Only eigenvectors with eigenvalues that contribute
-to the leading 1-allowed_var_loss variance are retained.
+the variance `y_var`. Only eigenvectors with eigenvalues that contribute
+to the leading 1-`allowed_var_loss` variance are retained.
 Inputs:
 
  - `y_mean`           :: Mean of the observations.
@@ -247,25 +261,38 @@ end
 """
     get_profile(
         filename::String,
-        var_names::Vector{String};
+        y_names::Vector{String};
         ti::Real = 0.0,
         tf = nothing,
         z_scm::Union{Vector{FT}, Nothing} = nothing,
     )
+    get_profile(m::ReferenceModel, filename::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
+    get_profile(
+        m::ReferenceModel,
+        filename::String,
+        y_names::Vector{String};
+        z_scm::Union{Vector{T}, T} = nothing,
+    ) where {T}
 
-Get profiles for variables var_names, interpolated to
-z_scm (if given), and concatenated into a single output vector.
+Get time-averaged profiles for variables `y_names`, interpolated to
+`z_scm` (if given), and concatenated into a single output vector.
 
 Inputs:
- - `filename`  :: nc filename
- - `var_names`   :: Names of variables to be retrieved.
- - `z_scm` :: If given, interpolate LES observations to given levels.
+
+ - `filename`    :: nc filename
+ - `y_names`   :: Names of variables to be retrieved.
+ - `ti`          :: Initial time of averaging window.
+ - `tf`          :: Final time of averaging window.
+ - `z_scm`       :: If given, interpolate LES observations to given levels.
+ - `m`           :: ReferenceModel from which to fetch profiles, implicitly defines `ti` and `tf`. 
+
 Outputs:
+
  - `y` :: Output vector used in the inverse problem, which concatenates the requested profiles.
 """
 function get_profile(
     filename::String,
-    var_names::Vector{String};
+    y_names::Vector{String};
     ti::Real = 0.0,
     tf::Union{Real, Nothing} = nothing,
     z_scm::Union{Vector{T}, T} = nothing,
@@ -284,7 +311,7 @@ function get_profile(
             "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
             "Defaulting to penalized profiles...",
         )
-        for i in 1:length(var_names)
+        for i in 1:length(y_names)
             var_ = isnothing(z_scm) ? get_height(filename) : z_scm
             append!(y, 1.0e5 * ones(length(var_[:])))
         end
@@ -298,7 +325,7 @@ function get_profile(
                 "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
                 "Defaulting to penalized profiles...",
             )
-            for i in 1:length(var_names)
+            for i in 1:length(y_names)
                 var_ = isnothing(z_scm) ? get_height(filename) : z_scm
                 append!(y, 1.0e5 * ones(length(var_[:])))
             end
@@ -307,7 +334,7 @@ function get_profile(
     end
 
     # Return time average for non-degenerate cases
-    for var_name in var_names
+    for var_name in y_names
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
         append!(y, var_mean)
@@ -319,7 +346,6 @@ function get_profile(m::ReferenceModel, filename::String; z_scm::Union{Vector{T}
     get_profile(m, filename, m.y_names, z_scm = z_scm)
 end
 
-
 function get_profile(
     m::ReferenceModel,
     filename::String,
@@ -330,17 +356,17 @@ function get_profile(
 end
 
 """
-    get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
+    get_time_covariance(m::ReferenceModel, y_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
 
 Inputs:
  - `m`            :: Reference model.
- - `var_names`    :: List of variable names to be included.
+ - `y_names`    :: List of variable names to be included.
  - `z_scm`        :: If given, interpolates covariance matrix to this locations.
 """
-function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
+function get_time_covariance(m::ReferenceModel, y_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
     # Find closest interval in data
@@ -348,10 +374,10 @@ function get_time_covariance(m::ReferenceModel, var_names::Vector{String}; z_scm
     tf_index = argmin(broadcast(abs, t .- get_t_end_Σ(m)))
     N_samples = length(ti_index:tf_index)
     ts_vec = zeros(0, N_samples)
-    num_outputs = length(var_names)
+    num_outputs = length(y_names)
     pool_var = zeros(num_outputs)
 
-    for (i, var_name) in enumerate(var_names)
+    for (i, var_name) in enumerate(y_names)
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         # Store pooled variance
         pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
