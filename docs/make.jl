@@ -21,6 +21,7 @@ api = [
 
 pages = Any[
     "Home" => "index.md",
+    "Getting started" => "getting_started.md",
     "API" => api,
     "References" => "References.md",
 ]
