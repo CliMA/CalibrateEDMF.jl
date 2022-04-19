@@ -8,6 +8,7 @@ module KalmanProcessUtils
 using LinearAlgebra
 using Statistics
 using JLD2
+using DocStringExtensions
 using EnsembleKalmanProcesses
 import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler, SparseInversion
 import EnsembleKalmanProcesses: SampleSuccGauss, IgnoreFailures
@@ -23,7 +24,50 @@ using ..DistributionUtils
 
 export generate_ekp, generate_tekp
 export get_sparse_indices, get_regularized_indices
+export get_Δt, PiecewiseConstantDecay, PiecewiseConstantGrowth
 
+abstract type LearningRateScheduler end
+
+"""
+    PiecewiseConstantDecay{FT <: Real, IT <: Int} <: LearningRateScheduler
+
+Piecewise constant decay learning rate scheduler.
+
+Halves the time step periodically with period `τ`.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
+struct PiecewiseConstantDecay{FT <: Real, IT <: Int} <: LearningRateScheduler
+    "Initial learning rate"
+    Δt_init::FT
+    "Halving time"
+    τ::IT
+end
+
+"""
+    PiecewiseConstantGrowth{FT <: Real, IT <: Int} <: LearningRateScheduler
+
+Piecewise constant growth learning rate scheduler.
+
+Doubles the time step periodically with period `τ`.
+
+# Fields
+
+$(TYPEDFIELDS)
+"""
+struct PiecewiseConstantGrowth{FT <: Real, IT <: Int} <: LearningRateScheduler
+    "Initial learning rate"
+    Δt_init::FT
+    "Doubling time"
+    τ::IT
+end
+
+"Retrieve learning rate `Δt` from a LearningRateScheduler"
+get_Δt(Δt::FT, iteration::IT) where {FT <: Real, IT <: Int} = Δt
+get_Δt(lrs::PiecewiseConstantDecay, iteration::IT) where {IT <: Int} = lrs.Δt_init * 2^(-floor(iteration / lrs.τ))
+get_Δt(lrs::PiecewiseConstantGrowth, iteration::IT) where {IT <: Int} = lrs.Δt_init * 2^(floor(iteration / lrs.τ))
 
 """
     generate_ekp(

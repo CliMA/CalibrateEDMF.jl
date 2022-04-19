@@ -5,6 +5,9 @@ CurrentModule = CalibrateEDMF.KalmanProcessUtils
 ```
 
 ```@docs
+PiecewiseConstantDecay
+PiecewiseConstantGrowth
+get_Δt
 generate_ekp
 generate_tekp
 get_sparse_indices

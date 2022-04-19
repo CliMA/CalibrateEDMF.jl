@@ -7,6 +7,7 @@ using CalibrateEDMF
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.KalmanProcessUtils
 # Import prior constraints
 using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
@@ -70,7 +71,7 @@ function get_process_config()
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     config["noisy_obs"] = false
     # Artificial time stepper of the EKI.
-    config["Δt"] = 1.0
+    config["Δt"] = PiecewiseConstantDecay(1.0, 5)
     # Whether to augment the outputs with the parameters for regularization
     config["augmented"] = true
     config["failure_handler"] = "sample_succ_gauss"

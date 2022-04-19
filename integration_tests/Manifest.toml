@@ -120,9 +120,9 @@ version = "0.4.1"
 
 [[deps.CFTime]]
 deps = ["Dates", "Printf"]
-git-tree-sha1 = "bca6cb6ee746e6485ca4535f6cc29cf3579a0f20"
+git-tree-sha1 = "ed2e76c1c3c43fd9d0cb9248674620b29d71f2d1"
 uuid = "179af706-886a-5703-950a-314cd64e0468"
-version = "0.1.1"
+version = "0.1.2"
 
 [[deps.CLIMAParameters]]
 deps = ["Test"]
