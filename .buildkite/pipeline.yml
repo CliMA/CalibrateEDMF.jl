@@ -124,6 +124,14 @@ steps:
       config: cpu
       queue: central
 
+  - label: "KalmanProcessUtils"
+    key: "cpu_kalmanutils"
+    command:
+      - "julia --color=yes --project test/KalmanProcessUtils/runtests.jl"
+    agents:
+      config: cpu
+      queue: central
+
   - label: "TurbulenceConvectionUtils"
     key: "cpu_turbulenceconvectionutils"
     command:

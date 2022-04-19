@@ -52,7 +52,10 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     N_ens = proc_config["N_ens"]
     N_iter = proc_config["N_iter"]
     algo_name = get_entry(proc_config, "algorithm", "Inversion")
-    Δt = get_entry(proc_config, "Δt", 1.0)
+
+    Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
+    Δt = get_Δt(Δt_scheduler, 1)
+
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
 
@@ -266,7 +269,7 @@ function create_output_dir(
     suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
+        "results_$(algo_name)_dt_$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
@@ -414,7 +417,10 @@ function ek_update(
     proc_config = config["process"]
     N_iter = proc_config["N_iter"]
     algo_name = get_entry(proc_config, "algorithm", "Inversion")
-    Δt = get_entry(proc_config, "Δt", 1.0)
+
+    Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
+    Δt = get_Δt(Δt_scheduler, iteration)
+
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
     augmented = get_entry(proc_config, "augmented", false)
 
@@ -443,6 +449,7 @@ function ek_update(
     elseif isa(ekobj.process, Unscented)
         update_ensemble!(ekobj, g, Δt_new = Δt)
     else
+        Δt ≈ 1.0 ? nothing : @warn "Ensemble Kalman Sampler does not accept a custom Δt."
         update_ensemble!(ekobj, g)
     end
 
