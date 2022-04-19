@@ -33,6 +33,10 @@ a forward model evaluation at a given parameter vector.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 Base.@kwdef struct ModelEvaluator{FT <: Real}
     "Parameter vector in constrained (i.e. physical) space"
