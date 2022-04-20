@@ -23,4 +23,5 @@ io_dictionary_prior
 get_ϕ_cov
 get_metric_var
 get_mean_nearest_neighbor
+compute_ensemble_loss
 ```

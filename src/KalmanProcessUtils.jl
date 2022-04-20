@@ -38,6 +38,10 @@ Halves the time step periodically with period `τ`.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct PiecewiseConstantDecay{FT <: Real, IT <: Int} <: LearningRateScheduler
     "Initial learning rate"
@@ -56,6 +60,10 @@ Doubles the time step periodically with period `τ`.
 # Fields
 
 $(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
 """
 struct PiecewiseConstantGrowth{FT <: Real, IT <: Int} <: LearningRateScheduler
     "Initial learning rate"
