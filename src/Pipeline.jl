@@ -454,7 +454,10 @@ function ek_update(
     end
 
     # Diagnostics IO
-    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, versions, val_config, batch_indices)
+    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, versions, batch_indices)
+    if !isnothing(val_config)
+        update_val_diagnostics(outdir_path, ekobj, priors, versions, augmented, l2_reg)
+    end
 
     if iteration < N_iter
         # Prepare updated EKP and ReferenceModelBatch if minibatching.
@@ -646,17 +649,18 @@ function restart_validation(
 end
 
 """
-    get_ensemble_g_eval(outdir_path::String, versions::Vector{String})
+    get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
 
 Recovers forward model evaluations from the particle ensemble stored in jld2 files,
 after which the files are deleted from disk.
 
 Inputs:
- - outdir_path  :: Path to output directory.
- - versions     :: Version identifiers of the files containing forward model evaluations.
+ - `outdir_path`  :: Path to output directory.
+ - `versions`     :: Version identifiers of the files containing forward model evaluations.
+ - `validation`   :: Whether the function should return training or validation forward model evaluations.
 Outputs:
- - g            :: Forward model evaluations in the reduced space of the inverse problem.
- - g_full       :: Forward model evaluations in the original physical space.
+ - `g`            :: Forward model evaluations in the reduced space of the inverse problem.
+ - `g_full`       :: Forward model evaluations in the original physical space.
 """
 function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
     # Find train/validation path
@@ -681,7 +685,8 @@ end
         outdir_path::String,
         versions::Vector{String},
         priors::ParameterDistribution,
-        l2_reg::Union{Dict{String, Vector{R}}, R},
+        l2_reg::Union{Dict{String, Vector{R}}, R};
+        validation::Bool = false,
     ) where {R}
 
 Recovers forward model evaluations from the particle ensemble stored in jld2 files,
@@ -689,23 +694,25 @@ and augments the projected output state with the input parameters in unconstrain
 to enable regularization.
 
 Inputs:
- - outdir_path  :: Path to output directory.
- - versions     :: Version identifiers of the files containing forward model evaluations.
- - priors       :: Parameter priors, used to transform between constrained and unconstrained spaces.
- - l2_reg       :: The config entry specifying l2 regularization.
+ - `outdir_path`  :: Path to output directory.
+ - `versions`     :: Version identifiers of the files containing forward model evaluations.
+ - `priors`       :: Parameter priors, used to transform between constrained and unconstrained spaces.
+ - `l2_reg`      :: The config entry specifying l2 regularization.
+ - `validation`   :: Whether the function should return training or validation forward model evaluations.
 Outputs:
- - g_aug        :: Forward model evaluations in the reduced space of the inverse problem, augmented with
+ - `g_aug`        :: Forward model evaluations in the reduced space of the inverse problem, augmented with
                     the unconstrained input parameters.
- - g_full       :: Forward model evaluations in the original physical space.
+ - `g_full`       :: Forward model evaluations in the original physical space.
 """
 function get_ensemble_g_eval_aug(
     outdir_path::String,
     versions::Vector{String},
     priors::ParameterDistribution,
-    l2_reg::Union{Dict{String, Vector{R}}, R},
+    l2_reg::Union{Dict{String, Vector{R}}, R};
+    validation::Bool = false,
 ) where {R}
     # Find train/validation path
-    scm_path(x) = scm_output_path(outdir_path, x)
+    scm_path(x) = validation ? scm_val_output_path(outdir_path, x) : scm_output_path(outdir_path, x)
     # Get array sizes with first file
     scm_outputs = load(scm_path(first(versions)))
 
@@ -972,13 +979,9 @@ function update_diagnostics(
     ref_stats::ReferenceStatistics,
     g_full::Array{FT, 2},
     versions::Union{Vector{Int}, Vector{String}},
-    val_config::Union{Dict{Any, Any}, Nothing} = nothing,
     batch_indices::Union{Vector{Int}, Nothing} = nothing,
 ) where {FT <: Real}
 
-    if !isnothing(val_config)
-        update_val_diagnostics(outdir_path, ekp, versions)
-    end
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
 
@@ -988,18 +991,25 @@ end
 function update_val_diagnostics(
     outdir_path::String,
     ekp::EnsembleKalmanProcess,
+    priors::ParameterDistribution,
     versions::Union{Vector{Int}, Vector{String}},
+    augmented::Bool,
+    l2_reg,
 ) where {FT <: Real}
     scm_args = load(scm_val_output_path(outdir_path, versions[1]))
     mod_evaluator = scm_args["model_evaluator"]
     val_batch_indices = scm_args["batch_indices"]
-    ref_stats = mod_evaluator.ref_stats
-    g, g_full = get_ensemble_g_eval(outdir_path, versions, validation = true)
+    val_ref_stats = mod_evaluator.ref_stats
+    if augmented
+        g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors, l2_reg, validation = true)
+    else
+        g, g_full = get_ensemble_g_eval(outdir_path, versions, validation = true)
+    end
     # Compute diagnostics
-    mse_full = compute_mse(g_full, ref_stats.y_full)
+    mse_full = compute_mse(g_full, val_ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
 
-    io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_batch_indices)
+    io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_ref_stats, val_batch_indices)
 end
 
 end # module
