@@ -9,5 +9,6 @@
 module load julia/1.7.0
 
 julia --project .dev/up_deps.jl
+julia --project=.dev .dev/climaformat.jl .
 
 echo "Dependencies of all manifests updated."
