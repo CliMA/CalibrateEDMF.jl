@@ -270,7 +270,7 @@ Errors computed in normalized physical (i.e., full) space are denoted `mse_full`
 these two metrics include:
  - Covariance matrix defining the inner product (covariance weighting in `loss` vs L2 norm in `mse_full`),
  - Treatment of trailing eigenvalues (truncation and regularization vs considering all eigenmodes).
- - The current implementation of `loss` does not filter out `NaN`s, but `mse_full` does.
+ - The `loss` includes the L2 penalty term, `mse_full` does not.
 
 Elements:
 
@@ -355,8 +355,20 @@ end
 
 Dictionary of scalar validation metrics.
 
+Evaluations of the data-model mismatch in inverse problem (i.e., latent) space are denoted `loss`.
+Errors computed in normalized physical (i.e., full) space are denoted `mse_full`. Differences between
+these two metrics include:
+ - Covariance matrix defining the inner product (covariance weighting in `loss` vs L2 norm in `mse_full`),
+ - Treatment of trailing eigenvalues (truncation and regularization vs considering all eigenmodes).
+ - The `loss` includes the L2 penalty term, `mse_full` does not.
+ 
 Elements:
 
+ - `val_loss_mean` :: Ensemble mean of validation `(g - y)'Γ_inv(g - y)`.
+ - `val_loss_min` :: Ensemble min of validation `(g - y)'Γ_inv(g - y)`.
+ - `val_loss_max` :: Ensemble max of validation `(g - y)'Γ_inv(g - y)`.
+ - `val_loss_var` :: Variance estimate of validation `(g - y)'Γ_inv(g - y)`, empirical (EKI/EKS) or quadrature (UKI).
+ - `val_loss_nn_mean` :: Validation `(g_nn - y)'Γ_inv(nn - y)`, where `g_nn` is the validation forward model output at the particle closest to the mean in parameter space.
  - `val_mse_full_mean` :: Ensemble mean of MSE(`g_full_val`, `y_full_val`).
  - `val_mse_full_min` :: Ensemble min of MSE(`g_full_val`, `y_full_val`).
  - `val_mse_full_max` :: Ensemble max of MSE(`g_full_val`, `y_full_val`).
@@ -365,6 +377,11 @@ Elements:
 """
 function io_dictionary_val_metrics()
     io_dict = Dict(
+        "val_loss_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_loss_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_loss_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_loss_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
+        "val_loss_nn_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_min" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "val_mse_full_max" => (; dims = ("iteration",), group = "metrics", type = Float64),
@@ -373,25 +390,57 @@ function io_dictionary_val_metrics()
     )
     return io_dict
 end
-function io_dictionary_val_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+function io_dictionary_val_metrics(
+    ekp::EnsembleKalmanProcess,
+    val_ref_stats::ReferenceStatistics,
+    g_val::Matrix{FT},
+    val_mse_full::Vector{FT},
+) where {FT <: Real}
     orig_dict = io_dictionary_val_metrics()
 
-    # Failure-safe variance
-    mse_full_var = get_metric_var(ekp, mse_full)
-
-    # Get mse at nearest_to_mean point
+    # Get nearest_to_mean point
     nn_mean = get_mean_nearest_neighbor(ekp)
-    mse_full_nn_mean = mse_full[nn_mean]
 
-    # Filter NaNs for statistics
-    mse_filt = filter(!isnan, mse_full)
+    # Failure-safe variance
+    val_mse_full_var = get_metric_var(ekp, val_mse_full)
+    # Get mse at nearest_to_mean point
+    val_mse_full_nn_mean = val_mse_full[nn_mean]
+
+    # Get loss (latent space), augmenting val_ref_stats if necessary
+    d_aug = size(g_val, 1)
+    d = length(val_ref_stats.y)
+    if d_aug > d
+        y_val = zeros(d_aug)
+        y_val[1:d] = val_ref_stats.y
+        y_val[(d + 1):d_aug] = ekp.obs_mean[(end - d_aug + d + 1):end]
+        Γ_θ = ekp.obs_noise_cov[(end - d_aug + d + 1):end, (end - d_aug + d + 1):end]
+        Γ_val = cat([val_ref_stats.Γ, Γ_θ]..., dims = (1, 2))
+    else
+        y_val = val_ref_stats.y
+        Γ_val = val_ref_stats.Γ
+    end
+
+    val_loss = compute_ensemble_loss(g_val, y_val, Γ_val)
+    # Failure-safe variance
+    val_loss_var = get_metric_var(ekp, val_loss)
+    # Get loss at nearest_to_mean point
+    val_loss_nn_mean = val_loss[nn_mean]
+
+    # Filter NaNs
+    val_loss_filt = filter(!isnan, val_loss)
+    val_mse_filt = filter(!isnan, val_mse_full)
 
     io_dict = Dict(
-        "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(mse_filt), :field),
-        "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(mse_filt), :field),
-        "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(mse_filt), :field),
-        "val_mse_full_var" => Base.setindex(orig_dict["val_mse_full_var"], mse_full_var, :field),
-        "val_mse_full_nn_mean" => Base.setindex(orig_dict["val_mse_full_nn_mean"], mse_full_nn_mean, :field),
+        "val_loss_mean" => Base.setindex(orig_dict["val_loss_mean"], mean(val_loss_filt), :field),
+        "val_loss_min" => Base.setindex(orig_dict["val_loss_min"], minimum(val_loss_filt), :field),
+        "val_loss_max" => Base.setindex(orig_dict["val_loss_max"], maximum(val_loss_filt), :field),
+        "val_loss_var" => Base.setindex(orig_dict["val_loss_var"], val_loss_var, :field),
+        "val_loss_nn_mean" => Base.setindex(orig_dict["val_loss_nn_mean"], val_loss_nn_mean, :field),
+        "val_mse_full_mean" => Base.setindex(orig_dict["val_mse_full_mean"], mean(val_mse_filt), :field),
+        "val_mse_full_min" => Base.setindex(orig_dict["val_mse_full_min"], minimum(val_mse_filt), :field),
+        "val_mse_full_max" => Base.setindex(orig_dict["val_mse_full_max"], maximum(val_mse_filt), :field),
+        "val_mse_full_var" => Base.setindex(orig_dict["val_mse_full_var"], val_mse_full_var, :field),
+        "val_mse_full_nn_mean" => Base.setindex(orig_dict["val_mse_full_nn_mean"], val_mse_full_nn_mean, :field),
     )
     return io_dict
 end
@@ -503,7 +552,7 @@ Elements:
 """
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
-        "val_g" => (; dims = ("particle", "out_val", "iteration"), group = "particle_diags", type = Float64),
+        "val_g" => (; dims = ("particle", "out_aug_val", "iteration"), group = "particle_diags", type = Float64),
         "val_g_full" => (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
@@ -514,7 +563,7 @@ function io_dictionary_val_particle_eval(
     g::Matrix{FT},
     g_full::Matrix{FT},
     mse_full::Vector{FT},
-    d::IT,
+    d_aug::IT,
     d_full::IT,
     batch_indices::Vector{IT},
 ) where {FT <: Real, IT <: Integer}
@@ -522,7 +571,7 @@ function io_dictionary_val_particle_eval(
 
     d_batch, N_ens = size(g)
     # Fill "g" array with zeros and modify leading rows with possibly batched `g`
-    g_filled = zeros(d, N_ens)
+    g_filled = zeros(d_aug, N_ens)
     g_filled[1:d_batch, :] = g
     # Fill "g_full" array with zeros and modify leading rows with possibly batched `g`
     d_full_batch = size(g_full, 1)
@@ -689,19 +738,31 @@ function get_mean_nearest_neighbor(ekp::EnsembleKalmanProcess)
 end
 
 """
+    compute_ensemble_loss(
+        g::AbstractMatrix{FT},
+        y::AbstractVector{FT},
+        Γ::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+    ) where {FT <: Real}
     compute_ensemble_loss(ekp::EnsembleKalmanProcess)
 
 Computes the covariance-weighted error `(g - y)'Γ_inv(g - y)` for each ensemble member.
 """
-function compute_ensemble_loss(ekp::EnsembleKalmanProcess)
-    g = get_g_final(ekp)
-    diff = g .- ekp.obs_mean # [d, N_ens]
+function compute_ensemble_loss(
+    g::AbstractMatrix{FT},
+    y::AbstractVector{FT},
+    Γ::Union{AbstractMatrix{FT}, UniformScaling{FT}},
+) where {FT <: Real}
+    diff = g .- y # [d, N_ens]
     loss = zeros(size(g, 2)) # [N_ens, 1]
     for i in 1:size(g, 2)
-        Γ_inv_diff = ekp.obs_noise_cov \ diff[:, i] # [d, 1]
+        Γ_inv_diff = Γ \ diff[:, i] # [d, 1]
         loss[i] = dot(diff[:, i], Γ_inv_diff)
     end
     return loss
+end
+function compute_ensemble_loss(ekp::EnsembleKalmanProcess)
+    g = get_g_final(ekp)
+    return compute_ensemble_loss(g, ekp.obs_mean, ekp.obs_noise_cov)
 end
 
 end # module
