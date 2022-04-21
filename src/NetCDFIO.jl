@@ -137,15 +137,6 @@ mutable struct NetCDFIO_Diags
                 field_val = Array(1:f_val)
                 batch_index_val = Array(1:batch_size_val)
 
-                NC.defDim(particle_grp, "out_full_val", d_full_val)
-                NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
-                NC.defDim(particle_grp, "out_val", d_val)
-                NC.defVar(particle_grp, "out_val", out_val, ("out_val",))
-                NC.defDim(particle_grp, "batch_index_val", batch_size_val)
-                NC.defVar(particle_grp, "batch_index_val", batch_index_val, ("batch_index_val",))
-                NC.defDim(particle_grp, "config_val", C_val)
-                NC.defVar(particle_grp, "config_val", configuration_val, ("config_val",))
-
                 NC.defDim(reference_grp, "out_full_val", d_full_val)
                 NC.defVar(reference_grp, "out_full_val", out_full_val, ("out_full_val",))
                 NC.defDim(reference_grp, "out_val", d_val)
@@ -154,6 +145,19 @@ mutable struct NetCDFIO_Diags
                 NC.defVar(reference_grp, "config_val", configuration_val, ("config_val",))
                 NC.defDim(reference_grp, "config_field_val", f_val)
                 NC.defVar(reference_grp, "config_field_val", field_val, ("config_field_val",))
+
+                if augmented
+                    d_val = d_val + p
+                end
+
+                NC.defDim(particle_grp, "out_full_val", d_full_val)
+                NC.defVar(particle_grp, "out_full_val", out_full_val, ("out_full_val",))
+                NC.defDim(particle_grp, "out_aug_val", d_val)
+                NC.defVar(particle_grp, "out_aug_val", Array(1:d_val), ("out_aug_val",))
+                NC.defDim(particle_grp, "batch_index_val", batch_size_val)
+                NC.defVar(particle_grp, "batch_index_val", batch_index_val, ("batch_index_val",))
+                NC.defDim(particle_grp, "config_val", C_val)
+                NC.defVar(particle_grp, "config_val", configuration_val, ("config_val",))
 
             end
 
@@ -339,8 +343,14 @@ function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full:
     write_current_dict(diags, io_dict)
 end
 
-function io_val_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
-    io_dict = io_dictionary_val_metrics(ekp, mse_full)
+function io_val_metrics(
+    diags::NetCDFIO_Diags,
+    ekp::EnsembleKalmanProcess,
+    val_ref_stats::ReferenceStatistics,
+    g_val::Matrix{FT},
+    val_mse_full::Vector{FT},
+) where {FT <: Real}
+    io_dict = io_dictionary_val_metrics(ekp, val_ref_stats, g_val, val_mse_full)
     write_current_dict(diags, io_dict)
 end
 
@@ -357,13 +367,13 @@ function io_val_particle_diags(
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     # Dimension of the outputs
-    d_val = length(diags.particle_grp["out_val"])
+    d_aug_val = length(diags.particle_grp["out_aug_val"])
     d_full_val = length(diags.particle_grp["out_full_val"])
     # If not minibatching - training set size
     batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config_val"]) : batch_indices
 
     # Write eval diagnostics to file
-    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, d_val, d_full_val, batch_indices)
+    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, d_aug_val, d_full_val, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -416,14 +426,15 @@ end
 function io_val_diagnostics(
     diags::NetCDFIO_Diags,
     ekp::EnsembleKalmanProcess,
-    mse_full::Vector{FT},
-    g::Matrix{FT},
-    g_full::Matrix{FT},
-    batch_indices::Union{Vector{Int}, Nothing},
+    mse_full_val::Vector{FT},
+    g_val::Matrix{FT},
+    g_full_val::Matrix{FT},
+    val_ref_stats::ReferenceStatistics,
+    val_batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     open_files(diags)
-    io_val_metrics(diags, ekp, mse_full)
-    io_val_particle_diags(diags, mse_full, g, g_full, batch_indices)
+    io_val_metrics(diags, ekp, val_ref_stats, g_val, mse_full_val)
+    io_val_particle_diags(diags, mse_full_val, g_val, g_full_val, val_batch_indices)
     close_files(diags)
 end
 
