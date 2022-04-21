@@ -209,9 +209,9 @@ version = "0.1.6"
 
 [[deps.CloudMicrophysics]]
 deps = ["CLIMAParameters", "DocStringExtensions", "SpecialFunctions", "Thermodynamics"]
-git-tree-sha1 = "f349c11d71a056a7d39533cdd60e32120d808af2"
+git-tree-sha1 = "25d3f2d97cfae8b2326a7bb2f37fb274d2df0a73"
 uuid = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
-version = "0.3.3"
+version = "0.4.0"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -1277,9 +1277,9 @@ version = "0.1.4"
 
 [[deps.Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -1563,9 +1563,9 @@ uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
 
 [[deps.SurfaceFluxes]]
 deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "RootSolvers", "StaticArrays", "Thermodynamics"]
-git-tree-sha1 = "f35280db7298fd7123d5a6a4dfcbe3705ec01688"
+git-tree-sha1 = "247b54b48c6ec8b68a6c1a6ca5ba014ea979522b"
 uuid = "49b00bb7-8bd4-4f2b-b78c-51cd0450215f"
-version = "0.2.4"
+version = "0.3.0"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1610,9 +1610,9 @@ version = "1.0.1"
 
 [[deps.Thermodynamics]]
 deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
-git-tree-sha1 = "f7ac397969443f08957a7beccd7376925905c882"
+git-tree-sha1 = "6510c44c31341a532714efd638c7015ea1dd83e3"
 uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
-version = "0.5.11"
+version = "0.7.0"
 
 [[deps.ThreadingUtilities]]
 deps = ["ManualMemory"]
@@ -1652,9 +1652,9 @@ version = "0.3.4"
 
 [[deps.TurbulenceConvection]]
 deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "05d0b7018975563858d31783898645a2acd14953"
+git-tree-sha1 = "6b825852dbd24152659f32b324e2279010b26aca"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.19.0"
+version = "0.20.0"
 
 [[deps.URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
