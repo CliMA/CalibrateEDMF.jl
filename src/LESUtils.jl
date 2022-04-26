@@ -20,13 +20,15 @@ function get_LES_library()
     LES_library = Dict("HadGEM2-A" => Dict(), "CNRM-CM5" => Dict(), "CNRM-CM6-1" => Dict())
     Shen_et_al_sites = collect(2:15)
     append!(Shen_et_al_sites, collect(17:23))
+    Shen_et_al_deep_convection_sites = (collect(30:33)..., collect(66:70)..., 82, 92, 94, 96, 99, 100)
+    append!(Shen_et_al_sites, Shen_et_al_deep_convection_sites)
 
     LES_library["HadGEM2-A"]["10"] = Dict()
-    LES_library["HadGEM2-A"]["10"]["cfsite_numbers"] = Shen_et_al_sites
+    LES_library["HadGEM2-A"]["10"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [94, 100])
     LES_library["HadGEM2-A"]["07"] = Dict()
     LES_library["HadGEM2-A"]["07"]["cfsite_numbers"] = Shen_et_al_sites
     LES_library["HadGEM2-A"]["04"] = Dict()
-    LES_library["HadGEM2-A"]["04"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18])
+    LES_library["HadGEM2-A"]["04"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18, 32, 92, 94])
     LES_library["HadGEM2-A"]["01"] = Dict()
     LES_library["HadGEM2-A"]["01"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18, 19, 20])
 
