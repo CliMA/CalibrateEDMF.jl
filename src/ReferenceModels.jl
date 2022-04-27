@@ -218,9 +218,8 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
     @assert Σ_t_start >= 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
     @info string(
         "Shifting time windows for ReferenceModel $(m.case_name)",
-        "to ty=($t_start, $t_end), tΣ=($Σ_t_start, $t_end).",
+        "to ty=($t_start, $t_end), tΣ=($Σ_t_start, $Σ_t_end).",
     )
-
     return ReferenceModel(
         m.y_names,
         m.y_dir,

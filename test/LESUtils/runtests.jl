@@ -28,7 +28,7 @@ using CalibrateEDMF.LESUtils
 
     @testset "cfSite_getter" begin
         @test isa(get_cfsite_les_dir(2), String)
-        @test_throws AssertionError get_cfsite_les_dir(30)
+        @test_throws AssertionError get_cfsite_les_dir(75)
         @test_throws AssertionError get_cfsite_les_dir(2, forcing_model = "foo")
     end
 
