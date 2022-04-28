@@ -12,5 +12,10 @@ module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1
 config=${1?Error: no config file given}
 job_id=${2?Error: no job ID given}
 
-julia --project -JCEDMF.so init.jl --config $config --job_id $job_id
+julia --project -C skylake-avx512 -JCEDMF.so init.jl --config $config --job_id $job_id && (
+  echo sysimage loaded successfully
+) || (
+  julia --project init.jl --config $config --job_id $job_id
+)
+
 echo 'Ensemble initialized for calibration.'

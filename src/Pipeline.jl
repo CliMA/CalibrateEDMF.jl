@@ -454,10 +454,10 @@ function ek_update(
     end
 
     # Diagnostics IO
-    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, versions, batch_indices)
     if !isnothing(val_config)
         update_val_diagnostics(outdir_path, ekobj, priors, versions, augmented, l2_reg)
     end
+    update_diagnostics(outdir_path, ekobj, priors, ref_stats, g_full, versions, batch_indices)
 
     if iteration < N_iter
         # Prepare updated EKP and ReferenceModelBatch if minibatching.
