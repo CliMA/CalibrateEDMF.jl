@@ -17,7 +17,7 @@ Given path to Diagnostics.nc file, return optimal parameter set across all itera
 Inputs: 
  - `ds_path`: path to Diagnostics.nc file
  - `method`: method for computing optimal parameters. Returns parameters of:
-        "best_particle" - particle with lowest mse in training (`metric` = "mse_full") or validation (`metric` = "mse_full_val") set.
+        "best_particle" - particle with lowest mse in training (`metric` = "mse_full") or validation (`metric` = "val_mse_full") set.
         "best_nn_particle_mean" - particle nearest to ensemble mean for the iteration with lowest mse.
  - `metric` : mse metric to find the minimum of {"mse_full", "val_mse_full"}.
 Returns: 
@@ -35,7 +35,9 @@ function optimal_parameters(ds_path::String; method::String = "best_nn_particle_
 
     if method == "best_nn_particle_mean"
         optimal = NCDataset(ds_path) do ds
-            mse_min_i = argmin(ds.group["metrics"][string(metric, "_nn_mean")][:])
+            mse_arr = ds.group["metrics"][string(metric, "_nn_mean")][:]
+            replace!(mse_arr, NaN => Inf)
+            mse_min_i = argmin(mse_arr)
             nn_mean_index = ds.group["metrics"]["nn_mean_index"][mse_min_i]
             u = ds.group["particle_diags"]["phi"][nn_mean_index, :, mse_min_i] # (n_particles, n_params, n_iterations)
             u_names = ds.group["ensemble_diags"]["param"][:]
@@ -81,7 +83,9 @@ function optimal_mse(ds_path::String; method::String = "best_nn_particle_mean", 
 
     if method == "best_nn_particle_mean"
         optimal = NCDataset(ds_path) do ds
-            mse_min_i = argmin(ds.group["metrics"][string(metric, "_nn_mean")][:])
+            mse_arr = ds.group["metrics"][string(metric, "_nn_mean")][:]
+            replace!(mse_arr, NaN => Inf)
+            mse_min_i = argmin(mse_arr)
             mse_train = ds.group["metrics"]["mse_full_nn_mean"][mse_min_i]
             # if val dataset provided, return val mse
             if ("val_mse_full_nn_mean" in keys(ds.group["metrics"]))
