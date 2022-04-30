@@ -78,8 +78,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         @info "Training using mini-batches."
         ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
         global_ref_models = deepcopy(ref_model_batch.ref_models)
-        # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
         ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
@@ -88,8 +86,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         io_ref_models = global_ref_models
     else
         ref_models = construct_reference_models(kwargs_ref_model)
-        # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
         io_ref_stats = ref_stats
         io_ref_models = ref_models
@@ -298,13 +294,11 @@ function init_validation(
     if !isnothing(batch_size)
         @info "Validation using mini-batches."
         ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
-        run_reference_SCM.(ref_model_batch.ref_models, overwrite = overwrite, namelist_args = namelist_args)
         ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         write_val_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
     else
         ref_models = construct_reference_models(kwargs_ref_model)
-        run_reference_SCM.(ref_models, overwrite = overwrite, namelist_args = namelist_args)
         batch_indices = nothing
     end
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
@@ -543,8 +537,6 @@ function restart_calibration(
     if !isnothing(batch_size)
         ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
         global_ref_models = deepcopy(ref_model_batch.ref_models)
-        # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(global_ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
         ekp, ref_models, ref_stats, ref_model_batch, batch_indices =
             update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
         rm(joinpath(outdir_path, "ref_model_batch.jld2"))
@@ -552,8 +544,6 @@ function restart_calibration(
     else
         ekp = ekobj
         ref_models = construct_reference_models(kwargs_ref_model)
-        # Create input scm stats and namelist file if files don't already exist
-        run_reference_SCM.(ref_models, overwrite = overwrite_scm_file, namelist_args = namelist_args)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
         batch_indices = nothing
     end
@@ -624,14 +614,12 @@ function restart_validation(
 
     if !isnothing(batch_size)
         ref_model_batch = load(joinpath(outdir_path, "val_ref_model_batch.jld2"))["ref_model_batch"]
-        run_reference_SCM.(ref_model_batch.ref_models, overwrite = overwrite, namelist_args = namelist_args)
         ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         rm(joinpath(outdir_path, "val_ref_model_batch.jld2"))
         write_val_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
     else
         ref_models = construct_reference_models(kwargs_ref_model)
-        run_reference_SCM.(ref_models, overwrite = overwrite, namelist_args = namelist_args)
         batch_indices = nothing
     end
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)

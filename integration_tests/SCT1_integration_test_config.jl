@@ -19,6 +19,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
 struct SCT1Train end
 struct SCT1Val end
 
+namelist_args = [
+    ("time_stepping", "dt_min", 1.0),
+    ("time_stepping", "dt_max", 2.0),
+    ("stats_io", "frequency", 60.0),
+    ("stats_io", "calibrate_io", true),
+    ("grid", "nz", 50),
+]
+
 function get_config()
     config = Dict()
     # Flags for saving output data
@@ -106,6 +114,7 @@ function get_reference_config(::SCT1Train)
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
     config["write_full_stats"] = false
+    config["namelist_args"] = repeat([namelist_args], n_repeat)
     return config
 end
 
@@ -134,6 +143,7 @@ function get_reference_config(::SCT1Val)
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
     config["write_full_stats"] = false
+    config["namelist_args"] = repeat([namelist_args], n_repeat)
     return config
 end
 
@@ -158,12 +168,6 @@ end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] = [
-        ("time_stepping", "dt_min", 1.0),
-        ("time_stepping", "dt_max", 2.0),
-        ("stats_io", "frequency", 60.0),
-        ("stats_io", "calibrate_io", true),
-        ("grid", "nz", 80),
-    ]
+    config["namelist_args"] = nothing
     return config
 end

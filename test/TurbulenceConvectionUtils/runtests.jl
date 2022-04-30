@@ -8,6 +8,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
+import CalibrateEDMF.ReferenceModels: NameList
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
@@ -37,6 +38,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             ("grid", "nz", 20),
             ("stats_io", "frequency", 720.0),
         ]
+
         kwargs_ref_model = Dict(
             :y_names => [["u_mean", "v_mean"]],
             :y_dir => scm_dirs,
@@ -46,13 +48,10 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             :t_end => [t_max],
             :Σ_t_start => [t_max - 2.0 * 3600],
             :Σ_t_end => [t_max],
+            :namelist_args => repeat([namelist_args], 2),
         )
         ref_models = construct_reference_models(kwargs_ref_model)
-        @test_logs (:warn,) match_mode = :any run_reference_SCM.(
-            ref_models,
-            run_single_timestep = false,
-            namelist_args = namelist_args,
-        )
+        @test_logs (:warn,) match_mode = :any run_reference_SCM.(ref_models, run_single_timestep = false)
 
         u_names = ["entrainment_factor", "dt_max", "τ_acnv_rai"]
         u = [0.15, 210.0, 2500.0]
@@ -100,7 +99,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
 
         # ensure namelist generated with `run_reference_SCM` matches default namelist
         init_namelist_path = namelist_directory(scm_dir(ref_models[1]), ref_models[1])
-        default_namelist = TurbulenceConvectionUtils.NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
+        default_namelist = NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
         reference_namelist = JSON.parsefile(init_namelist_path)
 
         namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "grid", "thermodynamics"]

@@ -3,37 +3,38 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
 using Random
 
+pwdir = mktempdir()
 @testset "ReferenceModel" begin
-    les_dir_test = "/foo/bar/les"
-    scm_dir_test = "/foo/bar/scm/Output.test_case.12345"
-    case_name_test = "test_case"
+    les_dir_test = joinpath(pwdir, "foo/bar/les")
+    scm_dir_test = joinpath(pwdir, "foo/bar/scm/Output.DYCOMS_RF01.12345")
+    case_name_test = "DYCOMS_RF01"
     y_names = ["thetal_mean", "ql_mean", "qt_mean"]
     ti = 0.0
     tf = 10.0
 
     ref_model = ReferenceModel(y_names, les_dir_test, scm_dir_test, case_name_test, ti, tf)
 
-    @test y_dir(ref_model) == "/foo/bar/les"
-    @test Σ_dir(ref_model) == "/foo/bar/les"
-    @test scm_dir(ref_model) == "/foo/bar/scm/Output.test_case.12345"
+    @test y_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
+    @test Σ_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
+    @test scm_dir(ref_model) == joinpath(pwdir, "foo/bar/scm/Output.DYCOMS_RF01.12345")
     @test num_vars(ref_model) == 3
     @test uuid(ref_model) == "12345"
     @test get_t_start(ref_model) == 0.0
     @test get_t_start_Σ(ref_model) == 0.0
     @test get_t_end(ref_model) == 10.0
     @test get_t_end_Σ(ref_model) == 10.0
-    @test_throws Exception get_z_obs(ref_model)
+    @test isa(get_z_obs(ref_model), Array)
 end
 
 @testset "ReferenceModelBatch" begin
-    scm_dir_test = "/foo/bar/scm/Output.test_case.12345"
+    scm_dir_test = joinpath(pwdir, "foo/bar/scm/Output.test_case.12345")
     # Choose same SCM to speed computation
     scm_dirs = repeat([scm_dir_test], 2)
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean", "thetal_mean"]],
         :y_dir => scm_dirs,
         :scm_dir => scm_dirs,
-        :case_name => ["foo", "bar"],
+        :case_name => ["DYCOMS_RF01", "GABLS"],
         :t_start => repeat([0.0], 2),
         :t_end => repeat([10.0], 2),
     )
@@ -60,10 +61,11 @@ end
         ("time_stepping", "t_max", t_max),
         ("time_stepping", "dt_max", 30.0),
         ("time_stepping", "dt_min", 20.0),
+        ("stats_io", "frequency", 720.0),
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
-        ("stats_io", "frequency", 720.0),
     ]
+
     kwargs_ref_model = Dict(
         :y_names => [["u_mean", "v_mean"], ["thetal_mean"]],
         :y_dir => scm_dirs,
@@ -74,9 +76,10 @@ end
         :Σ_t_start => repeat([t_max - 2.0 * 3600], 2),
         :Σ_t_end => repeat([t_max - 0.5 * 3600], 2),
         :n_obs => [nothing, 15],
+        :namelist_args => repeat([namelist_args], 2),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
+    run_reference_SCM.(ref_models, overwrite = true, run_single_timestep = false)
     Δt = 3.0 * 3600
     ref_model = time_shift_reference_model(ref_models[1], Δt)
     z = get_z_obs(ref_model)

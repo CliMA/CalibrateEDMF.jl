@@ -7,19 +7,18 @@ using Random
 using DocStringExtensions
 
 using ..ReferenceModels
+import ..ReferenceModels: NameList
+
 using ..ReferenceStats
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
 using TurbulenceConvection
-tc = pkgdir(TurbulenceConvection)
-include(joinpath(tc, "driver", "main.jl"))
-include(joinpath(tc, "driver", "generate_namelist.jl"))
 
 using ..HelperFuncs
 
 export ModelEvaluator
-export run_SCM, run_SCM_handler, get_scm_namelist, run_reference_SCM
+export run_SCM, run_SCM_handler, run_reference_SCM
 export generate_scm_input, get_gcm_les_uuid, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
@@ -205,62 +204,27 @@ function eval_single_ref_model(
 end
 
 """
-    get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
-
-Fetch the namelist stored in `scm_dir(m)`.
-
-Generate a new namelist if it doesn't exist or `overwrite=true`.
-"""
-function get_scm_namelist(m::ReferenceModel; overwrite::Bool = false)::Dict
-    namelist_path = namelist_directory(scm_dir(m), m)
-    namelist = if ~isfile(namelist_path) | overwrite
-        NameList.default_namelist(m.case_name, root = scm_dir(m))
-    else
-        JSON.parsefile(namelist_path)
-    end
-    return namelist
-end
-
-"""
-    run_reference_SCM(m::ReferenceModel; overwrite::Bool = false)
+    run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
 
 Run the single-column model (SCM) for a reference model object
 using default parameters, and write the output to file.
 
 Inputs:
  - `m`                    :: A `ReferenceModel`.
- - `overwrite`            :: if true, overwrite existing simulation files.
+ - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
  - `run_single_timestep`  :: if true, run only one time step.
- - `namelist_args`        :: Additional arguments passed to the TurbulenceConvection namelist.
 """
-function run_reference_SCM(
-    m::ReferenceModel;
-    overwrite::Bool = false,
-    run_single_timestep = true,
-    namelist_args = nothing,
-)
+function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
     output_dir = scm_dir(m)
-    if ~isdir(output_dir) | overwrite
-        namelist = get_scm_namelist(m, overwrite = overwrite)
-        # Set optional namelist args
-        namelist["stats_io"]["calibrate_io"] = true
-        if !isnothing(namelist_args)
-            for namelist_arg in namelist_args
-                change_entry!(namelist, namelist_arg)
-            end
-        end
+    if ~isdir(joinpath(output_dir, "stats")) | overwrite
+        namelist = get_scm_namelist(m)
+
         default_t_max = namelist["time_stepping"]["t_max"]
         default_adapt_dt = namelist["time_stepping"]["adapt_dt"]
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
             namelist["time_stepping"]["adapt_dt"] = false
             namelist["time_stepping"]["t_max"] = namelist["time_stepping"]["dt_min"]
-        end
-        namelist["meta"]["uuid"] = uuid(m)
-        namelist["output"]["output_root"] = dirname(output_dir)
-        # if `LES_driven_SCM` case, provide input LES stats file
-        if m.case_name == "LES_driven_SCM"
-            namelist["meta"]["lesfile"] = y_nc_file(m)
         end
         # run TurbulenceConvection.jl
         logger = Logging.ConsoleLogger(stderr, Logging.Warn)
@@ -316,8 +280,7 @@ function run_SCM_handler(
 ) where {FT <: AbstractFloat}
 
     # fetch namelist
-    inputdir = scm_dir(m)
-    namelist = JSON.parsefile(namelist_directory(inputdir, m))
+    namelist = get_scm_namelist(m)
     # output subset of variables needed for calibration
     namelist["stats_io"]["calibrate_io"] = true
 

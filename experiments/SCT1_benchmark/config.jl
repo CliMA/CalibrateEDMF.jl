@@ -106,6 +106,9 @@ function get_reference_config(::SCT1Train)
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
     config["write_full_stats"] = false
+    # Namelist arguments can be passed for individual cases here, or for all cases through
+    # get_scm_config()
+    config["namelist_args"] = repeat([[("grid", "nz", 80)]], n_repeat)
     return config
 end
 
@@ -134,6 +137,9 @@ function get_reference_config(::SCT1Val)
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
     config["write_full_stats"] = false
+    # Namelist arguments can be passed for individual cases here, or for all cases through
+    # get_scm_config()
+    config["namelist_args"] = repeat([[("grid", "nz", 80)]], n_repeat)
     return config
 end
 
@@ -173,7 +179,6 @@ function get_scm_config()
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
         ("stats_io", "calibrate_io", false),
-        ("grid", "nz", 80),
     ]
     return config
 end
