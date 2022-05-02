@@ -173,7 +173,6 @@ function get_scm_config()
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
         ("stats_io", "calibrate_io", false),
-        ("grid", "dz", 50.0),
         ("grid", "nz", 80),
     ]
     return config
