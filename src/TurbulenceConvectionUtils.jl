@@ -365,7 +365,9 @@ function run_SCM_handler(
         elseif haskey(namelist["time_stepping"], pName)
             namelist["time_stepping"][pName] = pVal
         else
-            throw(ArgumentError("Parameter $pName cannot be calibrated. Consider adding namelist dictionary if needed."))
+            throw(
+                ArgumentError("Parameter $pName cannot be calibrated. Consider adding namelist dictionary if needed."),
+            )
         end
     end
 
@@ -373,12 +375,14 @@ function run_SCM_handler(
         if isnothing(les)
             error("les path or keywords required for LES_driven_SCM case!")
         elseif isa(les, NamedTuple)
-            les = get_stats_path(get_cfsite_les_dir(
-                les.cfsite_number;
-                forcing_model = les.forcing_model,
-                month = les.month,
-                experiment = les.experiment,
-            ))
+            les = get_stats_path(
+                get_cfsite_les_dir(
+                    les.cfsite_number;
+                    forcing_model = les.forcing_model,
+                    month = les.month,
+                    experiment = les.experiment,
+                ),
+            )
         end
         namelist["meta"]["lesfile"] = les
     end

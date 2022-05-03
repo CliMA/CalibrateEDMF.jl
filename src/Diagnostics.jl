@@ -72,8 +72,8 @@ function io_dictionary_reference(
     var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
-        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
-        for rm in ref_models
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
+        rm in ref_models
     ]
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
@@ -171,8 +171,8 @@ function io_dictionary_val_reference(
     var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
-        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
-        for rm in ref_models
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
+        rm in ref_models
     ]
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
@@ -192,7 +192,8 @@ function io_dictionary_val_reference(
     end
     io_dict = Dict(
         "Gamma_val" => Base.setindex(orig_dict["Gamma_val"], ref_stats.Γ, :field),
-        "Gamma_full_diag_val" => Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
+        "Gamma_full_diag_val" =>
+            Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
         "y_val" => Base.setindex(orig_dict["y_val"], ref_stats.y, :field),
         "y_full_val" => Base.setindex(orig_dict["y_full_val"], ref_stats.y_full, :field),
         "P_pca_val" => Base.setindex(orig_dict["P_pca_val"], P_pca_full, :field),
@@ -565,7 +566,8 @@ Elements:
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => (; dims = ("particle", "out_aug_val", "iteration"), group = "particle_diags", type = Float64),
-        "val_g_full" => (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
+        "val_g_full" =>
+            (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
     )

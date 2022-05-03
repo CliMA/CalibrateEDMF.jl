@@ -173,17 +173,18 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     end
 
     # Initialize validation
-    val_ref_models, val_ref_stats = isnothing(val_config) ? repeat([nothing], 2) :
+    val_ref_models, val_ref_stats =
+        isnothing(val_config) ? repeat([nothing], 2) :
         init_validation(
-        val_config,
-        reg_config,
-        ekobj,
-        priors,
-        versions,
-        outdir_path,
-        overwrite = overwrite_scm_file,
-        namelist_args = namelist_args,
-    )
+            val_config,
+            reg_config,
+            ekobj,
+            priors,
+            versions,
+            outdir_path,
+            overwrite = overwrite_scm_file,
+            namelist_args = namelist_args,
+        )
 
     # Diagnostics IO
     init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
@@ -306,8 +307,8 @@ function init_validation(
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
     [
-        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
-        for (model_evaluator, version) in zip(mod_evaluators, versions)
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices) for
+        (model_evaluator, version) in zip(mod_evaluators, versions)
     ]
     return ref_models, ref_stats
 end
@@ -367,8 +368,8 @@ function update_validation(
     # Save new ModelEvaluators using the new versions
     versions = readlines(joinpath(outdir_path, "versions_$(iteration + 1).txt"))
     [
-        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
-        for (model_evaluator, version) in zip(mod_evaluators, versions)
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices) for
+        (model_evaluator, version) in zip(mod_evaluators, versions)
     ]
     return
 end
@@ -630,8 +631,8 @@ function restart_validation(
     # Save new ModelEvaluators using the new versions
     versions = readlines(joinpath(outdir_path, "versions_$(last_iteration + 1).txt"))
     [
-        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices)
-        for (model_evaluator, version) in zip(mod_evaluators, versions)
+        jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices) for
+        (model_evaluator, version) in zip(mod_evaluators, versions)
     ]
     return
 end

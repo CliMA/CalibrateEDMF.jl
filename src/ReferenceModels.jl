@@ -273,10 +273,12 @@ function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::
             # construct ref_models using `scm_parent_dir` and `scm_suffix`
             (kw[j] for j in (:y_names, :y_dir, :scm_parent_dir, :scm_suffix, :case_name, :t_start, :t_end))
         else
-            throw(ArgumentError(
-                "You need to specify either `scm_dir` or all of " *
-                "(`scm_parent_dir`, `case_name`, `scm_suffix`) to construct a `ReferenceModel`",
-            ))
+            throw(
+                ArgumentError(
+                    "You need to specify either `scm_dir` or all of " *
+                    "(`scm_parent_dir`, `case_name`, `scm_suffix`) to construct a `ReferenceModel`",
+                ),
+            )
         end
         push!(
             ref_models,
