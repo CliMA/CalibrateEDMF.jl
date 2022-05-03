@@ -17,6 +17,15 @@ using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
 
+namelist_args = [
+    ("time_stepping", "t_max", 2.0 * 3600),
+    ("time_stepping", "dt_max", 30.0),
+    ("time_stepping", "dt_min", 20.0),
+    ("stats_io", "frequency", 120.0),
+    ("grid", "dz", 150.0),
+    ("grid", "nz", 20),
+]
+
 # Cases defined as structs for quick access to default configs
 struct Bomex end
 
@@ -76,6 +85,7 @@ function get_reference_config(::Bomex)
     config["scm_parent_dir"] = [ref_root_dir]
     config["t_start"] = [0.0]
     config["t_end"] = [2.0 * 3600]
+    config["namelist_args"] = repeat([namelist_args], 2)
     return config
 end
 
@@ -89,13 +99,6 @@ end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] = [
-        ("time_stepping", "t_max", 2.0 * 3600),
-        ("time_stepping", "dt_max", 30.0),
-        ("time_stepping", "dt_min", 20.0),
-        ("grid", "dz", 150.0),
-        ("stats_io", "frequency", 120.0),
-        ("grid", "nz", 20),
-    ]
+    config["namelist_args"] = nothing
     return config
 end

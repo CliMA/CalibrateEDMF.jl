@@ -31,7 +31,7 @@ ref_model = ReferenceModel(
 )
 namelist_args = config["scm"]["namelist_args"]
 # Generate "true" data
-run_reference_SCM(ref_model, run_single_timestep = false, namelist_args = namelist_args)
+run_reference_SCM(ref_model, run_single_timestep = false)
 
 # Test a range of calibration initializations
 @testset "init_calibration" begin

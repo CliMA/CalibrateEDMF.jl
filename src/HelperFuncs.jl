@@ -10,7 +10,6 @@ export vertical_interpolation,
     nc_fetch_interpolate,
     fetch_interpolate_transform,
     get_height,
-    get_dz,
     normalize_profile,
     nc_fetch,
     is_face_variable,
@@ -76,7 +75,7 @@ end
     nc_fetch_interpolate(
         var_name::String,
         filename::String,
-        z_scm::Union{Vector{Float64}, Nothing};
+        z_scm::Union{Vector{<:Real}, Nothing};
     )
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
@@ -88,7 +87,7 @@ Inputs:
 Output:
  - The interpolated vector.
 """
-function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{Vector{Float64}, Nothing};)
+function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{Vector{<:Real}, Nothing};)
     if !isnothing(z_scm)
         return vertical_interpolation(var_name, filename, z_scm)
     else
@@ -100,7 +99,7 @@ end
     fetch_interpolate_transform(
         var_name::String,
         filename::String,
-        z_scm::Union{Vector{Float64}, Nothing};
+        z_scm::Union{Vector{<:Real}, Nothing};
     )
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm. If the
@@ -114,7 +113,7 @@ Inputs:
 Output:
  - The interpolated and transformed vector.
 """
-function fetch_interpolate_transform(var_name::String, filename::String, z_scm::Union{Vector{Float64}, Nothing};)
+function fetch_interpolate_transform(var_name::String, filename::String, z_scm::Union{Vector{<:Real}, Nothing};)
     # PyCLES vertical fluxes are per volume, not mass
     if occursin("resolved_z_flux", var_name)
         var_ = nc_fetch_interpolate(var_name, filename, z_scm)
@@ -148,21 +147,6 @@ function get_height(filename::String; get_faces::Bool = false)
     else
         return nc_fetch(filename, ("zc", "z_half"))
     end
-end
-
-"""
-    get_dz(filename::String)
-
-Returns the vertical grid size of the given configuration.
-
-Inputs:
- - filename :: nc filename
-Output:
- - The vertical grid size.
-"""
-function get_dz(filename::String)
-    z = get_height(filename)
-    return z[2] - z[1]
 end
 
 """

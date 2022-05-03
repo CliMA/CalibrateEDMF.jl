@@ -64,7 +64,10 @@ mutable struct NetCDFIO_Diags
             C = length(ref_stats.pca_vec)
 
             # Max number of fields per configuration
-            f = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
+            num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
+            f = maximum(num_vars)
+            # Max number of variable degrees of freedom per configuration
+            var_dof_max = maximum(Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars))
 
             # Number of configuration per batch
             batch_size = get_entry(config["reference"], "batch_size", length(ref_stats.pca_vec))
@@ -77,6 +80,7 @@ mutable struct NetCDFIO_Diags
             configuration = Array(1:C)
             field = Array(1:f)
             batch_index = Array(1:batch_size)
+            dof = Array(1:var_dof_max)
 
             # Ensemble diagnostics (over all particles)
             ensemble_grp = NC.defGroup(root_grp, "ensemble_diags")
@@ -100,6 +104,8 @@ mutable struct NetCDFIO_Diags
             NC.defVar(reference_grp, "config", configuration, ("config",))
             NC.defDim(reference_grp, "config_field", f)
             NC.defVar(reference_grp, "config_field", field, ("config_field",))
+            NC.defDim(reference_grp, "dof", var_dof_max)
+            NC.defVar(reference_grp, "dof", dof, ("dof",))
 
             augmented = get_entry(config["process"], "augmented", false)
             if augmented
@@ -127,7 +133,13 @@ mutable struct NetCDFIO_Diags
                 d_full_val = full_length(val_ref_stats)
                 d_val = pca_length(val_ref_stats)
                 C_val = length(val_ref_stats.pca_vec)
-                f_val = maximum([length(norm_vec) for norm_vec in val_ref_stats.norm_vec])
+
+                # Max number of fields per configuration
+                num_vars_val = [length(norm_vec) for norm_vec in val_ref_stats.norm_vec]
+                f_val = maximum(num_vars_val)
+                # Max number of variable degrees of freedom per configuration
+                var_dof_max_val = maximum(Int.([size(P_pca, 1) for P_pca in val_ref_stats.pca_vec] ./ num_vars_val))
+
                 batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
                 batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val
 
@@ -136,6 +148,7 @@ mutable struct NetCDFIO_Diags
                 configuration_val = Array(1:C_val)
                 field_val = Array(1:f_val)
                 batch_index_val = Array(1:batch_size_val)
+                dof_val = Array(1:var_dof_max_val)
 
                 NC.defDim(reference_grp, "out_full_val", d_full_val)
                 NC.defVar(reference_grp, "out_full_val", out_full_val, ("out_full_val",))
@@ -145,6 +158,8 @@ mutable struct NetCDFIO_Diags
                 NC.defVar(reference_grp, "config_val", configuration_val, ("config_val",))
                 NC.defDim(reference_grp, "config_field_val", f_val)
                 NC.defVar(reference_grp, "config_field_val", field_val, ("config_field_val",))
+                NC.defDim(reference_grp, "dof_val", var_dof_max_val)
+                NC.defVar(reference_grp, "dof_val", dof_val, ("dof_val",))
 
                 if augmented
                     d_val = d_val + p

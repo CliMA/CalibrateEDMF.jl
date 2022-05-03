@@ -40,7 +40,7 @@ Elements:
  - `var_dof` :: Maximum number of degrees of freedom of each field per `ReferenceModel`.
  - `config_pca_dim` :: Dimensionality of the latent space associated with each `ReferenceModel`.
  - `config_name` :: Name of each `ReferenceModel` used to construct the inverse problem.
- - `config_dz` :: Vertical resolution of the observations of each `ReferenceModel`.
+ - `config_z_obs` :: Vertical locations of the observations of each `ReferenceModel`.
  - `norm_factor` :: Pooled variance used to normalize each field of each `ReferenceModel`.
 """
 function io_dictionary_reference()
@@ -55,7 +55,7 @@ function io_dictionary_reference()
         "var_dof" => (; dims = ("config",), group = "reference", type = Int16),
         "config_pca_dim" => (; dims = ("config",), group = "reference", type = Int16),
         "config_name" => (; dims = ("config",), group = "reference", type = String),
-        "config_dz" => (; dims = ("config",), group = "reference", type = Float64),
+        "config_z_obs" => (; dims = ("config", "dof"), group = "reference", type = Float64),
         "norm_factor" => (; dims = ("config", "config_field"), group = "reference", type = Float64),
     )
     return io_dict
@@ -72,10 +72,16 @@ function io_dictionary_reference(
     var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
-        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
-        for rm in ref_models
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
+        rm in ref_models
     ]
-    config_dz = [get_dz(scm_nc_file(rm)) for rm in ref_models]
+
+    config_z_obs = zeros(length(ref_models), maximum(var_dof))
+    for (i, rm) in enumerate(ref_models)
+        z_obs = get_z_obs(rm)
+        config_z_obs[i, 1:length(z_obs)] = z_obs
+    end
+
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1
@@ -95,7 +101,7 @@ function io_dictionary_reference(
         "var_dof" => Base.setindex(orig_dict["var_dof"], var_dof, :field),
         "config_pca_dim" => Base.setindex(orig_dict["config_pca_dim"], config_pca_dim, :field),
         "config_name" => Base.setindex(orig_dict["config_name"], config_name, :field),
-        "config_dz" => Base.setindex(orig_dict["config_dz"], config_dz, :field),
+        "config_z_obs" => Base.setindex(orig_dict["config_z_obs"], config_z_obs, :field),
     )
     max_num_fields = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
     norm_factor = zeros(length(ref_stats.norm_vec), max_num_fields)
@@ -133,7 +139,7 @@ Elements:
  - `var_dof_val` :: Maximum number of degrees of freedom of each field per validation `ReferenceModel`.
  - `config_pca_dim_val` :: Dimensionality of the latent space associated with each validation `ReferenceModel`.
  - `config_name_val` :: Name of each `ReferenceModel` in the validation set.
- - `config_dz_val` :: Vertical resolution of the observations of each validation `ReferenceModel`.
+ - `config_z_obs_val` :: Vertical locations of the observations of each validation `ReferenceModel`.
  - `norm_factor_val` :: Pooled variance used to normalize each field of each validation `ReferenceModel`.
 """
 function io_dictionary_val_reference()
@@ -148,7 +154,7 @@ function io_dictionary_val_reference()
         "var_dof_val" => (; dims = ("config_val",), group = "reference", type = Int16),
         "config_pca_dim_val" => (; dims = ("config_val",), group = "reference", type = Int16),
         "config_name_val" => (; dims = ("config_val",), group = "reference", type = String),
-        "config_dz_val" => (; dims = ("config_val",), group = "reference", type = Float64),
+        "config_z_obs_val" => (; dims = ("config_val", "dof_val"), group = "reference", type = Float64),
         "norm_factor_val" => (; dims = ("config_val", "config_field_val"), group = "reference", type = Float64),
     )
     return io_dict
@@ -165,10 +171,16 @@ function io_dictionary_val_reference(
     var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
-        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name
-        for rm in ref_models
+        rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
+        rm in ref_models
     ]
-    config_dz = [get_dz(scm_nc_file(rm)) for rm in ref_models]
+
+    config_z_obs = zeros(length(ref_models), maximum(var_dof))
+    for (i, rm) in enumerate(ref_models)
+        z_obs = get_z_obs(rm)
+        config_z_obs[i, 1:length(z_obs)] = z_obs
+    end
+
     P_pca_full = zeros(d_full, d)
     idx_row = 1
     idx_col = 1
@@ -180,7 +192,8 @@ function io_dictionary_val_reference(
     end
     io_dict = Dict(
         "Gamma_val" => Base.setindex(orig_dict["Gamma_val"], ref_stats.Γ, :field),
-        "Gamma_full_diag_val" => Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
+        "Gamma_full_diag_val" =>
+            Base.setindex(orig_dict["Gamma_full_diag_val"], Array(diag(ref_stats.Γ_full)), :field),
         "y_val" => Base.setindex(orig_dict["y_val"], ref_stats.y, :field),
         "y_full_val" => Base.setindex(orig_dict["y_full_val"], ref_stats.y_full, :field),
         "P_pca_val" => Base.setindex(orig_dict["P_pca_val"], P_pca_full, :field),
@@ -188,7 +201,7 @@ function io_dictionary_val_reference(
         "var_dof_val" => Base.setindex(orig_dict["var_dof_val"], var_dof, :field),
         "config_pca_dim_val" => Base.setindex(orig_dict["config_pca_dim_val"], config_pca_dim, :field),
         "config_name_val" => Base.setindex(orig_dict["config_name_val"], config_name, :field),
-        "config_dz_val" => Base.setindex(orig_dict["config_dz_val"], config_dz, :field),
+        "config_z_obs_val" => Base.setindex(orig_dict["config_z_obs_val"], config_z_obs, :field),
     )
     max_num_fields = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
     norm_factor = zeros(length(ref_stats.norm_vec), max_num_fields)
@@ -553,7 +566,8 @@ Elements:
 function io_dictionary_val_particle_eval()
     io_dict = Dict(
         "val_g" => (; dims = ("particle", "out_aug_val", "iteration"), group = "particle_diags", type = Float64),
-        "val_g_full" => (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
+        "val_g_full" =>
+            (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
     )

@@ -117,7 +117,8 @@ function generate_ekp(
     else
         fh = IgnoreFailures()
     end
-    ekp = isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh) :
+    ekp =
+        isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh) :
         EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
@@ -210,7 +211,8 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    ekp = isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process, failure_handler_method = fh) :
+    ekp =
+        isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process, failure_handler_method = fh) :
         EnsembleKalmanProcess(u, y_aug, Γ_aug, process, failure_handler_method = fh)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)

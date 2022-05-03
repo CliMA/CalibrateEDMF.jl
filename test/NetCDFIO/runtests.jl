@@ -34,10 +34,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
         :case_name => repeat(["Bomex"], 2),
         :t_start => repeat([t_max - 2.0 * 3600], 2),
         :t_end => repeat([t_max], 2),
+        :namelist_args => repeat([namelist_args], 2),
     )
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false, namelist_args = namelist_args)
+    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
     ref_stats = ReferenceStatistics(ref_models, y_type = SCM(), Σ_type = SCM())
     # Generate config
     config = Dict()
