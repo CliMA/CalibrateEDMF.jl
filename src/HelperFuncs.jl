@@ -119,7 +119,7 @@ function fetch_interpolate_transform(var_name::String, filename::String, z_scm::
         var_ = nc_fetch_interpolate(var_name, filename, z_scm)
         rho_half = nc_fetch_interpolate("rho0_half", filename, z_scm)
         var_ = var_ .* rho_half
-    elseif occursin("horizontal_vel", var_name)
+    elseif var_name == "horizontal_vel"
         u_ = nc_fetch_interpolate("u_mean", filename, z_scm)
         v_ = nc_fetch_interpolate("v_mean", filename, z_scm)
         var_ = sqrt.(u_ .^ 2 + v_ .^ 2)

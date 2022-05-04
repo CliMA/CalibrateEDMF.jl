@@ -113,7 +113,7 @@ function ReferenceModel(
     # Always create new namelist
     namelist = get_scm_namelist(scm_dir, case_name, y_dir = y_dir, namelist_args = namelist_args, overwrite = true)
     z_obs = construct_z_obs(namelist)
-    z_obs = !isnothing(n_obs) ? Array(LinRange(z_obs[1], z_obs[end], n_obs)) : z_obs
+    z_obs = !isnothing(n_obs) ? Array(range(z_obs[1], z_obs[end], n_obs)) : z_obs
     FT = eltype(z_obs)
 
     Σ_dir = isnothing(Σ_dir) ? y_dir : Σ_dir
