@@ -424,6 +424,9 @@ function ek_update(
 
     val_config = get(config, "validation", nothing)
 
+    reg_config = config["regularization"]
+    l2_reg = get_entry(reg_config, "l2_reg", nothing)
+
     scm_args = load(scm_output_path(outdir_path, versions[1]))
     mod_evaluator = scm_args["model_evaluator"]
     batch_indices = scm_args["batch_indices"]
@@ -432,8 +435,6 @@ function ek_update(
 
     # Advance EKP
     if augmented
-        reg_config = config["regularization"]
-        l2_reg = get_entry(reg_config, "l2_reg", nothing)
         g, g_full = get_ensemble_g_eval_aug(outdir_path, versions, priors, l2_reg)
     else
         g, g_full = get_ensemble_g_eval(outdir_path, versions)
