@@ -1530,9 +1530,9 @@ version = "0.6.32"
 
 [[deps.SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Statistics", "Tables", "TreeViews"]
-git-tree-sha1 = "331f8250fe6a575522635cda5615a4e28fc60efe"
+git-tree-sha1 = "22d34e9cf411f8a25baab5e39de66f3d1bec1785"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.31.1"
+version = "1.31.2"
 
 [[deps.Scratch]]
 deps = ["Dates"]

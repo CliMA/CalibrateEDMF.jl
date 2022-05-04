@@ -23,6 +23,7 @@ pages = Any[
     "Home" => "index.md",
     "Getting started" => "getting_started.md",
     "API" => api,
+    "Contributing" => "contributing.md",
     "References" => "References.md",
 ]
 
