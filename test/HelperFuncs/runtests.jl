@@ -51,3 +51,33 @@ end
     @test isa(my_struct_2, MyStruct)
     @test my_struct == my_struct_2
 end
+
+@testset "netCDF handling" begin
+    using CalibrateEDMF.ReferenceModels
+    using CalibrateEDMF.TurbulenceConvectionUtils
+
+    pwdir = mktempdir()
+    scm_dir_test = joinpath(pwdir, "foo/bar/scm/Output.DYCOMS_RF02.12345")
+    # Use SCM sim as data
+    y_dir_test = scm_dir_test
+    case_name_test = "DYCOMS_RF02"
+    y_names = ["thetal_mean", "ql_mean", "qt_mean"]
+    ti = 0.0
+    tf = 10.0
+
+    ref_model = ReferenceModel(y_names, y_dir_test, scm_dir_test, case_name_test, ti, tf)
+    run_reference_SCM(ref_model, overwrite = true, run_single_timestep = true)
+    data_filename = y_nc_file(ref_model)
+
+    # Error handling
+    @test_throws ErrorException fetch_interpolate_transform("Michael Scott", data_filename, nothing)
+    @test_throws ErrorException fetch_interpolate_transform("tequila_resolved_z_flux", data_filename, nothing)
+    # Get height
+    zc = get_height(data_filename)
+    zf = get_height(data_filename, get_faces = true)
+    # TC.jl faces start at z=0
+    @test zf[1] ≈ 0
+    @test zc[1] > zf[1]
+    @test is_face_variable(data_filename, "total_flux_h")
+    @test !is_face_variable(data_filename, "u_mean")
+end

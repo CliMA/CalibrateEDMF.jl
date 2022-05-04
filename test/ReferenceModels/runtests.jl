@@ -23,7 +23,28 @@ pwdir = mktempdir()
     @test get_t_start_Σ(ref_model) == 0.0
     @test get_t_end(ref_model) == 10.0
     @test get_t_end_Σ(ref_model) == 10.0
-    @test isa(get_z_obs(ref_model), Array)
+    z_obs = get_z_obs(ref_model)
+    @test isa(z_obs, Array)
+    # Check monotonicity
+    for (i, height) in enumerate(z_obs[1:(end - 1)])
+        @test height < z_obs[i + 1]
+    end
+
+    # Test coarse model
+    n_obs = 20
+    ref_model_coarse = ReferenceModel(y_names, les_dir_test, scm_dir_test, case_name_test, ti, tf, n_obs = n_obs)
+    z_coarse = get_z_obs(ref_model_coarse)
+    @test isa(z_coarse, Array)
+    @test length(z_coarse) == n_obs
+
+    # Test stretched grid
+    namelist_args = [("grid", "stretch", "flag", true)]
+    ref_model_stretched =
+        ReferenceModel(y_names, les_dir_test, scm_dir_test, case_name_test, ti, tf, namelist_args = namelist_args)
+    z_stretch = get_z_obs(ref_model_stretched)
+    @test isa(z_stretch, Array)
+    # Test stretching
+    @test z_stretch[2] - z_stretch[1] < z_stretch[3] - z_stretch[2]
 end
 
 @testset "ReferenceModelBatch" begin

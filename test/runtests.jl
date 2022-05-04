@@ -1,5 +1,5 @@
 
-include(joinpath("helper_funcs", "runtests.jl"))
+include(joinpath("HelperFuncs", "runtests.jl"))
 include(joinpath("DistributionUtils", "runtests.jl"))
 include(joinpath("LESUtils", "runtests.jl"))
 include(joinpath("KalmanProcessUtils", "runtests.jl"))

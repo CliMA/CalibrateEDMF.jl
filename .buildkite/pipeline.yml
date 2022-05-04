@@ -100,10 +100,10 @@ steps:
       queue: central
       slurm_cpus_per_task: 8
 
-  - label: "helper_funcs"
+  - label: "HelperFuncs"
     key: "cpu_helper_funcs"
     command:
-      - "julia --color=yes --project test/helper_funcs/runtests.jl"
+      - "julia --color=yes --project test/HelperFuncs/runtests.jl"
     agents:
       config: cpu
       queue: central
