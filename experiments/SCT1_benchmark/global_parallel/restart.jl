@@ -26,8 +26,8 @@ parsed_args = parse_args(ARGS, s)
 # Recover inputs for restart
 outdir_path = parsed_args["output_dir"]
 include(joinpath(outdir_path, "config.jl"))
-ekobjs = glob(joinpath(outdir_path, "ekobj_iter_*.jld2"))
-iters = [parse(Int64, split(split(split(ekobj, "/")[2], "_")[3], ".")[1]) for ekobj in ekobjs]
+ekobjs = glob("ekobj_iter_*.jld2", outdir_path)
+iters = @. parse(Int64, getfield(match(r"(?<=ekobj_iter_)(\d+)", basename(ekobjs)), :match))
 last_iteration = maximum(iters)
 
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
