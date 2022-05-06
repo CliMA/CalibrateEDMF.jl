@@ -44,6 +44,7 @@ steps:
 
   - wait
 
+
   - label: "Bomex Inv julia_par"
     key: "cpu_bomex_julia_p10"
     command:
@@ -99,6 +100,17 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 8
+      
+  - label: "grid search"
+    key: "grid_search_p10"
+    command:
+      - "julia --color=yes -p 13 --project=integration_tests integration_tests/grid_search_test.jl grid_search_integration_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/grid_search/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 14
 
   - label: "HelperFuncs"
     key: "cpu_helper_funcs"

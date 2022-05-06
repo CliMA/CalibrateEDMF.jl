@@ -15,10 +15,11 @@ using ..DistributionUtils
 export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA, pca
+export pca_inds, full_inds
 
 
 """
-    ReferenceStatistics{FT <: Real}
+    ReferenceStatistics{FT <: Real, IT <: Integer}
 
 A structure containing statistics from the reference model used to
 define a well-posed inverse problem.
@@ -60,8 +61,8 @@ Inputs:
  - `Σ_type`           :: Type of reference covariance data. Either LES() or SCM().
  - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
 """
-Base.@kwdef struct ReferenceStatistics{FT <: Real}
-    "Reference data, length: `nSim * n_vars * n_zLevels` (possibly reduced by PCA)"
+Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
+    "Reference data, length: nSim * n_vars * n_zLevels (possibly reduced by PCA)"
     y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
     Γ::Matrix{FT}
@@ -73,10 +74,14 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
     y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
     Γ_full::SparseMatrixCSC{FT, Int64}
+    "Degrees of freedom per case (possibly reduced by PCA)"
+    ndof_case::Vector{IT}
+    "Full degrees of freedom per case"
+    ndof_full_case::Vector{IT}
 
     # Constructors
 
-    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT}(y, args...)
+    ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT, Int64}(y, args...)
 
     function ReferenceStatistics(
         RM::Vector{ReferenceModel};
@@ -90,6 +95,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Σ_type::ModelType = LES(),
         Δt::FT = 6 * 3600.0,
     ) where {FT <: Real}
+        IT = Int64
         # Init arrays
         y = FT[]
         Γ_vec = Matrix{FT}[]
@@ -97,6 +103,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
         Γ_full_vec = Matrix{FT}[]
         pca_vec = []
         norm_vec = Vector[]
+        ndof_case = IT[]
+        ndof_full_case = IT[]
 
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
@@ -108,14 +116,17 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
                 append!(y, y_pca)
                 push!(Γ_vec, y_var_pca)
                 push!(pca_vec, P_pca)
+                push!(ndof_case, length(y_pca))
             else
                 append!(y, y_)
                 push!(Γ_vec, y_var_)
                 push!(pca_vec, 1.0I)
+                push!(ndof_case, length(y_))
             end
             # Save full dimensionality (normalized) output for error computation
             append!(y_full, y_)
             push!(Γ_full_vec, y_var_)
+            push!(ndof_full_case, length(y_))
         end
 
         # Construct global observational covariance matrix, original space
@@ -136,8 +147,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
 
         @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
 
-        return new{FT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full)
+        return new{FT, IT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full, ndof_case, ndof_full_case)
     end
+
 end
 
 "Returns dimensionality of the ReferenceStatistics in low-dimensional latent space"
@@ -145,6 +157,21 @@ pca_length(RS::ReferenceStatistics) = length(RS.y)
 
 "Returns full dimensionality of the ReferenceStatistics, before latent space encoding"
 full_length(RS::ReferenceStatistics) = length(RS.y_full)
+pca_length(RS::ReferenceStatistics, case_ind) = RS.ndof_case[case_ind]
+full_length(RS::ReferenceStatistics, case_ind) = RS.ndof_full_case[case_ind]
+
+"""Fetch the dof indices (possibly reduced by PCA) for the a case, specified by its in config["reference"]["case_name"]."""
+pca_inds(RS::ReferenceStatistics, case_ind) = dof_inds(RS.ndof_case, case_ind)
+"""Fetch the dof indices for the a case, specified by its in config["reference"]["case_name"]."""
+full_inds(RS::ReferenceStatistics, case_ind) = dof_inds(RS.ndof_full_case, case_ind)
+
+"""Given a vector of `ndofs` for some ordered collection, fetch the dof indices for one of the elements by its index in the ordered collection."""
+function dof_inds(ndofs::Vector{IT}, ind::IT) where {IT <: Integer}
+    !(1 ≤ ind ≤ length(ndofs)) && throw(ArgumentError("Index `$ind` must be between 1 and $(length(ndofs))."))
+    start_ind = (1, 1 .+ cumsum(ndofs)...)[ind]
+    stop_ind = cumsum(ndofs)[ind]
+    start_ind:stop_ind
+end
 
 """
     get_obs(

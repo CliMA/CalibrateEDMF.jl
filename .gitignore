@@ -30,6 +30,7 @@ Manifest.toml
 
 # simulation setup/results
 *.out
+output
 results_*
 *.in
 *.nc
