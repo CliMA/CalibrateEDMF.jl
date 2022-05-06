@@ -203,13 +203,19 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
     n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
+    scm_path_kwargs = if haskey(ref_config, "scm_dir")
+        Dict(:scm_dir => ref_config["scm_dir"])
+    elseif all(haskey.(Ref(ref_config), ["scm_parent_dir", "scm_suffix"]))
+        Dict(:scm_parent_dir => ref_config["scm_parent_dir"], :scm_suffix => ref_config["scm_suffix"])
+    else
+        throw(ArgumentError("config must either contain `scm_dir` or both `scm_parent_dir` and `scm_suffix`."))
+    end
+
     rm_kwargs = Dict(
         :y_names => ref_config["y_names"],
         # Reference path specification
         :y_dir => ref_config["y_dir"],
         :Σ_dir => Σ_dir,
-        :scm_parent_dir => ref_config["scm_parent_dir"],
-        :scm_suffix => ref_config["scm_suffix"],
         # Case name
         :case_name => ref_config["case_name"],
         # Define observation window (s)
@@ -219,6 +225,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :Σ_t_end => Σ_t_end,
         :n_obs => n_obs,
     )
+    merge!(rm_kwargs, scm_path_kwargs)
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)
         @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."

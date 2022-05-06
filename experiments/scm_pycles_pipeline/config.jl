@@ -33,6 +33,8 @@ function get_config()
     config["process"] = get_process_config()
     # Define the SCM static configuration
     config["scm"] = get_scm_config()
+    # grid search configuration
+    config["grid_search"] = get_grid_search_config()
     return config
 end
 
@@ -165,5 +167,23 @@ function get_scm_config()
     config = Dict()
     # List of tuples like [("time_stepping", "dt_min", 1.0)], or nothing
     config["namelist_args"] = nothing
+    return config
+end
+
+function get_grid_search_config()
+    config = Dict()
+    # Grid search is performed over each pair of parameters, across all specified values
+    config["parameters"] = Dict(
+        "entrainment_factor" => range(0.2, 0.5, length = 4),
+        "detrainment_factor" => range(0.2, 0.5, length = 4),
+        "updraft_mixing_frac" => range(0.45, 0.6, length = 4),
+    )
+    # Number of simulations to run with identical configuration (except random seed)
+    config["ensemble_size"] = 1
+    # grid search output data stored in `<output_root_dir>/output/YYmmdd_abc`
+    config["output_root_dir"] = pwd()
+    # Perform grid search and loss map calculation for either the `reference` or `validation` set.
+    config["sim_type"] = "reference"
+
     return config
 end

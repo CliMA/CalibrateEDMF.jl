@@ -8,6 +8,7 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
+using CalibrateEDMF.Pipeline: get_ref_model_kwargs
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
