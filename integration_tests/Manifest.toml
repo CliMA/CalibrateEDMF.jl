@@ -243,9 +243,9 @@ version = "0.3.0"
 
 [[deps.ClimaCore]]
 deps = ["Adapt", "BlockArrays", "CUDA", "ClimaComms", "CubedSphere", "DataStructures", "DiffEqBase", "DocStringExtensions", "ForwardDiff", "GaussQuadrature", "InteractiveUtils", "IntervalSets", "LinearAlgebra", "RecursiveArrayTools", "RootSolvers", "Rotations", "SparseArrays", "Static", "StaticArrays", "Statistics", "UnPack"]
-git-tree-sha1 = "546c97210e7d2cacb38e2af27acb12f789230b9b"
+git-tree-sha1 = "fc27777d9e4166ee5a195af715e0484d2dd85ed6"
 uuid = "d414da3d-4745-48bb-8d80-42e94e092884"
-version = "0.10.2"
+version = "0.10.3"
 
 [[deps.CloseOpenIntervals]]
 deps = ["ArrayInterface", "Static"]
@@ -429,9 +429,9 @@ version = "6.83.2"
 
 [[deps.DiffEqJump]]
 deps = ["ArrayInterface", "Compat", "DataStructures", "DiffEqBase", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "Markdown", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "StaticArrays", "TreeViews", "UnPack"]
-git-tree-sha1 = "dea5923171d3c3c2bee4654516f5f056ffb3ab3d"
+git-tree-sha1 = "26d88f58260cb61f9532c2f7283bc6c6519f954d"
 uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
-version = "8.4.1"
+version = "8.4.2"
 
 [[deps.DiffEqNoiseProcess]]
 deps = ["DiffEqBase", "Distributions", "LinearAlgebra", "Optim", "PoissonRandom", "QuadGK", "Random", "Random123", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "SciMLBase", "StaticArrays", "Statistics"]
