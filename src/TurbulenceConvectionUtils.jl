@@ -556,7 +556,7 @@ function precondition(
     counter::Integer = 0,
     max_counter::Integer = 10,
 ) where {FT <: Real}
-    param_names = priors.names
+    param_names = priors.name
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) =
         run_SCM(u, param_names, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)

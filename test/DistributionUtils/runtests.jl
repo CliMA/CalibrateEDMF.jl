@@ -11,7 +11,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     @test isempty(readdir(tmpdir))
     # Construction from Dict does not retain ordering
-    @test priors1.names == ["bar", "foo"]
+    @test priors1.name == ["bar", "foo"]
 
     # Construction from lists (deserializer) is ordered
     prior_dict = Dict(
@@ -21,9 +21,9 @@ using EnsembleKalmanProcesses.ParameterDistributions
     )
     priors2 = deserialize_prior(prior_dict)
 
-    @test priors2.names == ["foo", "bar"]
-    @test priors2.names != priors1.names
-    @test priors2.constraints != priors1.constraints
+    @test priors2.name == ["foo", "bar"]
+    @test priors2.name != priors1.name
+    @test priors2.constraint != priors1.constraint
 
     μ_correct = Dict("foo" => [0.4], "bar" => [0.5])
     μ_incorrect1 = Dict("foo" => [0.0], "bar" => [2.5]) # Out of bounds
@@ -45,12 +45,12 @@ end
     prior_μ = Dict("foo" => [0.4], "bar_vect" => [1.0, 2.0, 3.0])
     priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
 
-    @test priors.names == ["bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
-    @test priors.constraints == [no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
-    @test priors.distributions[1].distribution.μ == 1.0
-    @test priors.distributions[2].distribution.μ ==
+    @test priors.name == ["bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
+    @test priors.constraint == [no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
+    @test priors.distribution[1].distribution.μ == 1.0
+    @test priors.distribution[2].distribution.μ ==
           params["bar_vect"][2].constrained_to_unconstrained(prior_μ["bar_vect"][2])
-    @test priors.distributions[4].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
+    @test priors.distribution[4].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
 
     # length mismatch [length(bar_vect mu) != length(bar_vect constraint)]
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
@@ -65,7 +65,7 @@ end
     # unspecified prior mean should yield μ=0
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
     priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ)
-    @test [priors.distributions[i].distribution.μ for i in 1:length(priors.distributions)] == zeros(length(priors.distributions))
+    @test [priors.distribution[i].distribution.μ for i in 1:length(priors.distribution)] == zeros(length(priors.distribution))
 
 end
 
