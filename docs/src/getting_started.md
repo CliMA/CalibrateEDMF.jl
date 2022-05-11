@@ -23,11 +23,15 @@ Navigate to `experiments/scm_pycles_pipeline/julia_parallel` directory. The scri
 
 If you are on the Caltech Central Cluster, you can run this pipeline by adding it to the SLURM schedule:
 
-  >> sbatch calibrate_script ../config.jl
+```
+> sbatch calibrate_script ../config.jl
+```
 
 Otherwise run locally, e.g.:
 
->> sh calibrate_script ../config.jl
+```
+> sh calibrate_script ../config.jl
+```
 
 Two parallelized pipelines are able to ingest the `config.jl` file and perform the calibration, one using Julia's `pmap()` and another one using parallel bash calls through a SLURM HPC manager. Parallelization is performed over ensemble members. If the ensemble members have to perform several evaluations of `TurbulenceConvection.jl`, these are performed serially. A fully parallel implementation (`global_parallel`) that parallelizes across all `TurbulenceConvection.jl` is included in `experiments/SCT1_benchmark`.
 
@@ -41,7 +45,9 @@ Navigate to `experiments/scm_pycles_pipeline/hpc_parallel` directory. The master
 
 If you are on the Caltech Central Cluster, you can run the project by adding it to the schedule:
 
-  >> sbatch ekp_calibration.sbatch ../config.jl
+```
+> sbatch ekp_calibration.sbatch ../config.jl
+```
 
 ## Output of the training pipeline
 
