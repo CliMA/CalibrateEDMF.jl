@@ -141,7 +141,8 @@ function construct_priors(
         distributions = [Parameterized(Normal(uncons_μ[1], unconstrained_σ)) for uncons_μ in uncons_prior_mean]
     end
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
-    return ParameterDistribution(distributions, constraints, u_names)
+    marginal_priors = ParameterDistribution.(distributions, constraints, u_names)
+    return combine_distributions(marginal_priors)
 end
 
 """
@@ -151,7 +152,9 @@ Generates a prior ParameterDistribution from arguments stored
 in a dictionary.
 """
 function deserialize_prior(prior_dict::Dict{String, T}) where {T}
-    return ParameterDistribution(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
+    marginal_priors =
+        ParameterDistribution.(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
+    return combine_distributions(marginal_priors)
 end
 
 """
