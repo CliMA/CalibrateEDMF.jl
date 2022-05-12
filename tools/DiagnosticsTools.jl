@@ -41,6 +41,7 @@ function optimal_parameters(ds_path::String; method::String = "best_nn_particle_
             nn_mean_index = ds.group["metrics"]["nn_mean_index"][mse_min_i]
             u = ds.group["particle_diags"]["phi"][nn_mean_index, :, mse_min_i] # (n_particles, n_params, n_iterations)
             u_names = ds.group["ensemble_diags"]["param"][:]
+            @info "Optimal parameters found at: iteration = $mse_min_i ; nn particle = $nn_mean_index"
             (; u_names, u)
         end
     elseif method == "best_particle"
@@ -49,6 +50,7 @@ function optimal_parameters(ds_path::String; method::String = "best_nn_particle_
             part_min_i, iter_min_i = particle_diags_min_index(ds; metric = metric)
             u = phi[part_min_i, :, iter_min_i]
             u_names = ds.group["particle_diags"]["param"][:]
+            @info "Optimal parameters found at: iteration = $iter_min_i ; particle = $part_min_i"
             (; u_names, u)
         end
     end
@@ -93,6 +95,7 @@ function optimal_mse(ds_path::String; method::String = "best_nn_particle_mean", 
             else
                 mse_val = nothing
             end
+            @info "Optimal mse found at: iteration = $mse_min_i"
             (; mse_train, mse_val)
         end
     elseif method == "best_particle"
@@ -107,6 +110,7 @@ function optimal_mse(ds_path::String; method::String = "best_nn_particle_mean", 
             else
                 mse_val = nothing
             end
+            @info "Optimal mse found at: iteration = $iter_min_i ; particle = $part_min_i"
             (; mse_train, mse_val)
         end
     end
