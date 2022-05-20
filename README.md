@@ -19,8 +19,8 @@ If you use this package for your own research, or find any of the ideas presente
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
 | **Bors enabled**     | [![bors][bors-img]][bors-url]                 |
 
-[zenodo-img]: https://zenodo.org/badge/409699662.svg
-[zenodo-latest-url]: https://zenodo.org/badge/latestdoi/409699662
+[zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382864.svg
+[zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382864
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/CalibrateEDMF.jl/dev/
