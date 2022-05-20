@@ -1348,9 +1348,9 @@ version = "0.5.1"
 
 [[deps.OffsetArrays]]
 deps = ["Adapt"]
-git-tree-sha1 = "e6c5f47ba51b734a4e264d7183b6750aec459fa0"
+git-tree-sha1 = "52addd9e91df8a6a5781e5c7640787525fd48056"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.11.1"
+version = "1.11.2"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1762,9 +1762,9 @@ version = "0.3.0"
 
 [[deps.SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "RecipesBase", "RecursiveArrayTools", "StaticArrays", "Statistics", "Tables", "TreeViews"]
-git-tree-sha1 = "da8ca4798626e9c1167ef8f7ab10e31cce7582c0"
+git-tree-sha1 = "7586a94109dd610b864d10026b5e6a6d481ccaaf"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.32.0"
+version = "1.32.1"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -2020,9 +2020,9 @@ version = "0.3.4"
 
 [[deps.TurbulenceConvection]]
 deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "6c65904a520b516ba0e3d686f4ad4f5cd4e66992"
+git-tree-sha1 = "faa3e3e7fa8b224334fc72acd0c000e96985ec9a"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.23.0"
+version = "0.25.0"
 
 [[deps.URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
