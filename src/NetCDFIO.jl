@@ -74,7 +74,7 @@ mutable struct NetCDFIO_Diags
             batch_size = isnothing(batch_size) ? length(ref_stats.pca_vec) : batch_size
 
             particle = Array(1:N_ens)
-            param = priors.names
+            param = priors.name
             out_full = Array(1:d_full)
             out = Array(1:d)
             configuration = Array(1:C)

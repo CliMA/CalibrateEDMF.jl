@@ -21,6 +21,7 @@ api = [
 
 pages = Any[
     "Home" => "index.md",
+    "Installation instructions" => "installation.md",
     "Getting started" => "getting_started.md",
     "API" => api,
     "Contributing" => "contributing.md",

@@ -64,10 +64,10 @@ using CalibrateEDMF.DistributionUtils
     norm_list = [false, true]
     mode_list = ["absolute", "relative"]
     dim_list = [false, true]
-    for (pca, norm, tikhonov_mode, dim_scaling) in zip(pca_list, norm_list, mode_list, dim_list)
+    for (perform_PCA, norm, tikhonov_mode, dim_scaling) in zip(pca_list, norm_list, mode_list, dim_list)
         ref_stats = ReferenceStatistics(
             ref_models;
-            perform_PCA = pca,
+            perform_PCA = perform_PCA,
             normalize = norm,
             variance_loss = 0.1,
             tikhonov_noise = 0.1,
@@ -79,8 +79,20 @@ using CalibrateEDMF.DistributionUtils
 
         @test pca_length(ref_stats) == size(ref_stats.Γ, 1)
         @test full_length(ref_stats) == size(ref_stats.Γ_full, 1)
-        @test (pca_length(ref_stats) < full_length(ref_stats)) == pca
-        if pca == false
+        @test (pca_length(ref_stats) < full_length(ref_stats)) == perform_PCA
+        for (ci, m) in enumerate(ref_models)
+            y_case, _, _ = get_obs(m, SCM(), SCM(), norm, z_scm = get_z_obs(m))
+            @test full_length(ref_stats, ci) == length(y_case)
+            y_case_pca = ref_stats.pca_vec[ci]' * y_case
+            @test pca_length(ref_stats, ci) == length(y_case_pca)
+            case_full_inds = full_inds(ref_stats, ci)
+            case_pca_inds = pca_inds(ref_stats, ci)
+            @test ref_stats.y_full[case_full_inds] == y_case
+            @test ref_stats.y[case_pca_inds] == y_case_pca
+        end
+        @test_throws ArgumentError pca_inds(ref_stats, 0)
+        @test_throws ArgumentError pca_inds(ref_stats, 3)
+        if perform_PCA == false
             # Tikhonov regularization results in variance inflation
             @test tr(ref_stats.Γ) > tr(ref_stats.Γ_full)
             # Since the same configuration is added twice,
@@ -88,6 +100,10 @@ using CalibrateEDMF.DistributionUtils
             @test det(ref_stats.Γ_full) ≈ 0
             # But not the regularized covariance.
             @test det(ref_stats.Γ) > 0
+            for ci in 1:2
+                @test pca_length(ref_stats, ci) == full_length(ref_stats, ci)
+                @test pca_inds(ref_stats, ci) == full_inds(ref_stats, ci)
+            end
         end
     end
 

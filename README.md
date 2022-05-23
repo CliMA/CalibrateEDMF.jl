@@ -6,17 +6,21 @@ The rationale behind the calibration framework implemented in this package is th
 
 Lopez-Gomez, I., Christopoulos, C., Langeland Ervik, H. L., Dunbar, O. R. A., Cohen, Y., Schneider, T. (2022) **Training physics-based machine-learning parameterizations with gradient-free ensemble Kalman methods**. [preprint](https://doi.org/10.1002/essoar.10510937.1)
 
-The manuscript also includes results for an extended eddy-diffusivity mass-flux (EDMF) closure of turbulence and convection trained using this package. The EDMF closure is implemented in [TurbulenceConvection.jl](https://github.com/CliMA/TurbulenceConvection.jl).
+The manuscript also includes results for an extended eddy-diffusivity mass-flux (EDMF) closure of turbulence and convection trained using this package. The EDMF closure is implemented in [TurbulenceConvection.jl](https://github.com/CliMA/TurbulenceConvection.jl). For further details on how to use CalibrateEDMF, consult the [documentation](https://CliMA.github.io/CalibrateEDMF.jl/dev/).
 
 If you use this package for your own research, or find any of the ideas presented useful, please cite our work.
 
 |||
 |---------------------:|:----------------------------------------------|
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]    |
+| **DOI**              | [![DOI][zenodo-img]][zenodo-latest-url]       |
 | **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
 | **GHA CI**           | [![gha ci][gha-ci-img]][gha-ci-url]           |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
 | **Bors enabled**     | [![bors][bors-img]][bors-url]                 |
+
+[zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382864.svg
+[zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382864
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/CalibrateEDMF.jl/dev/
@@ -39,11 +43,16 @@ Julia version 1.5+
 
 # Installation
 
-To use the package, clone this repository
+To use latest version of this package, clone this repository
 
   >> git clone https://github.com/CliMA/CalibrateEDMF.jl.git
 
-Before calibration, we need to compile the project.
+To use the latest stable release, you can install the package on your Julia environment:
+
+  >> julia
+  >> julia> using Pkg; Pkg.add("CalibrateEDMF")
+
+In order to use the package, compile the project first.
 
 >> julia --project
 
@@ -70,18 +79,3 @@ and try the following,
 >> pkg> instantiate
 
 This will link CalibrateEDMF to your local version of `EnsembleKalmanProcesses.jl` (resp. `EnsembleKalmanProcesses.jl`), allowing rapid prototyping across packages.
-
-If you want to use PyPlot with CalibrateEDMF.jl, and you are using PyPlot for the first time, just do
-
->> julia --project
-
-```
-using Pkg
-ENV["PYTHON"]=""
-Pkg.build("PyCall")
-exit()
-```
-
-And then compile,
-
->> julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
