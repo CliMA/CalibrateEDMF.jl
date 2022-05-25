@@ -66,7 +66,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 45 #15 (for no batching)
-    config["N_ens"] = 57 #43 #33 # Must be 2p+1 when algorithm is "Unscented"
+    config["N_ens"] = 60 #43 #33 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
@@ -142,6 +142,7 @@ function get_prior_config()
         "surface_area" => [bounded(0.01, 0.5)],
 
         # microphysics parameters
+        "precip_fraction_limiter" = [bounded(0.1, 1.0)],
         "τ_acnv_rai" => [bounded(1e2, 1e4)],
         "τ_acnv_sno" => [bounded(1e1, 1e3)],
         "q_liq_threshold" => [bounded(1e-4, 1e-2)],
@@ -183,6 +184,7 @@ function get_prior_config()
         "surface_area" => [0.1],
 
         # microphysics parameters
+        "precip_fraction_limiter" = [0.3],
         "τ_acnv_rai" => [2500.0],
         "τ_acnv_sno" => [100.0],
         "q_liq_threshold" => [0.5e-3],
@@ -207,7 +209,7 @@ function get_scm_config()
     config = Dict()
     config["namelist_args"] = [
         ("time_stepping", "adapt_dt", true),
-        ("time_stepping", "dt_max", 3.0),
+        ("time_stepping", "dt_max", 4.0),
         ("time_stepping", "dt_min", 1.0),
         ("stats_io", "frequency", 60.0),
         ("turbulence", "EDMF_PrognosticTKE", "updraft_number", 1),
@@ -230,7 +232,9 @@ function get_scm_config()
         # ("turbulence", "EDMF_PrognosticTKE", "entrainment_scale", 0.0004611728518427933),
         ("thermodynamics", "sgs", "quadrature"),
         ("thermodynamics", "quadrature_order", 3),
-        ("thermodynamics", "quadrature_type", "gaussian"), #"gaussian" "log-normal"
+        ("thermodynamics", "quadrature_type", "log-normal"), #"gaussian" "log-normal"
+        ("microphysics", "precipitation_model", "clima_1m"),
+        ("microphysics", "precip_fraction_model", "cloud_cover"),
     ]
     return config
 end
