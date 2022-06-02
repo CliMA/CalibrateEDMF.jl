@@ -109,7 +109,7 @@ function get_reference_config(::ValidateBomex)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
     # Validate on different variables for this example
-    config["y_names"] = [["total_flux_h", "total_flux_qt", "u_mean", "v_mean"]]
+    config["y_names"] = [["total_flux_h", "total_flux_qt", "u_mean", "lwp_mean"]]
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]

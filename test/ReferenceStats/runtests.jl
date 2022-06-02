@@ -29,7 +29,7 @@ using CalibrateEDMF.DistributionUtils
     ]
 
     kwargs_ref_model = Dict(
-        :y_names => [["u_mean"], ["v_mean"]],
+        :y_names => [["u_mean"], ["v_mean", "lwp_mean"]],
         :y_dir => scm_dirs,
         :scm_dir => scm_dirs,
         :case_name => repeat(["Bomex"], 2),
@@ -58,6 +58,11 @@ using CalibrateEDMF.DistributionUtils
     # if simulation end before ti  => penalty
     y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = t_max + 0.01, tf = t_max)
     @test all(y .> 1e4)
+    @test length(y) == 40
+
+    # Test recovery of averaged scalars from timeseries
+    y = ReferenceStats.get_profile(filename, ["lwp_mean"]; ti = 0.0, tf = t_max)
+    @test length(y) == 1
 
     # Test only tikhonov vs PCA and tikhonov
     pca_list = [false, true]

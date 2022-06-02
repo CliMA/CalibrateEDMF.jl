@@ -141,7 +141,11 @@ end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] =
-        [("time_stepping", "dt_min", 1.0), ("time_stepping", "dt_max", 10.0), ("stats_io", "frequency", 60.0)]
+    config["namelist_args"] = [
+        ("time_stepping", "dt_min", 1.0),
+        ("time_stepping", "dt_max", 10.0),
+        ("stats_io", "frequency", 60.0),
+        ("thermodynamics", "sgs", "mean"),
+    ]
     return config
 end

@@ -69,7 +69,7 @@ function io_dictionary_reference(
     d_full = full_length(ref_stats)
     d = pca_length(ref_stats)
     num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
-    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    var_dof = ref_stats.zdof
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
@@ -168,7 +168,7 @@ function io_dictionary_val_reference(
     d_full = full_length(ref_stats)
     d = pca_length(ref_stats)
     num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
-    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    var_dof = ref_stats.zdof
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
