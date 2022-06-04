@@ -98,14 +98,15 @@ using Glob
         pca_vec = RS.pca_vec[case_ind]'
         pca_case_inds = pca_inds(RS, case_ind)
         Γ = RS.Γ[pca_case_inds, pca_case_inds]
+        z_obs = get_z_obs(m)
 
         # Reference data
-        y_full_case = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = get_z_obs(m))
-        y_norm = normalize_profile(y_full_case, num_vars(m), RS.norm_vec[case_ind])
+        y_full_case, prof_indices = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = z_obs, prof_ind = true)
+        y_norm = normalize_profile(y_full_case, RS.norm_vec[case_ind], length(z_obs), prof_indices)
 
         # SCM data
-        g_full_case_i = get_profile(m, scm_file, z_scm = get_z_obs(m))
-        g_norm = normalize_profile(g_full_case_i, num_vars(m), RS.norm_vec[case_ind])
+        g_full_case_i, prof_indices = get_profile(m, scm_file, z_scm = z_obs, prof_ind = true)
+        g_norm = normalize_profile(g_full_case_i, RS.norm_vec[case_ind], length(z_obs), prof_indices)
 
         # PCA
         yg_diff_pca = pca_vec * (y_norm - g_norm)

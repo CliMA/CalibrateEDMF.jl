@@ -1005,7 +1005,6 @@ function update_val_diagnostics(
     # Compute diagnostics
     mse_full = compute_mse(g_full, val_ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-
     io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_ref_stats, val_batch_indices)
 end
 

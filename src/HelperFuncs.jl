@@ -13,6 +13,7 @@ export vertical_interpolation,
     normalize_profile,
     nc_fetch,
     is_face_variable,
+    is_timeseries,
     get_stats_path,
     compute_mse,
     penalize_nan,
@@ -56,13 +57,13 @@ Output:
 function vertical_interpolation(var_name::String, filename::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
     z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
     var_ = nc_fetch(filename, var_name)
-    if length(size(var_)) == 2
+    if ndims(var_) == 2
         # Create interpolant
         nodes = (z_ref, 1:size(var_, 2))
         var_itp = extrapolate(interpolate(nodes, var_, (Gridded(Linear()), NoInterp())), Line())
         # Return interpolated vector
         return var_itp(z_scm, 1:size(var_, 2))
-    elseif length(size(var_)) == 1
+    elseif ndims(var_) == 1
         # Create interpolant
         nodes = (z_ref,)
         var_itp = LinearInterpolation(nodes, var_; extrapolation_bc = Line())
@@ -88,7 +89,7 @@ Output:
  - The interpolated vector.
 """
 function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{Vector{<:Real}, Nothing};)
-    if !isnothing(z_scm)
+    if !is_timeseries(filename, var_name) && !isnothing(z_scm)
         return vertical_interpolation(var_name, filename, z_scm)
     else
         return nc_fetch(filename, var_name)
@@ -150,19 +151,41 @@ function get_height(filename::String; get_faces::Bool = false)
 end
 
 """
-    normalize_profile(profile_vec, n_vars, var_vec)
+    normalize_profile(
+        y::Array{FT},
+        norm_vec::Array{FT},
+        prof_dof::IT,
+        prof_indices::Union{BitVector, Nothing} = nothing,
+    ) where {FT <: Real, IT <: Integer}
 
-Perform normalization of n_vars profiles contained in profile_vec
-using the variance associated with each variable, contained
-in var_vec.
+Perform normalization of the aggregate observation vector `y` using separate
+normalization constants for each variable, contained in `norm_vec`.
+
+Inputs:
+ - `y` :: Aggregate observation vector.
+ - `norm_vec` :: Vector of squares of normalization factors.
+ - `prof_dof` :: Degrees of freedom of vertical profiles contained in `y`.
+ - `prof_indices` :: Vector of booleans specifying which variables are profiles, and which
+    are timeseries.
+Output:
+ - The normalized aggregate observation vector.
 """
-function normalize_profile(profile_vec, n_vars, var_vec)
-    y = deepcopy(profile_vec)
-    var_dof = Integer(length(profile_vec) / n_vars)
+function normalize_profile(
+    y::Array{FT},
+    norm_vec::Array{FT},
+    prof_dof::IT,
+    prof_indices::Union{Vector{Bool}, Nothing} = nothing,
+) where {FT <: Real, IT <: Integer}
+    y_ = deepcopy(y)
+    n_vars = length(norm_vec)
+    prof_indices = isnothing(prof_indices) ? repeat([true], n_vars) : prof_indices
+    loc_start = 1
     for i in 1:n_vars
-        y[(var_dof * (i - 1) + 1):(var_dof * i)] = y[(var_dof * (i - 1) + 1):(var_dof * i)] ./ sqrt(var_vec[i])
+        loc_end = prof_indices[i] ? loc_start + prof_dof - 1 : loc_start
+        y_[loc_start:loc_end] = y_[loc_start:loc_end] ./ sqrt(norm_vec[i])
+        loc_start = loc_end + 1
     end
-    return y
+    return y_
 end
 
 """
@@ -209,7 +232,7 @@ function is_face_variable(filename::String, var_name::String)
     # PyCLES cell face variables
     pycles_face_vars = ["w_mean", "w_mean2", "w_mean3"]
     NCDataset(filename) do ds
-        for group_option in ["profiles", "reference", "timeseries"]
+        for group_option in ["profiles", "reference"]
             haskey(ds.group, group_option) || continue
             if haskey(ds.group[group_option], var_name)
                 var_dims = dimnames(ds.group[group_option][var_name])
@@ -220,9 +243,28 @@ function is_face_variable(filename::String, var_name::String)
                 elseif ("z" in var_dims) # "Inconsistent" PyCLES variables
                     return false
                 else
-                    error("Variable $var_name does not contain a vertical coordinate.")
+                    throw(ArgumentError("Variable $var_name does not contain a vertical coordinate."))
                 end
             end
+        end
+    end
+end
+
+"""
+    is_timeseries(filename::String, var_name::String)
+
+A `Bool` indicating whether the given variable is a timeseries.
+"""
+function is_timeseries(filename::String, var_name::String)
+    NCDataset(filename) do ds
+        if haskey(ds.group, "timeseries")
+            if haskey(ds.group["timeseries"], var_name)
+                return true
+            else
+                return false
+            end
+        else
+            return false
         end
     end
 end
