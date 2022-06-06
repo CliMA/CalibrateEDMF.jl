@@ -9,6 +9,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
 using CalibrateEDMF.Pipeline: get_ref_model_kwargs
+using CalibrateEDMF.HelperFuncs
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import TurbulenceConvection
@@ -145,6 +146,8 @@ end
 
 @testset "Pipeline_with_validation" begin
 
+    config["prior"]["param_map"] =
+        ParameterMap(Dict("sorting_power" => "entrainment_factor", "updraft_mixing_frac" => 0.5))
     config["reference"]["batch_size"] = 1
     config["reference"]["n_obs"] = [10]
     config["process"]["algorithm"] = "Unscented"
@@ -200,6 +203,14 @@ end
     ek_update(ekobj, priors, 1, config, versions, outdir_path)
 
     # Test ek_update output
+    @test isfile(joinpath(outdir_path, "ekobj_iter_2.jld2"))
+    ekobj = load(joinpath(outdir_path, "ekobj_iter_2.jld2"))["ekp"]
+    @test size(ekobj.obs_noise_cov) == (5, 5)
+    # The following two tests verifies that a non-trivial parameter map (defined abouve) 
+    # has no impact on the dimensionality of the EKP.
+    @test size(ekobj.u[1].stored_data) == (2, 5)
+    @test length(ekobj.process.u_mean[1]) == 2
+
     @test isfile(joinpath(outdir_path, "ekobj_iter_2.jld2"))
     @test isfile(joinpath(outdir_path, "versions_2.txt"))
     versions = readlines(joinpath(outdir_path, "versions_2.txt"))

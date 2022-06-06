@@ -8,6 +8,7 @@ using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
+using CalibrateEDMF.HelperFuncs
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.NetCDFIO
 const CN = CalibrateEDMF.NetCDFIO

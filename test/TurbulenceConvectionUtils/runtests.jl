@@ -13,20 +13,30 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
+import CalibrateEDMF.HelperFuncs: do_nothing_param_map
 
 @testset "TurbulenceConvectionUtils" begin
     @testset "test create_parameter_vectors" begin
-        u_names = ["foo", "bar"]
+
+        namelist = Dict(
+            "turbulence" => Dict("EDMF_PrognosticTKE" => Dict("foo" => -1.0)),
+            "microphysics" => Dict("bar" => [-2.0, -3.0], "baz" => -4.0),
+        )
+
+        # only scalar parameters
+        u_names = ["foo", "baz"]
         u = [1.0, 2.0]
-        u_names_out, u_out = create_parameter_vectors(u_names, u)
-        @test all(u_names_out .∈ [["foo", "bar"]])
+        param_map = do_nothing_param_map()
+        u_names_out, u_out = create_parameter_vectors(u_names, u, param_map, namelist)
+        @test all(u_names_out .∈ [["foo", "baz"]])
         @test only(u_out[u_names_out .== "foo"]) == 1.0
-        @test only(u_out[u_names_out .== "bar"]) == 2.0
+        @test only(u_out[u_names_out .== "baz"]) == 2.0
 
-
+        # scalar and vector parameters, unsorted
         u_names = ["bar_{2}", "foo", "bar_{1}"]
         u = [1.0, 2.0, 3.0]
-        u_names_out, u_out = create_parameter_vectors(u_names, u)
+        param_map = do_nothing_param_map()
+        u_names_out, u_out = create_parameter_vectors(u_names, u, param_map, namelist)
         @test all(u_names_out .∈ [["foo", "bar"]])
         @test only(u_out[u_names_out .== "foo"]) == 2.0
         @test only(u_out[u_names_out .== "bar"]) == [3.0, 1.0]
@@ -34,12 +44,6 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
 
     @test get_gcm_les_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") ==
           "1_model1_01_experiment1"
-
-    u_names = ["foo", "bar_{1}", "bar_{2}"]
-    u = [1.0, 2.0, 3.0]
-    u_names_out, u_out = create_parameter_vectors(u_names, u)
-    @test length(u_names_out) == 2
-    @test isa(u_out, Vector{Any})
 
     @testset "TC.jl error handling" begin
         # Choose same SCM to speed computation
@@ -77,15 +81,17 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             "dt_max" => [bounded(200.0, 300.0)],
             "τ_acnv_rai" => [no_constraint()],
         )
+        param_map = do_nothing_param_map()
         prior = construct_priors(constraints)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
         @test model_error
 
         @test_logs (:warn,) (:error,) match_mode = :any precondition(
             u,
             prior,
+            param_map,
             ref_models,
             ref_stats,
             namelist_args,
@@ -131,6 +137,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
         # ensure namelist in a `run_SCM_handler` call is modified as expected
         u = [0.15, 0.52]
         u_names = ["entrainment_factor", "detrainment_factor"]
+        param_map = do_nothing_param_map()
         # Test namelist modification for different nesting levels
         namelist_args = [
             ("thermodynamics", "quadrature_type", "gaussian"),
@@ -140,7 +147,7 @@ import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
             ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
         ]
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
 
         run_scm_namelist_path = namelist_directory(res_dir, ref_models[1])
         run_scm_namelist = JSON.parsefile(run_scm_namelist_path)
