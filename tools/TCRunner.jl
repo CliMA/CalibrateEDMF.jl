@@ -56,6 +56,10 @@ function run_TC_optimal(
     metric::String = "mse_full",
 )
 
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    val_config = get(config, "validation", nothing)
+    param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
+
     u_names, u = optimal_parameters(joinpath(results_dir, "Diagnostics.nc"); method = method, metric = metric)
 
     for i in 1:length(run_cases["case_name"])
@@ -70,6 +74,7 @@ function run_TC_optimal(
             tc_output_dir;
             u = u,
             u_names = u_names,
+            param_map = param_map,
             namelist_args = namelist_args,
             uuid = run_cases["scm_suffix"][i],
             les = les_path,

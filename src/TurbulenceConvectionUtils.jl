@@ -10,6 +10,7 @@ using ..ReferenceModels
 import ..ReferenceModels: NameList
 
 using ..ReferenceStats
+using ..HelperFuncs
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
@@ -42,6 +43,9 @@ Base.@kwdef struct ModelEvaluator{FT <: Real}
     param_cons::Vector{FT}
     "Parameter names associated with parameter vector"
     param_names::Vector{String}
+    "A mapping operator to define relations between parameters.
+     See [`ParameterMap`](@ref) for details."
+    param_map::ParameterMap
     "Vector of reference models"
     ref_models::Vector{ReferenceModel}
     "Reference statistics for the inverse problem"
@@ -50,10 +54,11 @@ Base.@kwdef struct ModelEvaluator{FT <: Real}
     function ModelEvaluator(
         param_cons::Vector{FT},
         param_names::Vector{String},
+        param_map::ParameterMap,
         RM::Vector{ReferenceModel},
         RS::ReferenceStatistics,
     ) where {FT <: Real}
-        return new{FT}(param_cons, param_names, RM, RS)
+        return new{FT}(param_cons, param_names, param_map, RM, RS)
     end
 end
 
@@ -62,6 +67,7 @@ end
     run_SCM(
         u::Vector{FT},
         u_names::Vector{String},
+        param_map::ParameterMap,
         RM::Vector{ReferenceModel},
         RS::ReferenceStatistics;
         error_check::Bool = false,
@@ -87,6 +93,8 @@ Inputs:
 
  - `u`               :: Values of parameters to be used in simulations.
  - `u_names`         :: SCM names for parameters `u`.
+ - `param_map`       :: A mapping operator to define relations between parameters.
+                        See [`ParameterMap`](@ref) for details.
  - `RM`              :: Vector of `ReferenceModel`s
  - `RS`              :: reference statistics for simulation
  - `error_check`     :: Returns as an additional argument whether the SCM call errored.
@@ -103,6 +111,7 @@ Outputs:
 function run_SCM(
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
@@ -111,7 +120,7 @@ function run_SCM(
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
-    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, namelist_args), enumerate(RM))
+    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, param_map, namelist_args), enumerate(RM))
     # Unpack
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
@@ -139,6 +148,7 @@ function run_SCM(
     return run_SCM(
         ME.param_cons,
         ME.param_names,
+        ME.param_map,
         ME.ref_models,
         ME.ref_stats,
         error_check = error_check,
@@ -154,6 +164,7 @@ end
         RS::ReferenceStatistics,
         u::Vector{FT},
         u_names::Vector{String},
+        param_map::ParameterMap,
         namelist_args = nothing,
     ) where {FT <: Real, IT <: Int}
 
@@ -170,6 +181,8 @@ Inputs:
  - `RS`            :: reference statistics for simulation
  - `u`             :: Values of parameters to be used in simulations.
  - `u_names`       :: SCM names for parameters `u`.
+ - `param_map`     :: A mapping operator to define relations between parameters.
+                        See [`ParameterMap`](@ref) for details.
  - `namelist_args` :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
@@ -185,12 +198,13 @@ function eval_single_ref_model(
     RS::ReferenceStatistics,
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     namelist_args = nothing,
 ) where {FT <: Real, IT <: Int}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map, namelist_args)
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
@@ -254,6 +268,7 @@ end
         tmpdir::String,
         u::Array{FT, 1},
         u_names::Array{String, 1},
+        param_map::ParameterMap,
         namelist_args = nothing,
     ) where {FT<:AbstractFloat}
 
@@ -266,6 +281,8 @@ Inputs:
  - tmpdir        :: Temporary directory to store simulation results in
  - u             :: Values of parameters to be used in simulations.
  - u_names       :: SCM names for parameters `u`.
+ - `param_map`   :: A mapping operator to define relations between parameters.
+                    See [`ParameterMap`](@ref) for details.
  - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
@@ -278,6 +295,7 @@ function run_SCM_handler(
     tmpdir::String,
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     namelist_args = nothing,
 ) where {FT <: AbstractFloat}
 
@@ -292,6 +310,7 @@ function run_SCM_handler(
         tmpdir;
         u = u,
         u_names = u_names,
+        param_map = param_map,
         namelist = namelist,
         namelist_args = namelist_args,
         uuid = basename(tmpdir), # set random uuid
@@ -306,6 +325,7 @@ end
         out_dir::String;
         u::Vector{FT},
         u_names::Vector{String},
+        param_map::ParameterMap,
         namelist::Union{Dict, Nothing} = nothing,
         namelist_args::Union{Tuple, Nothing} = nothing,
         uuid::String = "01",
@@ -320,6 +340,8 @@ Inputs:
  Optional Inputs:
  - u             :: Values of parameters to be used in simulations.
  - u_names       :: SCM names for parameters `u`.
+ - `param_map`   :: A mapping operator to define relations between parameters.
+                    See [`ParameterMap`](@ref) for details.
  - namelist      :: namelist to use for simulation.
  - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
  - uuid          :: uuid of SCM run
@@ -333,6 +355,7 @@ function run_SCM_handler(
     out_dir::String;
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     namelist::Union{Dict, Nothing} = nothing,
     namelist_args::Union{Vector, Nothing} = nothing,
     uuid::String = "01",
@@ -349,7 +372,7 @@ function run_SCM_handler(
     # set output dir to `out_dir`
     namelist["output"]["output_root"] = out_dir
 
-    u_names, u = create_parameter_vectors(u_names, u)
+    u_names, u = create_parameter_vectors(u_names, u, param_map, namelist)
     # Set optional namelist args
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
@@ -360,17 +383,8 @@ function run_SCM_handler(
     # update learnable parameter values
     @assert length(u_names) == length(u)
     for (pName, pVal) in zip(u_names, u)
-        if haskey(namelist["turbulence"]["EDMF_PrognosticTKE"], pName)
-            namelist["turbulence"]["EDMF_PrognosticTKE"][pName] = pVal
-        elseif haskey(namelist["microphysics"], pName)
-            namelist["microphysics"][pName] = pVal
-        elseif haskey(namelist["time_stepping"], pName)
-            namelist["time_stepping"][pName] = pVal
-        else
-            throw(
-                ArgumentError("Parameter $pName cannot be calibrated. Consider adding namelist dictionary if needed."),
-            )
-        end
+        param_subdict = namelist_subdict_by_key(namelist, pName)
+        param_subdict[pName] = pVal
     end
 
     if case_name == "LES_driven_SCM"
@@ -405,7 +419,7 @@ function run_SCM_handler(
 end
 
 """
-    create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
+    create_parameter_vectors(u_names, u, param_map, namelist)
 
 Given vector of parameter names and corresponding values, combine any vector components
 into single parameter vectors for input into SCM.
@@ -414,37 +428,46 @@ Inputs:
 
  - `u_names` :: SCM names for parameters `u`, which may contain vector components.
  - `u` :: Values of parameters to be used in simulations, which may contain vector components.
+ - `param_map` :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+ - `namelist` :: The parameter namelist for TurbulenceConvection.jl
 
 Outputs:
 
  -  `u_names_out` :: SCM names for parameters `u`.
  -  `u_out` :: Values of parameters to be used in simulations.
 """
-function create_parameter_vectors(u_names::Vector{String}, u::Vector{FT}) where {FT <: AbstractFloat}
+function create_parameter_vectors(
+    u_names::Vector{String},
+    u::Vector{FT},
+    param_map::ParameterMap,
+    namelist::Dict,
+) where {FT <: AbstractFloat}
+    # Apply the `param_map` from the calibrated parameters to all parameters.
+    u_names, u = expand_params(u_names, u, param_map, namelist)
 
     u_names_out = String[]
     u_out = []
 
-    vector_param_inds = occursin.(r"{?}", u_names)
-    pv_name_elem = rsplit.(u_names[vector_param_inds], "_", limit = 2) # get param name and element index
-    u_vec_names, uvi = ~isempty(pv_name_elem) ? eachrow(reduce(hcat, pv_name_elem)) : ([], [])  # "transpose" `pv_name_elem`
-    u_vec_inds = @. parse(Int64, only(split(uvi, (('{', '}'),), keepempty = false)))  # get `i` from "{i}" as Int64
+    find_vec_params = match.(r"(.+)_{(\d+)}", u_names)
+    filter_vec_params = filter(!isnothing, find_vec_params)
+    u_vec_names = getindex.(filter_vec_params, 1)
+    u_vec_inds = getindex.(filter_vec_params, 2)
 
     # collect scalar parameters
-    scalar_param_inds = .!vector_param_inds
+    scalar_param_inds = isnothing.(find_vec_params)
     append!(u_names_out, u_names[scalar_param_inds])
     append!(u_out, u[scalar_param_inds])
 
     # collect vector parameters
+    vector_param_inds = @. !isnothing(find_vec_params)
     for u_name in unique(u_vec_names)
         u_name_inds = u_vec_names .== u_name
         u_vals = u[vector_param_inds][u_name_inds]
-        u_vals_sort_inds = u_vec_inds[u_name_inds]
+        u_vals_sort_inds = sortperm(u_vec_inds[u_name_inds])
         permute!(u_vals, u_vals_sort_inds)
         push!(u_names_out, u_name)
         push!(u_out, u_vals)
     end
-
     return u_names_out, u_out
 end
 
@@ -524,6 +547,7 @@ end
     precondition(
         param::Vector{FT},
         priors,
+        param_map::ParameterMap,
         ref_models::Vector{ReferenceModel},
         ref_stats::ReferenceStatistics,
         namelist_args = nothing;
@@ -536,14 +560,15 @@ from the same prior, conditioned on the forward model being stable.
 
 Inputs:
 
- - `param`      :: A parameter vector that may possibly result in unstable
-    forward model evaluations (in unconstrained space).
- - `priors`      :: Priors from which the parameters were drawn.
- - `ref_models`  :: Vector of ReferenceModels to check stability for.
- - `ref_stats`   :: ReferenceStatistics of the ReferenceModels.
- - `namelist_args` :: Arguments passed to the TC.jl namelist.
- - `counter` :: Accumulator tracking number of recursive calls to preconditioner.
- - `max_counter` :: Maximum number of recursive calls to the preconditioner.
+ - `param`          :: A parameter vector that may possibly result in unstable
+                        forward model evaluations (in unconstrained space).
+ - `priors`         :: Priors from which the parameters were drawn.
+ - `param_map`      :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+ - `ref_models`     :: Vector of ReferenceModels to check stability for.
+ - `ref_stats`      :: ReferenceStatistics of the ReferenceModels.
+ - `namelist_args`  :: Arguments passed to the TC.jl namelist.
+ - `counter`        :: Accumulator tracking number of recursive calls to preconditioner.
+ - `max_counter`    :: Maximum number of recursive calls to the preconditioner.
 
 Outputs:
 
@@ -552,6 +577,7 @@ Outputs:
 function precondition(
     param::Vector{FT},
     priors::ParameterDistribution,
+    param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
     namelist_args = nothing;
@@ -561,7 +587,7 @@ function precondition(
     param_names = priors.name
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) =
-        run_SCM(u, param_names, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
+        run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
@@ -573,6 +599,7 @@ function precondition(
         return precondition(
             vec(construct_initial_ensemble(priors, 1)),
             priors,
+            param_map,
             ref_models,
             ref_stats,
             namelist_args,
@@ -604,10 +631,10 @@ Outputs:
 function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.ref_models, ME.ref_stats, namelist_args)
+    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats, namelist_args)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
-    return ModelEvaluator(param_cons, ME.param_names, ME.ref_models, ME.ref_stats)
+    return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats)
 end
 
 end # module

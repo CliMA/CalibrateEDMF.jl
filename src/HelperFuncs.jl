@@ -28,7 +28,11 @@ export vertical_interpolation,
     write_versions,
     expand_dict_entry,
     get_entry,
-    change_entry!
+    change_entry!,
+    ParameterMap,
+    do_nothing_param_map,
+    expand_params,
+    namelist_subdict_by_key
 
 using NCDatasets
 using Statistics
@@ -37,6 +41,169 @@ using LinearAlgebra
 using Glob
 using JSON
 using Random
+
+"""
+    struct ParameterMap
+
+`ParameterMap` is a struct that defines relations between different parameters.
+
+The dictionary `mapping` specifies a map from any parameter that is not being 
+calibrated to either a calibrated parameter, or a number. 
+If another parameter name is specified, the samples from that parameter's distribution
+is used as the given parameter's value throughout calibration, effectively defining
+an equivalence between the two parameters.
+If a number is specified, the parameter will be assigned that constant value throughout 
+the calibration process.
+
+These mappings are primarily useful for vector parameters, where we can choose to only
+calibrate specific components of a vector parameter, or setting different components of
+a vector equal to other components of the vector (or to other parameters). Note, vector 
+components are specified by `<name>_{<index>}`, e.g. `general_stochastic_ent_params_{3}` 
+for the third component of the vector parameter `general_stochastic_ent_params`.
+
+# Examples
+Suppose we have the parameter vector `param` with five components. We can choose to only
+calibrate the first and third component, fixing the fourth component to 3.0,
+and also specifying that the first and second component should be equal, in the following way:
+```jldoctest
+julia> param_map = ParameterMap(
+    mapping = Dict(
+        "param_{2}" => "param_{1}",
+        "param_{4}" => 3.0,
+    ),
+)
+```
+
+The parameter map should be specified in the function `get_prior_config()` in `config.jl`,
+```jldoctest
+# function get_prior_config()  
+config = Dict()
+
+config["constraints"] = Dict(
+    "param_{1}" => [bounded(1.0, 2.0)],
+    "param_{3} => [bounded(3.0, 4.0)],
+)
+
+config["param_map"] = CalibrateEDMF.HelperFuncs.ParameterMap(
+    mapping = Dict(
+        "param_{2}" => "param_{1}",
+        "param_{4}" => 3.0,
+    ),
+)
+
+# ...
+# end
+```
+Notice that the fifth component was neither specified in the prior, nor the mapping. This will fix
+that component to its default value as specified in the namelist (i.e. in `TurbulenceConvection.jl`).
+
+"""
+Base.@kwdef struct ParameterMap
+    mapping::Dict
+end
+
+""" do-nothing param_map."""
+do_nothing_param_map() = ParameterMap(Dict())
+
+"""
+    expand_params(u_names_calib, u_calib, param_map, namelist)
+
+Expand a list of parameters using a param_map and a namelist.
+
+Expand a list of parameters and its corresponding values using the [`ParameterMap`](@ref). 
+If `u_names_calib` contain vector components, fetch all unspecified components 
+from the `namelist` so that for any vector component in `u_names_calib`, 
+all other components of that vector are also specified.
+
+# Arguments
+- `u_names_calib`: A list of parameter names that are being calibrated
+- `u_calib`: A list of values associated with the parameter names
+- `param_map`: A [`ParameterMap`](@ref) specifying a parameter mapping.
+- `namelist`: A dictionary of default parameter values.
+
+Returns a tuple of two vectors defining parameter names and parameter values,
+possibly expanded relative to the input arguments to define all components of
+vector parameters or from relations specified by the [`ParameterMap`](@ref).
+"""
+function expand_params(u_names_calib::AbstractVector, u_calib::AbstractVector, param_map::ParameterMap, namelist::Dict)
+
+    # Check that `param_map` and `u_names_calib` do not contain any of the same parameters
+    mapping_keys = collect(keys(param_map.mapping))
+    if any(mapping_keys .∈ (u_names_calib,))
+        illegal_params = join(mapping_keys[mapping_keys .∈ (u_names_calib,)], ", ")
+        throw(
+            ArgumentError(
+                "Parameters cannot simultaneously be calibrated and fixed with a param_map. \n Check config for: $illegal_params",
+            ),
+        )
+    end
+
+    # fill `params` using `namelist`
+    base_params = Dict(u_names_calib .=> u_calib)
+    params = fill_param_vectors(namelist, base_params)
+    # update `params` using `param_map` 
+    for (mapping_keys, mapping_values) in param_map.mapping
+        params[mapping_keys] = if isa(mapping_values, Number)
+            mapping_values  # Set numeric value if explicitly provided
+        elseif isa(mapping_values, AbstractString)
+            # if `p1` => `p2`, get value associated with `p2`
+            @assert haskey(base_params, mapping_values) "Parameter `$mapping_values` not among calibrated parameters! Check your config."
+            base_params[mapping_values]
+        else
+            throw(
+                ArgumentError(
+                    "The type of `$mapping_values` for the Pair `$mapping_keys => $mapping_values` is not recognized. " *
+                    "Should be `String` or `Number`, but has type `$(typeof(mapping_values))`.",
+                ),
+            )
+        end
+    end
+
+    return collect.((keys(params), values(params)))
+end
+
+"""
+    fill_param_vectors(namelist, params)
+
+Expand `params` dictionary with defaults from `namelist`.
+
+In practice, `params` is only expanded if it contains vector components,
+in which case default values of unspecified components are fetched from
+the namelist and appended to `params`.
+"""
+function fill_param_vectors(namelist::Dict, params::Dict{<:AbstractString, <:Number})
+    # Fetch default vector parameters from `namelist` that match `params`
+    vec_param_names = unique(getfield.(filter(!isnothing, match.(r".*(?=_{\d+})", keys(params))), :match))
+    namelist_vec_params = Dict(vec_param_names .=> get_namelist_value.(Ref(namelist), vec_param_names))
+    flatten_vector_parameter(p) = "$(p.first)_{" .* string.(1:length(p.second)) .* "}" .=> p.second
+    vec_params = Dict((map(flatten_vector_parameter, collect(namelist_vec_params))...)...)
+    # Update parameter list
+    return merge(vec_params, params)
+end
+
+"""
+    namelist_subdict_by_key(namelist, param_name) -> subdict
+
+Return the subdict of `namelist` that has `param_name` as a key.
+
+The namelist is defined in TurbulenceConvection.jl
+"""
+function namelist_subdict_by_key(namelist::Dict, param_name::AbstractString)::Dict
+    subdict = if haskey(namelist["turbulence"]["EDMF_PrognosticTKE"], param_name)
+        namelist["turbulence"]["EDMF_PrognosticTKE"]
+    elseif haskey(namelist["microphysics"], param_name)
+        namelist["microphysics"]
+    elseif haskey(namelist["time_stepping"], param_name)
+        namelist["time_stepping"]
+    else
+        throw(ArgumentError("Parameter $param_name cannot be calibrated. Consider adding namelist dictionary if needed."))
+    end
+    return subdict
+end
+
+""" Get the namelist value for some parameter name"""
+get_namelist_value(namelist::Dict, param_name::AbstractString) =
+    namelist_subdict_by_key(namelist, param_name)[param_name]
 
 """
     vertical_interpolation(

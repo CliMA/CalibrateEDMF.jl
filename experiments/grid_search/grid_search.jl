@@ -58,6 +58,8 @@ using ArgParse
         output_root::String
         "Additional namelist arguments"
         namelist_args::Union{AbstractVector, Nothing}
+        "Parameter param_map, see [`ParameterMap`](@ref) for details"
+        param_map::ParameterMap
     end
 
     """
@@ -85,6 +87,7 @@ using ArgParse
         s.case_id,
         s.output_root,
         s.namelist_args,
+        s.param_map,
     )
     function run_sims(
         param1::S,
@@ -96,6 +99,7 @@ using ArgParse
         case_id::Integer,
         output_root::S,
         namelist_args::Union{AbstractVector, Nothing},
+        param_map::ParameterMap,
     ) where {S <: AbstractString}
         # Create path to store forward model output
         case_dir = joinpath(output_root, "$param1.$param2/$(value1)_$(value2)/$case.$case_id")  # e.g. output/220101_abc/param1.param2/0.1_0.2/Bomex.1
@@ -120,6 +124,7 @@ using ArgParse
             case_dir;
             u = collect(Float64, values(params)),
             u_names = collect(String, keys(params)),
+            param_map = param_map,
             namelist = namelist,
             namelist_args = namelist_args,
             uuid = "$ens_i",
@@ -157,6 +162,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
         push!(case_name_id, (case, case_id))
     end
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    param_map = get_entry(get(config, "prior", Dict()), "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     # Construct simulation configs
     param_names = collect(keys(parameters))
@@ -177,6 +183,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
                     case_id,
                     out_dir,
                     Ref(namelist_args),
+                    Ref(param_map),
                 ),
             )
         end

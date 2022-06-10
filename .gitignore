@@ -27,6 +27,7 @@ Manifest.toml
 
 # editor settings
 .vscode
+LocalPreferences.toml
 
 # simulation setup/results
 *.out
@@ -34,3 +35,5 @@ output
 results_*
 *.in
 *.nc
+CEDMF.so
+output

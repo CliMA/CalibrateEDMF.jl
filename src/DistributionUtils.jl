@@ -9,6 +9,8 @@ using Distributions
 using JLD2
 using EnsembleKalmanProcesses.ParameterDistributions
 
+import ..HelperFuncs: ParameterMap, do_nothing_param_map
+
 export construct_priors, deserialize_prior
 export logmean_and_logstd, mean_and_std_from_ln
 export flatten_config_dict
@@ -81,7 +83,7 @@ end
     construct_priors(
         params::Dict{String, Vector{Constraint}};
         unconstrained_σ::Float64 = 1.0,
-        prior_mean::Union{Vector{Float64}, Nothing} = nothing,
+        prior_mean::Union{Dict{String, Vector{Float64}}, Nothing} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
     )
