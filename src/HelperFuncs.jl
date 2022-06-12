@@ -195,10 +195,19 @@ nc_fetch(filename::String, var_name::String) = nc_fetch(filename, (var_name,))
 """
     is_face_variable(filename::String, var_name::String)
 
-A `Bool` indicating whether the given
-variables is defined in faces, or not.
+A `Bool` indicating whether the given variable is defined in a face,
+or not (cell center).
+
+TurbulenceConvection data are consistent, meaning that variables at
+cell faces (resp. centers) have as dim `zf` (resp., `zc`).
+
+PyCLES variables are inconsistent. All variables have as a dim `z`,
+the cell face locations, but most of them (except for the statistical
+moments of w) are actually defined at cell centers (`z_half`). 
 """
 function is_face_variable(filename::String, var_name::String)
+    # PyCLES cell face variables
+    pycles_face_vars = ["w_mean", "w_mean2", "w_mean3"]
     NCDataset(filename) do ds
         for group_option in ["profiles", "reference", "timeseries"]
             haskey(ds.group, group_option) || continue
@@ -206,8 +215,10 @@ function is_face_variable(filename::String, var_name::String)
                 var_dims = dimnames(ds.group[group_option][var_name])
                 if ("zc" in var_dims) | ("z_half" in var_dims)
                     return false
-                elseif ("zf" in var_dims) | ("z" in var_dims)
+                elseif ("zf" in var_dims) | (var_name in pycles_face_vars)
                     return true
+                elseif ("z" in var_dims) # "Inconsistent" PyCLES variables
+                    return false
                 else
                     error("Variable $var_name does not contain a vertical coordinate.")
                 end

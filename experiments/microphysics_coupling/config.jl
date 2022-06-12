@@ -142,7 +142,7 @@ function get_prior_config()
         "surface_area" => [bounded(0.01, 0.5)],
 
         # microphysics parameters
-        "precip_fraction_limiter" = [bounded(0.1, 1.0)],
+        "precip_fraction_limiter" => [bounded(0.1, 0.5)],
         "τ_acnv_rai" => [bounded(1e2, 1e4)],
         "τ_acnv_sno" => [bounded(1e1, 1e3)],
         "q_liq_threshold" => [bounded(1e-4, 1e-2)],
@@ -184,7 +184,7 @@ function get_prior_config()
         "surface_area" => [0.1],
 
         # microphysics parameters
-        "precip_fraction_limiter" = [0.3],
+        "precip_fraction_limiter" => [0.3],
         "τ_acnv_rai" => [2500.0],
         "τ_acnv_sno" => [100.0],
         "q_liq_threshold" => [0.5e-3],
@@ -230,9 +230,10 @@ function get_scm_config()
         # ("turbulence", "EDMF_PrognosticTKE", "tke_ed_coeff", 0.17069970482575572),
         # ("turbulence", "EDMF_PrognosticTKE", "turbulent_entrainment_factor", 0.07395526189334647),
         # ("turbulence", "EDMF_PrognosticTKE", "entrainment_scale", 0.0004611728518427933),
-        ("thermodynamics", "sgs", "quadrature"),
-        ("thermodynamics", "quadrature_order", 3),
-        ("thermodynamics", "quadrature_type", "log-normal"), #"gaussian" "log-normal"
+        ("thermodynamics", "sgs", "mean"),
+        #("thermodynamics", "sgs", "quadrature"),
+        #("thermodynamics", "quadrature_order", 7),
+        #("thermodynamics", "quadrature_type", "log-normal"), #"gaussian" "log-normal"
         ("microphysics", "precipitation_model", "clima_1m"),
         ("microphysics", "precip_fraction_model", "cloud_cover"),
     ]
