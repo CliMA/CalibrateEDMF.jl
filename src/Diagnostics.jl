@@ -69,7 +69,7 @@ function io_dictionary_reference(
     d_full = full_length(ref_stats)
     d = pca_length(ref_stats)
     num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
-    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    var_dof = ref_stats.zdof
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
@@ -168,7 +168,7 @@ function io_dictionary_val_reference(
     d_full = full_length(ref_stats)
     d = pca_length(ref_stats)
     num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
-    var_dof = Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars)
+    var_dof = ref_stats.zdof
     config_pca_dim = [size(P_pca, 2) for P_pca in ref_stats.pca_vec]
     config_name = [
         rm.case_name == "LES_driven_SCM" ? join(split(basename(rm.y_dir), ".")[2:end], "_") : rm.case_name for
@@ -298,7 +298,7 @@ Elements:
  - `mse_full_max` :: Ensemble max of MSE(`g_full`, `y_full`).
  - `mse_full_var` :: Variance estimate of MSE(`g_full`, `y_full`), empirical (EKI/EKS) or quadrature (UKI).
  - `mse_full_nn_mean` :: MSE(`g_full`, `y_full`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
- - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures due to masking.
+ - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures due to parameter mapping.
  - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space. This index is used to construct `..._nn_mean` metrics.
 """
 function io_dictionary_metrics()

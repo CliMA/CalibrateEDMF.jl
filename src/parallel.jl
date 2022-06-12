@@ -18,6 +18,7 @@ function run_SCM_parallel(
     return run_SCM_parallel(
         ME.param_cons,
         ME.param_names,
+        ME.param_map,
         ME.ref_models,
         ME.ref_stats,
         error_check = error_check,
@@ -29,6 +30,7 @@ end
 function run_SCM_parallel(
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
@@ -37,7 +39,7 @@ function run_SCM_parallel(
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
-    result_arr = pmap(x -> eval_single_ref_model(x..., RS, u, u_names, namelist_args), enumerate(RM))
+    result_arr = pmap(x -> eval_single_ref_model(x..., RS, u, u_names, param_map, namelist_args), enumerate(RM))
     # Unpack
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
@@ -64,19 +66,22 @@ function eval_single_ref_model(
     RS::ReferenceStatistics,
     u::Vector{FT},
     u_names::Vector{String},
+    param_map::ParameterMap,
     namelist_args = nothing,
 ) where {FT <: Real, IT <: Int}
 
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, namelist_args)
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map, namelist_args)
     filename = get_stats_path(sim_dir)
+    z_obs = get_z_obs(m)
     if model_error
-        g_scm = fill(NaN, length(get_z_obs(m)) * length(m.y_names))
+        g_scm = get_profile(m, filename, z_scm = z_obs) # Get shape
+        g_scm = fill(NaN, length(g_scm))
     else
-        g_scm = get_profile(m, filename, z_scm = get_z_obs(m))
-        g_scm = normalize_profile(g_scm, length(m.y_names), RS.norm_vec[m_index])
+        g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
+        g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
     end
     # perform PCA reduction
     g_scm_pca = RS.pca_vec[m_index]' * g_scm

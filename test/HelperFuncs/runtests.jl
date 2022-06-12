@@ -81,3 +81,57 @@ end
     @test is_face_variable(data_filename, "total_flux_h")
     @test !is_face_variable(data_filename, "u_mean")
 end
+
+@testset "namelist utilities" begin
+    namelist = Dict(
+        "turbulence" => Dict(
+            "EDMF_PrognosticTKE" =>
+                Dict("sorting_power" => 1.0, "general_stochastic_ent_params" => [1.0, 2.0, 3.0, 4.0]),
+        ),
+        "microphysics" => Dict(),
+        "time_stepping" => Dict("t_max" => 12.0),
+    )
+
+    @test namelist_subdict_by_key(namelist, "sorting_power")["sorting_power"] == 1.0
+    @test namelist_subdict_by_key(namelist, "t_max") == Dict("t_max" => 12.0)
+    @test_throws ArgumentError namelist_subdict_by_key(namelist, "fake_param")
+end
+
+@testset "parameter mapping" begin
+    namelist = Dict(
+        "turbulence" => Dict(
+            "EDMF_PrognosticTKE" =>
+                Dict("sorting_power" => 1.0, "general_stochastic_ent_params" => [1.0, 2.0, 3.0, 4.0]),
+        ),
+        "microphysics" => Dict(),
+        "time_stepping" => Dict("t_max" => 12.0),
+    )
+    u_names = ["general_stochastic_ent_params_{1}", "general_stochastic_ent_params_{2}"]
+    u = [11.0, 12.0]
+
+    # # do-nothing param map by default
+    param_map1 = do_nothing_param_map()
+    u_names1, u1 = expand_params(u_names, u, param_map1, namelist)
+    @test u_names1 == [u_names..., "general_stochastic_ent_params_{3}", "general_stochastic_ent_params_{4}"]
+    @test u1 == [11.0, 12.0, 3.0, 4.0]
+
+    # String and Number mapping
+    param_map2 = ParameterMap(
+        mapping = Dict(
+            "general_stochastic_ent_params_{3}" => 33.0,
+            "general_stochastic_ent_params_{4}" => "general_stochastic_ent_params_{2}",
+        ),
+    )
+
+    u_names2, u2 = expand_params(u_names, u, param_map2, namelist)
+    @test u_names2 == [u_names..., "general_stochastic_ent_params_{3}", "general_stochastic_ent_params_{4}"]
+    @test u2 == [11.0, 12.0, 33.0, 12.0]
+
+    # Parameter map to non-existent parameter
+    param_map3 = ParameterMap(mapping = Dict("general_stochastic_ent_params_{4}" => "fake_param"))
+    @test_throws AssertionError expand_params(u_names, u, param_map3, namelist)
+
+    # Parameter map to unknown type
+    param_map4 = ParameterMap(mapping = Dict("general_stochastic_ent_params_{4}" => [1, 2]))
+    @test_throws ArgumentError expand_params(u_names, u, param_map4, namelist)
+end

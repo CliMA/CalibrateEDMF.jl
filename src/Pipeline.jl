@@ -62,6 +62,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
     prior_μ = get_entry(config["prior"], "prior_mean", nothing)
+    param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
@@ -163,7 +164,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
@@ -180,6 +181,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
             reg_config,
             ekobj,
             priors,
+            param_map,
             versions,
             outdir_path,
             overwrite = overwrite_scm_file,
@@ -289,6 +291,7 @@ function init_validation(
     reg_config::Dict{Any, Any},
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
+    param_map::ParameterMap,
     versions::Vector{IT},
     outdir_path::String;
     overwrite::Bool = false,
@@ -312,7 +315,7 @@ function init_validation(
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
     [
         jldsave(scm_val_init_path(outdir_path, version); model_evaluator, version, batch_indices) for
         (model_evaluator, version) in zip(mod_evaluators, versions)
@@ -326,10 +329,11 @@ end
         reg_config::Dict{Any, Any},
         ekp_old::EnsembleKalmanProcess,
         priors::ParameterDistribution,
+        param_map::ParameterMap,
         versions::Vector{String},
         outdir_path::String,
         iteration::IT
-        )
+    )
 
 Updates the validation diagnostics and writes to file the validation ModelEvaluators
 for the next calibration step.
@@ -340,6 +344,7 @@ Inputs:
  - reg_config    :: Regularization configuration.
  - ekp_old       :: EnsembleKalmanProcess updated using the past forward model evaluations.
  - priors        :: The priors over parameter space.
+ - param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - versions      :: String versions identifying the forward model evaluations.
  - outdir_path   :: Output path directory.
 """
@@ -348,6 +353,7 @@ function update_validation(
     reg_config::Dict{Any, Any},
     ekp_old::EnsembleKalmanProcess,
     priors::ParameterDistribution,
+    param_map::ParameterMap,
     versions::Vector{String},
     outdir_path::String,
     iteration::IT,
@@ -371,7 +377,7 @@ function update_validation(
     end
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp_old))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
     # Save new ModelEvaluators using the new versions
     versions = readlines(joinpath(outdir_path, "versions_$(iteration + 1).txt"))
     [
@@ -425,6 +431,7 @@ function ek_update(
 
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
     augmented = get_entry(proc_config, "augmented", false)
+    param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
@@ -476,12 +483,12 @@ function ek_update(
 
         # Write to file new EKP and ModelEvaluators
         jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
-        write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, iteration, batch_indices)
+        write_model_evaluators(ekp, priors, param_map, ref_models, ref_stats, outdir_path, iteration, batch_indices)
 
         # Update validation ModelEvaluators
         if !isnothing(val_config)
             reg_config = config["regularization"]
-            update_validation(val_config, reg_config, ekobj, priors, versions, outdir_path, iteration)
+            update_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path, iteration)
         end
     end
     # Clean up
@@ -532,6 +539,8 @@ function restart_calibration(
     batch_size = get_entry(ref_config, "batch_size", nothing)
     kwargs_ref_model = get_ref_model_kwargs(ref_config)
 
+    param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
+
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
 
@@ -559,7 +568,7 @@ function restart_calibration(
 
     # Write to file new EKP and ModelEvaluators
     jldsave(ekobj_path(outdir_path, last_iteration + 1); ekp)
-    write_model_evaluators(ekp, priors, ref_models, ref_stats, outdir_path, last_iteration, batch_indices)
+    write_model_evaluators(ekp, priors, param_map, ref_models, ref_stats, outdir_path, last_iteration, batch_indices)
 
     # Restart validation
     if !isnothing(val_config)
@@ -568,6 +577,7 @@ function restart_calibration(
             reg_config,
             ekobj,
             priors,
+            param_map,
             outdir_path,
             last_iteration,
             overwrite = overwrite_scm_file,
@@ -588,6 +598,7 @@ end
         reg_config::Dict{Any, Any},
         ekp_old::EnsembleKalmanProcess,
         priors::ParameterDistribution,
+        param_map::ParameterMap,
         outdir_path::String,
         last_iteration::IT;
         overwrite::Bool = false,
@@ -604,6 +615,7 @@ Inputs:
  - reg_config    :: Regularization configuration.
  - ekp_old       :: EnsembleKalmanProcess updated using the past forward model evaluations.
  - priors        :: The priors over parameter space.
+ - param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - outdir_path   :: Output path directory.
 """
 function restart_validation(
@@ -611,6 +623,7 @@ function restart_validation(
     reg_config::Dict{Any, Any},
     ekp_old::EnsembleKalmanProcess,
     priors::ParameterDistribution,
+    param_map::ParameterMap,
     outdir_path::String,
     last_iteration::IT;
     overwrite::Bool = false,
@@ -635,7 +648,7 @@ function restart_validation(
 
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp_old))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
     # Save new ModelEvaluators using the new versions
     versions = readlines(joinpath(outdir_path, "versions_$(last_iteration + 1).txt"))
     [
@@ -872,6 +885,7 @@ end
     write_model_evaluators(
         ekp::EnsembleKalmanProcess,
         priors::ParameterDistribution,
+        param_map::ParameterMap,
         ref_models::Vector{ReferenceModel},
         ref_stats::ReferenceStatistics,
         outdir_path::String,
@@ -883,6 +897,7 @@ Creates and writes to file the ModelEvaluators for the current particle ensemble
 Inputs:
  - `ekp`         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
  - `priors`      :: The parameter priors.
+ - `param_map`   :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - `ref_models`  :: The ReferenceModels defining the new model evaluations.
  - `ref_stats`   :: The ReferenceStatistics corresponding to passed `ref_models`.
  - `outdir_path` :: The output directory.
@@ -891,6 +906,7 @@ Inputs:
 function write_model_evaluators(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
+    param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics,
     outdir_path::String,
@@ -899,7 +915,7 @@ function write_model_evaluators(
 )
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
-    mod_evaluators = [ModelEvaluator(param, get_name(priors), ref_models, ref_stats) for param in params]
+    mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
     versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
@@ -1005,7 +1021,6 @@ function update_val_diagnostics(
     # Compute diagnostics
     mse_full = compute_mse(g_full, val_ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-
     io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_ref_stats, val_batch_indices)
 end
 

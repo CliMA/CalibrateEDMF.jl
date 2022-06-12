@@ -76,9 +76,10 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
     Γ_full::SparseMatrixCSC{FT, Int64}
     "Degrees of freedom per case (possibly reduced by PCA)"
     ndof_case::Vector{IT}
-    "Full degrees of freedom per case"
+    "Full degrees of freedom per case: `zdof * n_vars`"
     ndof_full_case::Vector{IT}
-
+    "Vertical degrees of freedom in profiles per case"
+    zdof::Vector{IT}
     # Constructors
 
     ReferenceStatistics(y::Vector{FT}, args...) where {FT <: Real} = new{FT, Int64}(y, args...)
@@ -105,6 +106,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         norm_vec = Vector[]
         ndof_case = IT[]
         ndof_full_case = IT[]
+        zdof = IT[]
 
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
@@ -127,6 +129,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
             append!(y_full, y_)
             push!(Γ_full_vec, y_var_)
             push!(ndof_full_case, length(y_))
+            push!(zdof, length(get_z_obs(model)))
         end
 
         # Construct global observational covariance matrix, original space
@@ -147,7 +150,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
 
         @assert isposdef(Γ) "Covariance matrix Γ is ill-conditioned, consider regularization."
 
-        return new{FT, IT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full, ndof_case, ndof_full_case)
+        return new{FT, IT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full, ndof_case, ndof_full_case, zdof)
     end
 
 end
@@ -214,13 +217,13 @@ function get_obs(
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
-    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm = z_scm)
+    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm)
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
-    y = get_profile(m, y_nc_file(m), y_names, z_scm = z_scm)
+    y, prof_indices = get_profile(m, y_nc_file(m), y_names, z_scm = z_scm, prof_ind = true)
     # normalize
-    y = normalize_profile(y, num_vars(m), norm_vec)
+    y = normalize_profile(y, norm_vec, length(z_scm), prof_indices)
     return y, Σ, norm_vec
 end
 
@@ -290,15 +293,22 @@ end
         filename::String,
         y_names::Vector{String};
         ti::Real = 0.0,
-        tf = nothing,
-        z_scm::Union{Vector{FT}, Nothing} = nothing,
-    )
-    get_profile(m::ReferenceModel, filename::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
+        tf::Union{Real, Nothing} = nothing,
+        z_scm::Union{Vector{T}, T} = nothing,
+        prof_ind::Bool = false,
+    ) where {T}
+    get_profile(
+        m::ReferenceModel,
+        filename::String;
+        z_scm::Union{Vector{T}, T} = nothing,
+        prof_ind::Bool = false,
+    ) where {T}
     get_profile(
         m::ReferenceModel,
         filename::String,
         y_names::Vector{String};
         z_scm::Union{Vector{T}, T} = nothing,
+        prof_ind::Bool = false,
     ) where {T}
 
 Get time-averaged profiles for variables `y_names`, interpolated to
@@ -307,11 +317,12 @@ Get time-averaged profiles for variables `y_names`, interpolated to
 Inputs:
 
  - `filename`    :: nc filename
- - `y_names`   :: Names of variables to be retrieved.
+ - `y_names`     :: Names of variables to be retrieved.
  - `ti`          :: Initial time of averaging window.
  - `tf`          :: Final time of averaging window.
  - `z_scm`       :: If given, interpolate LES observations to given levels.
- - `m`           :: ReferenceModel from which to fetch profiles, implicitly defines `ti` and `tf`. 
+ - `m`           :: ReferenceModel from which to fetch profiles, implicitly defines `ti` and `tf`.
+ - `prof_ind`    :: Whether to return a boolean array indicated the variables that are profiles (i.e., not scalars). 
 
 Outputs:
 
@@ -323,11 +334,13 @@ function get_profile(
     ti::Real = 0.0,
     tf::Union{Real, Nothing} = nothing,
     z_scm::Union{Vector{T}, T} = nothing,
+    prof_ind::Bool = false,
 ) where {T}
 
     t = nc_fetch(filename, "t")
     dt = length(t) > 1 ? mean(diff(t)) : 0.0
     y = zeros(0)
+    is_profile = Bool[]
 
     # Check that times are contained in simulation output
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
@@ -342,7 +355,7 @@ function get_profile(
             var_ = isnothing(z_scm) ? get_height(filename) : z_scm
             append!(y, 1.0e5 * ones(length(var_[:])))
         end
-        return y
+        return prof_ind ? (y, repeat([true], length(y_names))) : y
     end
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
@@ -356,21 +369,32 @@ function get_profile(
                 var_ = isnothing(z_scm) ? get_height(filename) : z_scm
                 append!(y, 1.0e5 * ones(length(var_[:])))
             end
-            return y
+            return prof_ind ? (y, repeat([true], length(y_names))) : y
         end
     end
 
     # Return time average for non-degenerate cases
     for var_name in y_names
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
-        var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
+        if ndims(var_) == 2
+            var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
+            append!(is_profile, true)
+        elseif ndims(var_) == 1
+            var_mean = !isnothing(tf) ? mean(var_[ti_index:tf_index]) : var_[ti_index]
+            append!(is_profile, false)
+        end
         append!(y, var_mean)
     end
-    return y
+    return prof_ind ? (y, is_profile) : y
 end
 
-function get_profile(m::ReferenceModel, filename::String; z_scm::Union{Vector{T}, T} = nothing) where {T}
-    get_profile(m, filename, m.y_names, z_scm = z_scm)
+function get_profile(
+    m::ReferenceModel,
+    filename::String;
+    z_scm::Union{Vector{T}, T} = nothing,
+    prof_ind::Bool = false,
+) where {T}
+    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind)
 end
 
 function get_profile(
@@ -378,12 +402,13 @@ function get_profile(
     filename::String,
     y_names::Vector{String};
     z_scm::Union{Vector{T}, T} = nothing,
+    prof_ind::Bool = false,
 ) where {T}
-    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm)
+    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind)
 end
 
 """
-    get_time_covariance(m::ReferenceModel, y_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
+    get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::Vector{FT}) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
@@ -393,7 +418,7 @@ Inputs:
  - `y_names`    :: List of variable names to be included.
  - `z_scm`        :: If given, interpolates covariance matrix to this locations.
 """
-function get_time_covariance(m::ReferenceModel, y_names::Vector{String}; z_scm::Vector{FT}) where {FT <: Real}
+function get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::Vector{FT}) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
     # Find closest interval in data
@@ -406,11 +431,20 @@ function get_time_covariance(m::ReferenceModel, y_names::Vector{String}; z_scm::
 
     for (i, var_name) in enumerate(y_names)
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
-        # Store pooled variance
-        pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
-        # Normalize timeseries
-        ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i])
-        ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # dims: (Nz*num_outputs, Nt)
+        if ndims(var_) == 2
+            # Store pooled variance
+            pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
+            # Normalize timeseries
+            ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) # dims: (Nz, Nt)
+        elseif ndims(var_) == 1
+            # Store pooled variance
+            pool_var[i] = var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
+            # Normalize timeseries
+            ts_var_i = Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) # dims: (1, Nt)
+        else
+            throw(ArgumentError("Variable `$var_name` has more than 2 dimensions, 1 or 2 were expected."))
+        end
+        ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt)
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     return cov_mat, pool_var

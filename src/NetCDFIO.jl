@@ -67,7 +67,7 @@ mutable struct NetCDFIO_Diags
             num_vars = [length(norm_scale) for norm_scale in ref_stats.norm_vec]
             f = maximum(num_vars)
             # Max number of variable degrees of freedom per configuration
-            var_dof_max = maximum(Int.([size(P_pca, 1) for P_pca in ref_stats.pca_vec] ./ num_vars))
+            var_dof_max = maximum(ref_stats.zdof)
 
             # Number of configuration per batch
             batch_size = get_entry(config["reference"], "batch_size", length(ref_stats.pca_vec))
@@ -138,7 +138,7 @@ mutable struct NetCDFIO_Diags
                 num_vars_val = [length(norm_vec) for norm_vec in val_ref_stats.norm_vec]
                 f_val = maximum(num_vars_val)
                 # Max number of variable degrees of freedom per configuration
-                var_dof_max_val = maximum(Int.([size(P_pca, 1) for P_pca in val_ref_stats.pca_vec] ./ num_vars_val))
+                var_dof_max_val = maximum(val_ref_stats.zdof)
 
                 batch_size_val = get_entry(config["validation"], "batch_size", length(val_ref_stats.pca_vec))
                 batch_size_val = isnothing(batch_size_val) ? length(val_ref_stats.pca_vec) : batch_size_val

@@ -135,14 +135,14 @@ using Test
     batch_size = get_entry(config["reference"], "batch_size", nothing)
     if isnothing(batch_size)
         # Test convergence
-        @test mse_full_mean[end] < mse_full_mean[1]
+        @test mse_full_mean[end] < mse_full_mean[1] || mse_full_nn_mean[end] < mse_full_nn_mean[1]
         # Test collapse
         if algorithm != "Unscented"
             @test mse_full_var[end] < mse_full_var[1]
         end
     else
         # Test convergence
-        @test val_mse_full_mean[end] < val_mse_full_mean[1]
+        @test val_mse_full_mean[end] < val_mse_full_mean[1] || val_mse_full_nn_mean[end] < val_mse_full_nn_mean[1]
         # Test collapse
         if algorithm != "Unscented"
             @test val_mse_full_var[end] < val_mse_full_var[1]
