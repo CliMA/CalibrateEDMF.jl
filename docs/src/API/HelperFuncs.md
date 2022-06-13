@@ -5,9 +5,8 @@ CurrentModule = CalibrateEDMF.HelperFuncs
 ```
 
 ```@docs
-Mask
-identity_mask
-reduce_params
+ParameterMap
+do_nothing_param_map
 expand_params
 namelist_subdict_by_key
 vertical_interpolation
