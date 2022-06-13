@@ -13,6 +13,8 @@ using EnsembleKalmanProcesses
 import EnsembleKalmanProcesses: Process, Unscented, Inversion, Sampler, SparseInversion
 import EnsembleKalmanProcesses: SampleSuccGauss, IgnoreFailures
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
+import EnsembleKalmanProcesses.Localizers: LocalizationMethod, NoLocalization, Delta, RBF, BernoulliDropout
 
 using ..ReferenceModels
 using ..ReferenceStats
@@ -83,6 +85,7 @@ get_Δt(lrs::PiecewiseConstantGrowth, iteration::IT) where {IT <: Int} = lrs.Δt
         process::Process,
         u::Union{Matrix{T}, T} = nothing;
         failure_handler::String = "ignore_failures",
+        localizer::LocalizationMethod = NoLocalization(),
         outdir_path::String = pwd(),
         to_file::Bool = true,
     ) where {T}
@@ -95,6 +98,7 @@ Inputs:
  - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
  - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
  - failure_handler :: String describing what failure handler to use.
+ - localizer :: Covariance localization method.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -106,6 +110,7 @@ function generate_ekp(
     process::Process,
     u::Union{Matrix{T}, T} = nothing;
     failure_handler::String = "ignore_failures",
+    localizer::LocalizationMethod = NoLocalization(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T}
@@ -117,9 +122,11 @@ function generate_ekp(
     else
         fh = IgnoreFailures()
     end
+
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer)
     ekp =
-        isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh) :
-        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process, failure_handler_method = fh)
+        isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process; kwargs...) :
+        EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process; kwargs...)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
@@ -134,6 +141,7 @@ end
         u::Union{Matrix{T}, T} = nothing;
         l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
         failure_handler::String = "ignore_failures",
+        localizer::LocalizationMethod = NoLocalization(),
         outdir_path::String = pwd(),
         to_file::Bool = true,
     ) where {T, R}
@@ -155,6 +163,7 @@ Inputs:
         May be a float (isotropic regularization) or a dictionary of regularizations
         per parameter.
  - failure_handler :: String describing what failure handler to use.
+ - localizer :: Covariance localization method.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -168,6 +177,7 @@ function generate_tekp(
     u::Union{Matrix{T}, T} = nothing;
     l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
     failure_handler::String = "ignore_failures",
+    localizer::LocalizationMethod = NoLocalization(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T, R}
@@ -211,9 +221,10 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer)
     ekp =
-        isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process, failure_handler_method = fh) :
-        EnsembleKalmanProcess(u, y_aug, Γ_aug, process, failure_handler_method = fh)
+        isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process; kwargs...) :
+        EnsembleKalmanProcess(u, y_aug, Γ_aug, process; kwargs...)
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
