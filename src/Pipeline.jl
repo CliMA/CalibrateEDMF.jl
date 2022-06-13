@@ -16,6 +16,7 @@ using ..KalmanProcessUtils
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
 import EnsembleKalmanProcesses: update_ensemble!
 
 export init_calibration, ek_update, versioned_model_eval, restart_calibration
@@ -58,6 +59,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+    localizer = get_entry(proc_config, "localizer", NoLocalization())
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
@@ -112,6 +114,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
     # parameters are sampled in unconstrained space
     if algo_name in ["Inversion", "Sampler", "SparseInversion"]
         if algo_name == "Inversion"
@@ -128,37 +131,16 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         end
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
-            ekobj = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                initial_params,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_tekp(ref_stats, priors, algo, initial_params; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekobj = generate_ekp(
-                ref_stats,
-                algo,
-                initial_params,
-                outdir_path = outdir_path,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_ekp(ref_stats, algo, initial_params; ekp_kwargs...)
         end
     elseif algo_name == "Unscented"
         algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
         if augmented
-            ekobj = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_tekp(ref_stats, priors, algo; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
+            ekobj = generate_ekp(ref_stats, algo; ekp_kwargs...)
         end
     end
 
@@ -831,10 +813,13 @@ function update_minibatch_inverse_problem(
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+    localizer = get_entry(proc_config, "localizer", NoLocalization())
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
+
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
 
     if isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
@@ -846,36 +831,15 @@ function update_minibatch_inverse_problem(
             prior_mean = vcat(mean(priors)...),
         )
         if augmented
-            ekp = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekp = generate_tekp(ref_stats, priors, algo; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
+            ekp = generate_ekp(ref_stats, algo; ekp_kwargs...)
         end
     else
         if augmented
-            ekp = generate_tekp(
-                ref_stats,
-                priors,
-                process,
-                get_u_final(ekp_old),
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekp = generate_tekp(ref_stats, priors, process, get_u_final(ekp_old); l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekp = generate_ekp(
-                ref_stats,
-                process,
-                get_u_final(ekp_old),
-                failure_handler = failure_handler,
-                outdir_path = outdir_path,
-            )
+            ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old); ekp_kwargs...)
         end
     end
     return ekp, ref_models, ref_stats, ref_model_batch, batch_indices
