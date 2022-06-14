@@ -45,15 +45,15 @@ steps:
   - wait
 
   - label: "create system image"  
-     key: "cpu_create_so"
-     command:
-       - "julia --project=integration_tests -C skylake-avx512 integration_tests/test_create_tc_so.jl"
-     agents:
-       config: cpu
-       queue: central
-       slurm_cpus_per_task: 1
-       slurm_nodes: 1
-       slurm_mem_per_cpu: 30G
+    key: "cpu_create_so"
+    command:
+      - "julia --project=integration_tests -C skylake-avx512 integration_tests/test_create_tc_so.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 1
+      slurm_nodes: 1
+      slurm_mem_per_cpu: 30G
 
   - label: "Bomex Inv julia_par"
     key: "cpu_bomex_julia_p10"
