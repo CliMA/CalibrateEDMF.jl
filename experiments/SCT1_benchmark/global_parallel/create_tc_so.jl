@@ -10,6 +10,9 @@ if isempty(Glob.glob("CEDMF.so"))
     pkgs = [:CalibrateEDMF]
     append!(pkgs, [Symbol(v.name) for v in values(Pkg.dependencies()) if v.is_direct_dep])
 
+    do_not_compile_pkgs = [:CairoMakie]
+    filter!(pkg -> pkg ∉ do_not_compile_pkgs, pkgs)
+
     create_sysimage(
         pkgs;
         sysimage_path = "CEDMF.so",
