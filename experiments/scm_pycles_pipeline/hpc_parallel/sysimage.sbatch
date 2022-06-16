@@ -5,6 +5,6 @@
 #SBATCH --nodes=1   # number of nodes
 #SBATCH -J "sys_im"   # job name
 
-module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.7.3 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 julia --project create_tc_so.jl

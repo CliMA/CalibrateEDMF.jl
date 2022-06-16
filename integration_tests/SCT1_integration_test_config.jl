@@ -24,6 +24,7 @@ namelist_args = [
     ("time_stepping", "dt_max", 2.0),
     ("stats_io", "frequency", 60.0),
     ("stats_io", "calibrate_io", true),
+    ("thermodynamics", "sgs", "mean"),
     ("grid", "nz", 50),
 ]
 
