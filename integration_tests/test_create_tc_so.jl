@@ -19,7 +19,7 @@ if isempty(Glob.glob("CEDMF.so"))
         # Caltech Central CPU architecture, `native` leads to issues as well.
         # This one works most of the time, but needs a failsafe mechanism.
         cpu_target = "skylake-avx512",
-        precompile_execution_file = joinpath(cedmf, "test", "runtests.jl"),
+        # precompile_execution_file = joinpath(cedmf, "test", "runtests.jl"),
     )
 
     # Other cpu_target options
