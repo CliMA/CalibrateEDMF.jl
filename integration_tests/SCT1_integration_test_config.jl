@@ -21,11 +21,11 @@ struct SCT1Val end
 
 namelist_args = [
     ("time_stepping", "dt_min", 1.0),
-    ("time_stepping", "dt_max", 2.0),
+    ("time_stepping", "dt_max", 3.0),
     ("stats_io", "frequency", 60.0),
     ("stats_io", "calibrate_io", true),
     ("thermodynamics", "sgs", "mean"),
-    ("grid", "nz", 50),
+    ("grid", "nz", 80),
 ]
 
 function get_config()
@@ -78,7 +78,7 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 2
+    config["N_iter"] = 3
     config["N_ens"] = 5 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
@@ -152,18 +152,18 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.0, 1.0)],
-        "detrainment_factor" => [bounded(0.0, 1.0)],
+        "entrainment_factor" => [bounded(0.0, 0.4)],
+        "entrainment_smin_tke_coeff" => [bounded(0.0, 1.0)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
         "entrainment_factor" => [0.13],
-        "detrainment_factor" => [0.51],
+        "entrainment_smin_tke_coeff" => [0.3],
     )
 
-    config["unconstrained_σ"] = 0.25
+    config["unconstrained_σ"] = 0.5
     return config
 end
 
