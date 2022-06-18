@@ -122,7 +122,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
 
         # ensure namelist generated with `run_reference_SCM` matches default namelist
         init_namelist_path = namelist_directory(scm_dir(ref_models[1]), ref_models[1])
-        default_namelist = NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
+        default_namelist = NameList.default_namelist(case_name, root = scm_dir(ref_models[1]), set_seed = true)
         reference_namelist = JSON.parsefile(init_namelist_path)
 
         namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "grid", "thermodynamics"]
@@ -165,6 +165,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         for entry in namelist_compare_entries
             @test expected_run_scm_namelist[entry] == run_scm_namelist[entry]
         end
+        # TODO: This tests assumes `get_scm_namelist` calls `NameList.default_namelist` with `set_seed = true` (or no argument). This fixes the GLOBAL random seed of the model.
         # Test nested dictionary of closures with type instabilities from JSON parsing
         for (key, value) in expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]
             @test Tuple(run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"][key]) == Tuple(value)

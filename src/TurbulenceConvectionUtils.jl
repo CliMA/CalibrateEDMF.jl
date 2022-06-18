@@ -365,7 +365,7 @@ function run_SCM_handler(
 
     # fetch default namelist if not provided
     if isnothing(namelist)
-        namelist = NameList.default_namelist(case_name)
+        namelist = NameList.default_namelist(case_name, set_seed = false)
     end
 
     namelist["meta"]["uuid"] = uuid
