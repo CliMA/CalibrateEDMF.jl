@@ -38,7 +38,7 @@ outdir_path = open(f -> read(f, String), string(folder, config_basename, ".txt")
 
 include(joinpath(outdir_path, "config.jl"))
 ekobjs = glob(joinpath(relpath(outdir_path), "ekobj_iter_*.jld2"))
-iters = [parse(Int64, first(split(split(split(ekobj, "/")[end], "_")[end], "."))) for ekobj in ekobjs]
+iters = @. parse(Int64, getfield(match(r"(?<=ekobj_iter_)(\d+)", basename(ekobjs)), :match))
 last_iteration = maximum(iters)
 
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))

@@ -147,7 +147,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
+    versions = generate_scm_input(mod_evaluators, 1, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
     # Store ReferenceModelBatch
@@ -158,24 +158,14 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Initialize validation
     val_ref_models, val_ref_stats =
         isnothing(val_config) ? repeat([nothing], 2) :
-        init_validation(
-            val_config,
-            reg_config,
-            ekobj,
-            priors,
-            param_map,
-            versions,
-            outdir_path,
-            overwrite = overwrite_scm_file,
-            namelist_args = namelist_args,
-        )
+        init_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path)
 
     # Diagnostics IO
     init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
-            write(io, "$(outdir_path)\n")
+            println(io, outdir_path)
         end
     end
     return outdir_path
@@ -274,11 +264,9 @@ function init_validation(
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     param_map::ParameterMap,
-    versions::Vector{IT},
+    versions::Vector{String},
     outdir_path::String;
-    overwrite::Bool = false,
-    namelist_args = nothing,
-) where {FT <: Real, IT <: Integer}
+)
 
     kwargs_ref_model = get_ref_model_kwargs(val_config)
     kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
@@ -314,7 +302,7 @@ end
         param_map::ParameterMap,
         versions::Vector{String},
         outdir_path::String,
-        iteration::IT
+        iteration::Integer
     )
 
 Updates the validation diagnostics and writes to file the validation ModelEvaluators
@@ -329,6 +317,7 @@ Inputs:
  - param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - versions      :: String versions identifying the forward model evaluations.
  - outdir_path   :: Output path directory.
+ - iteration     :: EKP iteration
 """
 function update_validation(
     val_config::Dict{Any, Any},
@@ -338,8 +327,8 @@ function update_validation(
     param_map::ParameterMap,
     versions::Vector{String},
     outdir_path::String,
-    iteration::IT,
-) where {IT <: Integer}
+    iteration::Integer,
+)
 
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -536,7 +525,6 @@ function restart_calibration(
     # Prepare updated EKP and ReferenceModelBatch if minibatching.
     if !isnothing(batch_size)
         ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
-        global_ref_models = deepcopy(ref_model_batch.ref_models)
         ekp, ref_models, ref_stats, ref_model_batch, batch_indices =
             update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
         rm(joinpath(outdir_path, "ref_model_batch.jld2"))
@@ -568,7 +556,7 @@ function restart_calibration(
     end
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
-            write(io, "$(outdir_path)\n")
+            println(io, outdir_path)
         end
     end
     return outdir_path
@@ -730,7 +718,7 @@ function get_ensemble_g_eval_aug(
 end
 
 """
-   versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
+   versioned_model_eval(version, outdir_path, mode, config)
 
 Performs or omits a model evaluation given the parsed mode and provided config,
  and writes to file the model output.
@@ -741,7 +729,7 @@ Inputs:
  - mode          :: Whether the ModelEvaluator is used for training or validation.
  - config        :: The general configuration dictionary.
 """
-function versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
+function versioned_model_eval(version::String, outdir_path::String, mode::String, config::Dict)
     @assert mode in ["train", "validation"]
     # Omits validation if unsolicited
     if mode == "validation" && isnothing(get(config, "validation", nothing))
@@ -880,7 +868,7 @@ function write_model_evaluators(
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
+    versions = generate_scm_input(mod_evaluators, iteration + 1, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
     return

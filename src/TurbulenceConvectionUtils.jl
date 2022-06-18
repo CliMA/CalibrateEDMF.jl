@@ -20,7 +20,7 @@ using ..HelperFuncs
 
 export ModelEvaluator
 export run_SCM, run_SCM_handler, run_reference_SCM
-export generate_scm_input, get_gcm_les_uuid, eval_single_ref_model
+export generate_scm_input, parse_version_inds, get_gcm_les_uuid, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
 
@@ -472,32 +472,33 @@ function create_parameter_vectors(
 end
 
 """
-    generate_scm_input(
-        model_evaluators::Vector{ModelEvaluator{FT}},
-        outdir_path::String = pwd(),
-    ) where {FT <: AbstractFloat}
+    generate_scm_input(model_evaluators, iteration, outdir_path = pwd(), batch_indices = nothing)
 
-Writes to file a set of ModelEvaluator used to initialize SCM
+Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM
 evaluations at different parameter vectors, as well as their
-assigned numerical version.
+assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
 """
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
+    iteration::Int,
     outdir_path::String = pwd(),
     batch_indices::Union{Vector{Int}, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
-    # Generate versions conditioned on being unique within the batch.
-    used_versions = Vector{Int}()
-    for model_evaluator in model_evaluators
-        version = rand(11111:99999)
-        while version in used_versions
-            version = rand(11111:99999)
-        end
+    versions = String[]
+    for (ens_i, model_evaluator) in enumerate(model_evaluators)
+        version = "i$(iteration)_e$ens_i"
         jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
-        push!(used_versions, version)
+        push!(versions, version)
     end
-    return used_versions
+    return versions
 end
+
+""" 
+    parse_version_inds(version)
+
+Given `version = "ix_ey"`, return the iteration index `x` and ensemble index `y` as integers.
+"""
+parse_version_inds(version::String) = parse.(Int, SubString.(split(version, "_"), 2, lastindex.(split(version, "_"))))
 
 """
     get_gcm_les_uuid(
