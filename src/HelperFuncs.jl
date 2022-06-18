@@ -554,15 +554,13 @@ ekobj_path(root, iter; prefix = "ekobj_iter_") = jld2_path(root, iter, prefix)
 
 
 """
-    write_versions(versions::Vector{Int}, iteration::Int; outdir_path::String = pwd())
+    write_versions(versions, iteration; outdir_path = pwd())
 
 Writes versions associated with an EnsembleKalmanProcess iteration to a text file.
 """
-function write_versions(versions::Vector{Int}, iteration::Int; outdir_path::String = pwd())
+function write_versions(versions::Vector{String}, iteration::Int; outdir_path::String = pwd())
     open(joinpath(outdir_path, "versions_$(iteration).txt"), "w") do io
-        for version in versions
-            write(io, "$(version)\n")
-        end
+        println.(Ref(io), versions)
     end
 end
 
