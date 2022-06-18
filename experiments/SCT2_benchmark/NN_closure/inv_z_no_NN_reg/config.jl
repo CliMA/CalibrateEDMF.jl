@@ -72,7 +72,7 @@ function get_regularization_config()
     # in UKI. Feel free to set treat these as hyperparameters.
     config["l2_reg"] = Dict(
         # entrainment parameters
-        "general_ent_params" => repeat([0.0], 69),
+        "nn_ent_params" => repeat([0.0], 69),
         "turbulent_entrainment_factor" => [5.0 / 60.0],
 
         # diffusion parameters
@@ -183,7 +183,7 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "general_ent_params" => [repeat([no_constraint()], 69)...],
+        "nn_ent_params" => [repeat([no_constraint()], 69)...],
         "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
 
         # diffusion parameters
@@ -205,7 +205,7 @@ function get_prior_config()
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
-        "general_ent_params" => 0.1 .* (rand(69) .- 0.5),
+        "nn_ent_params" => 0.1 .* (rand(69) .- 0.5),
         "turbulent_entrainment_factor" => [0.075],
 
         # diffusion parameters
@@ -236,11 +236,11 @@ function get_scm_config()
         ("time_stepping", "dt_min", 1.0),
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
-        ("grid", "dz", 50.0),
         ("grid", "nz", 80),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
         ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
         ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "inv_z"),
+        ("turbulence", "EDMF_PrognosticTKE", "nn_ent_biases", true),
     ]
     return config
 end
