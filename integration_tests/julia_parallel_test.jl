@@ -149,3 +149,22 @@ using Test
         end
     end
 end
+
+if config_rel_filepath == "Bomex_inversion_test_config.jl"
+    @testset "Save full simulation output" begin
+        N_ens = config["process"]["N_ens"]
+        save_tc_iterations = [1, 4]  # c.f. `Bomex_inversion_test_config.jl`
+        train_dir = joinpath(outdir_path, "timeseries.train")
+        val_dir = joinpath(outdir_path, "timeseries.validation")
+        for iter_ind in 1:N_iter
+            if iter_ind ∈ save_tc_iterations
+                train_sim_dir1 = joinpath.(train_dir, "iter_$iter_ind/Output.Bomex.1_1")
+                train_sim_dir2 = joinpath.(train_dir, "iter_$iter_ind/Output.Bomex.1_$N_ens")
+                @test isdir(train_sim_dir1)
+                @test isdir(train_sim_dir2)
+            else
+                @test !isdir(joinpath(train_dir, "iter_$iter_ind"))
+            end
+        end  # end N_iter loop
+    end  # end testset
+end  # end if config_rel_filepath
