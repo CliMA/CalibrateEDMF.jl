@@ -246,7 +246,7 @@ function create_output_dir(
     # Output path
     d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
     now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM")
-    suffix = randstring(3)  # ensure output folder is unique
+    suffix = randstring(RandomDevice(), 3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
         "results_$(algo_name)_dt_$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
