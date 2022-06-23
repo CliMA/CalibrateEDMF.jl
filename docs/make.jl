@@ -24,6 +24,7 @@ pages = Any[
     "Installation instructions" => "installation.md",
     "Getting started" => "getting_started.md",
     "API" => api,
+    "Running TC.jl with optimal parameters" => "tc_runner.md",
     "Contributing" => "contributing.md",
     "References" => "References.md",
 ]
