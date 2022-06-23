@@ -216,7 +216,7 @@ function get_scm_namelist(
 )::Dict
     namelist_path = namelist_directory(output_dir, case_name)
     namelist = if ~isfile(namelist_path) | overwrite
-        NameList.default_namelist(case_name, root = output_dir)
+        NameList.default_namelist(case_name, root = output_dir, set_seed = false)
     else
         JSON.parsefile(namelist_path)
     end
