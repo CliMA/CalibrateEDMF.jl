@@ -177,6 +177,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
     n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
+    namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
     scm_path_kwargs = if haskey(ref_config, "scm_dir")
         Dict(:scm_dir => ref_config["scm_dir"])
     elseif all(haskey.(Ref(ref_config), ["scm_parent_dir", "scm_suffix"]))
@@ -198,6 +199,7 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :Σ_t_start => Σ_t_start,
         :Σ_t_end => Σ_t_end,
         :n_obs => n_obs,
+        :namelist_args => namelist_args,
     )
     merge!(rm_kwargs, scm_path_kwargs)
     n_RM = length(rm_kwargs[:case_name])

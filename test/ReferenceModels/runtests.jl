@@ -45,6 +45,7 @@ pwdir = mktempdir()
     @test isa(z_stretch, Array)
     # Test stretching
     @test z_stretch[2] - z_stretch[1] < z_stretch[3] - z_stretch[2]
+    @test z_stretch[3] - z_stretch[2] < z_stretch[4] - z_stretch[3]
 end
 
 @testset "ReferenceModelBatch" begin

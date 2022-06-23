@@ -85,7 +85,7 @@ function get_reference_config(::Bomex)
     config["scm_parent_dir"] = [ref_root_dir]
     config["t_start"] = [0.0]
     config["t_end"] = [2.0 * 3600]
-    config["namelist_args"] = repeat([namelist_args], 2)
+    config["namelist_args"] = [namelist_args]
     return config
 end
 

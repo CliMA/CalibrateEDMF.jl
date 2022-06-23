@@ -589,7 +589,7 @@ end
 """
     change_entry!(dict, keys_and_value)
 
-Changes the entry of a nested dictionary, giving a tuple of all its keys and the new value
+Changes the entry of a nested dictionary, given a tuple of all its keys and the new value
 
 Inputs:
  - `dict`           :: Parent dictionary with an arbitrary number of nested dictionaries.
