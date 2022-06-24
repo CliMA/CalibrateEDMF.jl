@@ -5,7 +5,8 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "sct_call"   # job name
 
-config=${1?Error: no config file given}
+config_rel=${1?Error: no config file given}
+config=$(realpath $config_rel)
 
 # Job identifier
 job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
