@@ -8,3 +8,5 @@
 module load julia/1.7.3 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 julia --project create_tc_so.jl
+
+echo "System image creation/check finished."

@@ -5,7 +5,8 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "restart_call"   # job name
 
-output_dir=${1?Error: no output directory given}
+output_dir_rel=${1?Error: no output directory given}
+output_dir=$(realpath $output_dir_rel)
 config=${output_dir}/"config.jl"
 
 # Job identifier
