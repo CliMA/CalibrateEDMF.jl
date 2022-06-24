@@ -3,4 +3,4 @@
 using CalibrateEDMF
 
 cedmf = pkgdir(CalibrateEDMF)
-include(joinpath(cedmf, "driver", "global_parallel", "init.jl"))
+include(joinpath(cedmf, "driver", "hpc_parallel", "init.jl"))

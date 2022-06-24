@@ -3,4 +3,4 @@
 using CalibrateEDMF
 
 cedmf = pkgdir(CalibrateEDMF)
-include(joinpath(cedmf, "driver", "global_parallel", "precondition_prior.jl"))
+include(joinpath(cedmf, "driver", "hpc_parallel", "precondition_prior.jl"))

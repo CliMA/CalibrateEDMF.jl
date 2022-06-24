@@ -4,11 +4,11 @@
 @everywhere Pkg.activate("../../..")
 @everywhere using ArgParse
 @everywhere using CalibrateEDMF
-@everywhere using CalibrateEDMF.HelperFuncs
 @everywhere using CalibrateEDMF.Pipeline
 @everywhere using CalibrateEDMF.TurbulenceConvectionUtils
 
 @everywhere src_dir = dirname(pathof(CalibrateEDMF))
+@everywhere using CalibrateEDMF.HelperFuncs
 @everywhere include(joinpath(src_dir, "parallel.jl"))
 using JLD2
 
