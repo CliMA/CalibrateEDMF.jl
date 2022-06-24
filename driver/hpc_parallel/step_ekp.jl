@@ -5,7 +5,6 @@ using ArgParse
 using CalibrateEDMF
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.Pipeline
-src_dir = dirname(pathof(CalibrateEDMF))
 using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses

@@ -7,7 +7,6 @@ using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
-src_dir = dirname(pathof(CalibrateEDMF))
 using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses
