@@ -41,7 +41,8 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
+    config["overwrite_scm_file"] = false  # Flag for overwriting SCM input file
+    config["save_tc_output"] = false  # flag for saving full TC.jl data from the EKP iterations.
     return config
 end
 

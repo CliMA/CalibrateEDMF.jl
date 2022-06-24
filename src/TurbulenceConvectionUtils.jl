@@ -23,6 +23,7 @@ export run_SCM, run_SCM_handler, run_reference_SCM
 export generate_scm_input, parse_version_inds, get_gcm_les_uuid, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
+export save_tc_data
 
 """
     ModelEvaluator
@@ -521,28 +522,49 @@ function get_gcm_les_uuid(
     return join([cfsite_number, forcing_model, month, experiment], '_')
 end
 
-""" Save full EDMF data from every ensemble"""
-function save_full_ensemble_data(save_path, sim_dirs_arr, ref_models)
-    # get a simulation directory `.../Output.SimName.UUID`, and corresponding parameter name
-    for (ens_i, sim_dirs) in enumerate(sim_dirs_arr)  # each ensemble returns a list of simulation directories
-        ens_i_path = joinpath(save_path, "ens_$ens_i")
-        mkpath(ens_i_path)
-        for (ref_model, sim_dir) in zip(ref_models, sim_dirs)
-            scm_name = ref_model.case_name
-            # Copy simulation data to output directory
-            dirname = splitpath(sim_dir)[end]
-            @assert dirname[1:7] == "Output."  # sanity check
-            # Stats file
-            tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
-            save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
-            cp(tmp_data_path, save_data_path)
-            # namefile
-            tmp_namefile_path = namelist_directory(sim_dir, scm_name)
-            save_namefile_path = namelist_directory(ens_i_path, scm_name)
-            cp(tmp_namefile_path, save_namefile_path)
-        end
+""" 
+    save_tc_data(cases, outdir_path, sim_dirs, version, suffix)
+
+Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.
+
+Behavior of this function is specified in the output config, i.e. `config["output"]`. If the flag `save_tc_output`
+is set to true, TC.jl output is saved, and if additionally a list of iterations is specified in `save_tc_iterations`,
+only these EKP iterations are saved.
+
+Arguments:
+- `config`      :: The calibration config dictionary.
+    To save TC.jl output, set `save_tc_output` to `true` in the output config.
+    To only save specific EKP iterations, specify these in a vector in `save_tc_iterations` in the output config.
+- `outdir_path` :: The results `results_folder` path
+- `sim_dirs`    :: List of (temporary) directories where raw simulation output is initially saved to
+- `version`     :: An identifier for the current iteration and ensemble index
+- `suffix`      :: Case set identifier; is either "train" or "validation".
+"""
+function save_tc_data(config, outdir_path, sim_dirs, version, suffix)
+    cases = config["reference"]["case_name"]
+    @assert length(cases) == length(sim_dirs) "The number of cases $(length(cases)) should equal the number of TC output directories $(length(sim_dirs))."
+    N_iter = config["process"]["N_iter"]
+    save_tc_iterations = get(config["output"], "save_tc_iterations", 1:N_iter)
+    iter_ind, ens_ind = parse_version_inds(version)
+
+    # Only save specified iterations
+    if !(iter_ind ∈ save_tc_iterations)
+        return
     end
+
+    for (i, (case, sim_dir)) in enumerate(zip(cases, sim_dirs))
+        version_dst_dir = joinpath(outdir_path, "timeseries.$suffix/iter_$iter_ind")
+        mkpath(version_dst_dir)
+        # ensure that simulation directory is unique given possibly identical case names
+        case_id = length(cases[1:i][(cases .== case)[1:i]])
+        if isdir(sim_dir)
+            mv(sim_dir, joinpath(version_dst_dir, "Output.$case.$(case_id)_$ens_ind"))
+        else
+            @warn("sim directory not found: $sim_dir")
+        end
+    end  # end cases, sim_dirs
 end
+
 
 """
     precondition(

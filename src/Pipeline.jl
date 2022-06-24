@@ -464,6 +464,8 @@ function ek_update(
             update_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path, iteration)
         end
     end
+
+
     # Clean up
     for version in versions
         rm(scm_output_path(outdir_path, version))
@@ -756,6 +758,13 @@ function versioned_model_eval(version::String, outdir_path::String, mode::String
         run_SCM(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)
+
+    # Save full output timeseries to `<results_folder>/timeseries/<version>/Output.<case>.<case_id>`
+    save_tc_output = get(config["output"], "save_tc_output", false)
+    if save_tc_output
+        save_tc_data(config, outdir_path, sim_dirs, version, mode)
+    end
+
     rm(input_path)
 end
 

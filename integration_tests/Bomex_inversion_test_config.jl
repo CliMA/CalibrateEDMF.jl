@@ -39,6 +39,8 @@ function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
     config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
+    config["save_tc_output"] = true  # save sims
+    config["save_tc_iterations"] = [1, 4]  # save subset of iterations
     return config
 end
 
