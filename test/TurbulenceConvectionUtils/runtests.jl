@@ -89,7 +89,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             "τ_acnv_rai" => [no_constraint()],
         )
         param_map = do_nothing_param_map()
-        prior = construct_priors(constraints)
+        prior = construct_priors(constraints; to_file = false)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
         res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)

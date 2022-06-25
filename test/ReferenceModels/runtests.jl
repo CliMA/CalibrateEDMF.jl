@@ -13,8 +13,8 @@ pwdir = mktempdir()
 
     ref_model = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf)
 
-    @test y_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
-    @test Σ_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
+    @test get_y_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
+    @test get_Σ_dir(ref_model) == joinpath(pwdir, "foo/bar/les")
     @test num_vars(ref_model) == 3
     @test get_t_start(ref_model) == 0.0
     @test get_t_start_Σ(ref_model) == 0.0

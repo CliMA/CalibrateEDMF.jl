@@ -17,7 +17,7 @@ NC = NCDatasets
 
 export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
-export y_dir, Σ_dir, num_vars, uuid
+export get_y_dir, get_Σ_dir, num_vars, uuid
 export y_nc_file, Σ_nc_file, get_scm_namelist
 export data_directory, namelist_directory
 export construct_reference_models
@@ -37,21 +37,20 @@ $(TYPEDFIELDS)
 
 # Constructors
 
-    ReferenceModel(
-        y_names::Vector{String},
-        y_dir::String,
-        case_name::String,
-        t_start::Real,
-        t_end::Real;
-        Σ_dir::Union{String, Nothing} = nothing,
-        Σ_t_start::Union{Real, Nothing} = nothing,
-        Σ_t_end::Union{Real, Nothing} = nothing,
-        n_obs::Union{Integer, Nothing} = nothing,
-        namelist_args = nothing,
-    )
+    ReferenceModel(y_names, y_dir, case_name, t_start, t_end; [Σ_dir, Σ_t_start, Σ_t_end, n_obs, namelist_args, seed])
+
+A [`ReferenceModel`](@ref) can be defined for a case `case_name`, provided the location of the data, `y_dir`, the 
+reference variable names `y_names`, and the averaging interval (`t_start`, `t_end`) is provided.
+
+If data and/or averaging intervals for the empirical covariance matrix `Σ` is different than the mean observations `y`,
+this is specified with `Σ_dir`, `Σ_t_start`, and `Σ_t_end`.
 
 `ReferenceModel` constructor allowing for any or all of `Σ_dir`, `Σ_t_start`, `Σ_t_end` to be
 unspecified, in which case they take their values from `y_dir`, `t_start` and `t_end`, respectively.
+
+A tuple of `namelist_args` can be specified to overwrite default arguments for the case in TurbulenceConvection.jl.
+
+Mainly for testing purposes, a `seed` can also be specified to avoid randomness during namelist generation.
 
 """
 Base.@kwdef struct ReferenceModel{FT <: Real}
@@ -123,13 +122,13 @@ get_t_end_Σ(m::ReferenceModel) = m.Σ_t_end
 "Returns the observed vertical locations for a reference model"
 get_z_obs(m::ReferenceModel) = m.z_obs
 
-y_dir(m::ReferenceModel) = m.y_dir
-Σ_dir(m::ReferenceModel) = m.Σ_dir
+get_y_dir(m::ReferenceModel) = m.y_dir
+get_Σ_dir(m::ReferenceModel) = m.Σ_dir
 get_scm_namelist(m::ReferenceModel) = deepcopy(m.namelist)
 
 # TODO: cache filename and move `get_stats_path` call to constructor.
-y_nc_file(m::ReferenceModel) = get_stats_path(y_dir(m))
-Σ_nc_file(m::ReferenceModel) = get_stats_path(Σ_dir(m))
+y_nc_file(m::ReferenceModel) = get_stats_path(get_y_dir(m))
+Σ_nc_file(m::ReferenceModel) = get_stats_path(get_Σ_dir(m))
 
 data_directory(root::AbstractString, name::AbstractString, suffix::AbstractString) =
     joinpath(root, "Output.$name.$suffix")
@@ -140,9 +139,9 @@ namelist_directory(root::AbstractString, casename::AbstractString) = joinpath(ro
 num_vars(m::ReferenceModel) = length(m.y_names)
 
 """
-    get_scm_namelist(output_dir, case_name; [y_dir], [overwrite], [namelist_args], [seed])
+    get_scm_namelist(case_name; [y_dir, overwrite, namelist_args, seed])
 
-Returns a TurbulenceConvection.jl namelist, given the case and a list of namelist arguments.
+Returns a TurbulenceConvection.jl namelist, given a case and a list of namelist arguments.
 
 Inputs:
  - `case_name`      :: Name of the TurbulenceConvection.jl case considered.
@@ -258,7 +257,7 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
     @assert t_start >= 0 "t_start must be positive after time shift, but $t_start was given."
     @assert Σ_t_start >= 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
     @info string(
-        "Shifting time windows for ReferenceModel $(m.case_name)",
+        "Shifting time windows for ReferenceModel $(m.case_name) ",
         "to ty=($t_start, $t_end), tΣ=($Σ_t_start, $Σ_t_end).",
     )
     return ReferenceModel(

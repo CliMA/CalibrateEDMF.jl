@@ -20,9 +20,10 @@ using ..HelperFuncs
 
 export ModelEvaluator
 export run_SCM, run_SCM_handler, run_reference_SCM
-export generate_scm_input, parse_version_inds, get_gcm_les_uuid, eval_single_ref_model
+export generate_scm_input, parse_version_inds, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
+export get_gcm_les_uuid
 export save_tc_data
 
 """
@@ -501,27 +502,21 @@ Given `version = "ix_ey"`, return the iteration index `x` and ensemble index `y`
 parse_version_inds(version::String) = parse.(Int, SubString.(split(version, "_"), 2, lastindex.(split(version, "_"))))
 
 """
-    get_gcm_les_uuid(
-        cfsite_number::Integer;
-        forcing_model::String,
-        month::Integer,
-        experiment::String,)
+    get_gcm_les_uuid(cfsite_number; [forcing_model::String, month, experiment])
 
-Generate unique and self-describing uuid given information about a GCM-driven LES
-simulation from [Shen2022](@cite).
+Generate unique and self-describing uuid given information about a GCM-driven LES simulation from [Shen2022](@cite).
+
+# Examples
+```
+julia> get_gcm_les_uuid(1; forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+"1_HadGEM2-A_07_amip"
+```
 """
-function get_gcm_les_uuid(
-    cfsite_number::Integer;
-    forcing_model::String = "HadGEM2-A",
-    month::Integer = 7,
-    experiment::String = "amip",
-)
-    cfsite_number = string(cfsite_number)
-    month = string(month, pad = 2)
-    return join([cfsite_number, forcing_model, month, experiment], '_')
+function get_gcm_les_uuid(cfsite_number; forcing_model, month::Integer, experiment)
+    return "$(cfsite_number)_$(forcing_model)_$(string(month, pad = 2))_$(experiment)"
 end
 
-""" 
+"""
     save_tc_data(cases, outdir_path, sim_dirs, version, suffix)
 
 Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.

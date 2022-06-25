@@ -51,7 +51,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     config["prior"] = Dict()
     config["prior"]["constraints"] = Dict("foo" => [bounded(0.0, 0.5)], "bar" => [bounded(0.0, 0.5)])
     config["reference"] = Dict()
-    priors = construct_priors(config["prior"]["constraints"])
+    priors = construct_priors(config["prior"]["constraints"]; to_file = false)
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
     N_ens = size(get_u_final(ekp), 2)
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)
