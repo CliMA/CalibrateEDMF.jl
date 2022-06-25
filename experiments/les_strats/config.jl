@@ -39,7 +39,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -97,8 +96,6 @@ function get_reference_config(::ObsCampaigns)
     ]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = repeat(["000000"], length(config["case_name"]))
-    config["scm_parent_dir"] = repeat(["scm_init"], length(config["case_name"]))
     config["t_start"] = [2, 7, 4] * 3600.0
     config["t_end"] = [4, 9, 6] * 3600.0
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
@@ -114,22 +111,18 @@ function get_reference_config(::LesDrivenScm)
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
     # AMIP data: October
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
     append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
     # AMIP4K data: July
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
     # AMIP4K data: October
     cfsite_numbers = (3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip4K")
     append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-    append!(suffixes, [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -139,8 +132,6 @@ function get_reference_config(::LesDrivenScm)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -156,7 +147,6 @@ function get_reference_config(::LesDrivenScmVal)
     cfsite_numbers = (2, 4, 6, 8, 10, 12, 14, 18, 20, 22)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -166,8 +156,6 @@ function get_reference_config(::LesDrivenScmVal)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance

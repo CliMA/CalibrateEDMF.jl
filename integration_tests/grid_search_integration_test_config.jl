@@ -64,8 +64,6 @@ function get_reference_config(::GridSearchCases)
     # config["Σ_dir"] = [...]
     config["t_start"] = repeat([100.0], n_cases)
     config["t_end"] = repeat([200.0], n_cases)
-    config["scm_parent_dir"] = repeat(["scm_init"], n_cases)
-    config["scm_suffix"] = repeat(["0"], n_cases)
     return config
 end
 

@@ -50,7 +50,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -97,7 +96,6 @@ function get_reference_config(::SCT1Train)
     cfsite_numbers = (17, 18, 20, 22, 23)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -107,8 +105,6 @@ function get_reference_config(::SCT1Train)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -126,7 +122,6 @@ function get_reference_config(::SCT1Val)
     cfsite_numbers = (3, 5, 8, 11, 14)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -136,8 +131,6 @@ function get_reference_config(::SCT1Val)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
