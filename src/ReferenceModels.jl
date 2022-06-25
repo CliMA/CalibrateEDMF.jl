@@ -17,7 +17,7 @@ NC = NCDatasets
 
 export ReferenceModel, ReferenceModelBatch
 export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
-export y_dir, Σ_dir, scm_dir, num_vars, uuid
+export y_dir, Σ_dir, num_vars, uuid
 export y_nc_file, Σ_nc_file, get_scm_namelist
 export data_directory, namelist_directory
 export construct_reference_models
@@ -40,7 +40,6 @@ $(TYPEDFIELDS)
     ReferenceModel(
         y_names::Vector{String},
         y_dir::String,
-        scm_dir::String,
         case_name::String,
         t_start::Real,
         t_end::Real;
@@ -54,22 +53,6 @@ $(TYPEDFIELDS)
 `ReferenceModel` constructor allowing for any or all of `Σ_dir`, `Σ_t_start`, `Σ_t_end` to be
 unspecified, in which case they take their values from `y_dir`, `t_start` and `t_end`, respectively.
 
-    ReferenceModel(
-        y_names::Vector{String},
-        y_dir::String,
-        scm_parent_dir::String,
-        scm_suffix::String,
-        case_name::String,
-        t_start::Real,
-        t_end::Real;
-        Σ_dir::Union{String, Nothing} = nothing,
-        Σ_t_start::Union{Real, Nothing} = nothing,
-        Σ_t_end::Union{Real, Nothing} = nothing,
-        n_obs::Union{Integer, Nothing} = nothing,
-        namelist_args = nothing,
-    )
-
-`ReferenceModel` constructor using `scm_parent_dir`, `case_name`, `scm_suffix`, to define `scm_dir`.
 """
 Base.@kwdef struct ReferenceModel{FT <: Real}
     "Vector of reference variable names"
@@ -78,8 +61,6 @@ Base.@kwdef struct ReferenceModel{FT <: Real}
     y_dir::String
     "Directory for reference data to compute `Σ` covariance matrix"
     Σ_dir::String
-    "Directory for static data related to forward scm model (parameter file & vertical levels)"
-    scm_dir::String
     "Name of case"
     case_name::String
     # TODO: Make t_start and t_end vectors for multiple time intervals per reference model.
@@ -100,7 +81,6 @@ end  # ReferenceModel struct
 function ReferenceModel(
     y_names::Vector{String},
     y_dir::String,
-    scm_dir::String,
     case_name::String,
     t_start::Real,
     t_end::Real;
@@ -109,9 +89,10 @@ function ReferenceModel(
     Σ_t_end::Union{Real, Nothing} = nothing,
     n_obs::Union{Integer, Nothing} = nothing,
     namelist_args = nothing,
+    seed::Union{Integer, Nothing} = nothing,
 )
     # Always create new namelist
-    namelist = get_scm_namelist(scm_dir, case_name, y_dir = y_dir, namelist_args = namelist_args, overwrite = true)
+    namelist = get_scm_namelist(case_name, y_dir = y_dir, namelist_args = namelist_args, seed = seed)
     z_obs = construct_z_obs(namelist)
     z_obs = !isnothing(n_obs) ? Array(range(z_obs[1], z_obs[end], n_obs)) : z_obs
     FT = eltype(z_obs)
@@ -124,7 +105,6 @@ function ReferenceModel(
         y_names,
         y_dir,
         Σ_dir,
-        scm_dir,
         case_name,
         FT(t_start),
         FT(t_end),
@@ -132,32 +112,6 @@ function ReferenceModel(
         FT(Σ_t_end),
         z_obs,
         namelist,
-    )
-end
-
-function ReferenceModel(
-    y_names::Vector{String},
-    y_dir::String,
-    scm_parent_dir::String,
-    scm_suffix::String,
-    case_name::String,
-    t_start::Real,
-    t_end::Real;
-    Σ_dir::Union{String, Nothing} = nothing,
-    Σ_t_start::Union{Real, Nothing} = nothing,
-    Σ_t_end::Union{Real, Nothing} = nothing,
-    n_obs::Union{Integer, Nothing} = nothing,
-    namelist_args = nothing,
-)
-    scm_dir = data_directory(scm_parent_dir, case_name, scm_suffix)
-    args = (y_names, y_dir, scm_dir, case_name, t_start, t_end)
-    return ReferenceModel(
-        args...,
-        Σ_dir = Σ_dir,
-        Σ_t_start = Σ_t_start,
-        Σ_t_end = Σ_t_end,
-        n_obs = n_obs,
-        namelist_args = namelist_args,
     )
 end
 
@@ -171,64 +125,54 @@ get_z_obs(m::ReferenceModel) = m.z_obs
 
 y_dir(m::ReferenceModel) = m.y_dir
 Σ_dir(m::ReferenceModel) = m.Σ_dir
-scm_dir(m::ReferenceModel) = m.scm_dir
 get_scm_namelist(m::ReferenceModel) = deepcopy(m.namelist)
 
 # TODO: cache filename and move `get_stats_path` call to constructor.
 y_nc_file(m::ReferenceModel) = get_stats_path(y_dir(m))
 Σ_nc_file(m::ReferenceModel) = get_stats_path(Σ_dir(m))
 
-data_directory(root::S, name::S, suffix::S) where {S <: AbstractString} = joinpath(root, "Output.$name.$suffix")
-uuid(m::ReferenceModel) = String(split(scm_dir(m), ".")[end])
+data_directory(root::AbstractString, name::AbstractString, suffix::AbstractString) =
+    joinpath(root, "Output.$name.$suffix")
 
 namelist_directory(root::String, m::ReferenceModel) = namelist_directory(root, m.case_name)
-namelist_directory(root::S, casename::S) where {S <: AbstractString} = joinpath(root, "namelist_$casename.in")
+namelist_directory(root::AbstractString, casename::AbstractString) = joinpath(root, "namelist_$casename.in")
 
 num_vars(m::ReferenceModel) = length(m.y_names)
 
 """
-    get_scm_namelist(
-        output_dir::String,
-        case_name::String;
-        y_dir::Union{String, Nothing} = nothing,
-        overwrite::Bool = false,
-        namelist_args = nothing,
-    )::Dict
+    get_scm_namelist(output_dir, case_name; [y_dir], [overwrite], [namelist_args], [seed])
 
 Returns a TurbulenceConvection.jl namelist, given the case and a list of namelist arguments.
 
 Inputs:
-
- - `output_dir`     :: Directory where the namelist will be stored or should be located.
  - `case_name`      :: Name of the TurbulenceConvection.jl case considered.
  - `y_dir`          :: Directory with LES data to drive the SCM with, if `case_name` is `LES_driven_SCM`.
- - `overwrite`      :: Whether to overwrite the namelist file, if it exists.
  - `namelist_args`  :: Vector of non-default arguments to be used in the namelist, defined as a vector of tuples.
+ - `seed`           :: If set, seed is an integer, and is the seed value to generate a TC namelist.
 Outputs:
- - `namelist`   :: The TurbulenceConvection.jl namelist.
+ - `namelist`       :: The TurbulenceConvection.jl namelist.
 """
 function get_scm_namelist(
-    output_dir::String,
     case_name::String;
     y_dir::Union{String, Nothing} = nothing,
-    overwrite::Bool = true,
     namelist_args = nothing,
+    seed::Union{Integer, Nothing} = nothing,
 )::Dict
-    namelist_path = namelist_directory(output_dir, case_name)
-    namelist = if ~isfile(namelist_path) | overwrite
-        NameList.default_namelist(case_name, root = output_dir)
+    namelist = if isnothing(seed)
+        NameList.default_namelist(case_name; write = false, set_seed = false)
     else
-        JSON.parsefile(namelist_path)
+        NameList.default_namelist(case_name; write = false, set_seed = true, seed = seed)
     end
+
+
     namelist["stats_io"]["calibrate_io"] = true
+
     if !isnothing(namelist_args)
         for namelist_arg in namelist_args
             change_entry!(namelist, namelist_arg)
         end
     end
 
-    namelist["meta"]["uuid"] = String(split(output_dir, ".")[end])
-    namelist["output"]["output_root"] = dirname(output_dir)
     # if `LES_driven_SCM` case, provide input LES stats file
     if case_name == "LES_driven_SCM"
         @assert !isnothing(y_dir) "lesfile must be specified in the construction of LES_driven_SCM namelist."
@@ -249,37 +193,29 @@ function construct_z_obs(namelist::Dict)
 end
 
 """
-    construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::Vector{ReferenceModel}
+    construct_reference_models(kwarg_ld::Dict{Symbol, Vector; [seed])::Vector{ReferenceModel}
 
 Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lists.
 
 Inputs:
 
- - `kwarg_ld`     :: Dictionary of keyword argument lists
+ - `kwarg_ld`   :: Dictionary of keyword argument lists
+ - `seed`       :: If set, seed is an integer, and is the seed value to generate a TC namelist for each case
 
 Outputs:
 
- - `ref_models`   :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument list of the dictionary.
+ - `ref_models` :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument list of the dictionary.
 """
-function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::Vector{ReferenceModel}
+function construct_reference_models(
+    kwarg_ld::Dict{Symbol, Vector{T} where T};
+    seed::Union{Integer, Nothing} = nothing,
+)::Vector{ReferenceModel}
     n_RM = length(kwarg_ld[:case_name])
     ref_models = Vector{ReferenceModel}()
     for RM_i in 1:n_RM
         kw = Dict(k => v[RM_i] for (k, v) in pairs(kwarg_ld))  # unpack dict
-        args = if haskey(kw, :scm_dir)
-            # construct ref_models using `scm_dir` directly
-            (kw[j] for j in (:y_names, :y_dir, :scm_dir, :case_name, :t_start, :t_end))
-        elseif all(haskey.(Ref(kw), [:scm_parent_dir, :scm_suffix]))
-            # construct ref_models using `scm_parent_dir` and `scm_suffix`
-            (kw[j] for j in (:y_names, :y_dir, :scm_parent_dir, :scm_suffix, :case_name, :t_start, :t_end))
-        else
-            throw(
-                ArgumentError(
-                    "You need to specify either `scm_dir` or all of " *
-                    "(`scm_parent_dir`, `case_name`, `scm_suffix`) to construct a `ReferenceModel`",
-                ),
-            )
-        end
+        args = (kw[j] for j in (:y_names, :y_dir, :case_name, :t_start, :t_end))
+
         push!(
             ref_models,
             ReferenceModel(
@@ -289,6 +225,7 @@ function construct_reference_models(kwarg_ld::Dict{Symbol, Vector{T} where T})::
                 Σ_t_end = get(kw, :Σ_t_end, nothing),
                 n_obs = get(kw, :n_obs, nothing),
                 namelist_args = get(kw, :namelist_args, nothing),
+                seed = seed,
             ),
         )
     end
@@ -328,7 +265,6 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
         m.y_names,
         m.y_dir,
         m.Σ_dir,
-        m.scm_dir,
         m.case_name,
         t_start,
         t_end,

@@ -57,16 +57,23 @@ end
     using CalibrateEDMF.TurbulenceConvectionUtils
 
     pwdir = mktempdir()
-    scm_dir_test = joinpath(pwdir, "foo/bar/scm/Output.DYCOMS_RF02.12345")
-    # Use SCM sim as data
-    y_dir_test = scm_dir_test
+    output_root = joinpath(pwdir, "foo/bar/scm")
     case_name_test = "DYCOMS_RF02"
+    scm_test_uuid = "12345"
+    # Use SCM sim as data
+    y_dir_test = joinpath(output_root, "Output.$case_name_test.$scm_test_uuid")
     y_names = ["thetal_mean", "ql_mean", "qt_mean"]
     ti = 0.0
     tf = 10.0
 
-    ref_model = ReferenceModel(y_names, y_dir_test, scm_dir_test, case_name_test, ti, tf)
-    run_reference_SCM(ref_model, overwrite = true, run_single_timestep = true)
+    ref_model = ReferenceModel(y_names, y_dir_test, case_name_test, ti, tf)
+    run_reference_SCM(
+        ref_model;
+        output_root = output_root,
+        uuid = scm_test_uuid,
+        overwrite = true,
+        run_single_timestep = true,
+    )
     data_filename = y_nc_file(ref_model)
 
     # Error handling

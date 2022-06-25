@@ -23,17 +23,19 @@ include(joinpath(test_dir, "config.jl"))
 config = get_config()
 # Generate reference data
 ref_config = config["reference"]
+ydir = ref_config["y_dir"][1]
 ref_model = ReferenceModel(
     ref_config["y_names"][1],
-    ref_config["y_dir"][1],
-    ref_config["y_dir"][1],
+    ydir,
     ref_config["case_name"][1],
     ref_config["t_start"][1],
     ref_config["t_end"][1],
 )
 namelist_args = config["scm"]["namelist_args"]
 # Generate "true" data
-run_reference_SCM(ref_model, run_single_timestep = false)
+output_root = dirname(ydir)
+uuid = split(ydir, ".")[end]
+run_reference_SCM(ref_model; output_root = output_root, uuid = uuid, run_single_timestep = false)
 
 # Test a range of calibration initializations
 @testset "init_calibration" begin
@@ -89,7 +91,6 @@ end
     outdir_path = init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
 
     # Check for output
-    @test all(isdir.(config["reference"]["scm_parent_dir"]))
     @test isdir(outdir_path)
     @test isfile(joinpath(outdir_path, "prior.jld2"))
     @test isfile(joinpath(outdir_path, "ekobj_iter_1.jld2"))
