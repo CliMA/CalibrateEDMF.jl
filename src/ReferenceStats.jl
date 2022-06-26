@@ -234,8 +234,8 @@ end
 
 function get_obs(
     m::ReferenceModel,
-    y_type::Union{LES, SCM},
-    Σ_type::Union{LES, SCM},
+    y_type::ModelType,
+    Σ_type::ModelType,
     normalize::Bool;
     z_scm::OptVec{FT},
     model_error::OptVec{FT} = nothing,
@@ -251,17 +251,16 @@ end
 Perform dimensionality reduction using principal component analysis on
 the variance `y_var`. Only eigenvectors with eigenvalues that contribute
 to the leading 1-`allowed_var_loss` variance are retained.
-Inputs:
 
- - `y_mean`           :: Mean of the observations.
- - `y_var`            :: Variance of the observations.
- - `allowed_var_loss` :: Maximum variance loss allowed.
+# Arguments
+- `y_mean::Vector`          :: Mean of the observations.
+- `y_var::Matrix`           :: Variance of the observations.
+- `allowed_var_loss::Real`  :: Maximum variance loss allowed.
 
-Outputs:
-
- - `y_pca`            :: Projection of `y_mean` onto principal subspace spanned by eigenvectors.
- - `y_var_pca`        :: Projection of `y_var` on principal subspace.
- - `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+# Returns
+- `y_pca::Vector`       :: Projection of `y_mean` onto principal subspace spanned by eigenvectors.
+- `y_var_pca::Diagonal` :: Projection of `y_var` on principal subspace.
+- `P_pca::Matrix`       :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function obs_PCA(y_mean::Vector{FT}, y_var::AbstractMatrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
     λ_pca, P_pca = pca(y_var, allowed_var_loss)
@@ -277,12 +276,13 @@ end
 Perform dimensionality reduction using principal component analysis on
 the variance covmat.
 
-Inputs:
- - `covmat`           :: Variance of the observations.
- - `allowed_var_loss` :: Maximum variance loss allowed.
-Outputs:
- - `λ_pca`            :: Principal eigenvalues, ordered in increasing value order.
- - `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
+# Arguments
+- `covmat`           :: Variance of the observations.
+- `allowed_var_loss` :: Maximum variance loss allowed.
+
+# Returns
+- `λ_pca`            :: Principal eigenvalues, ordered in increasing value order.
+- `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
 function pca(covmat::AbstractMatrix{FT}, allowed_var_loss::FT) where {FT <: Real}
     eigvals, eigvecs = eigen(covmat)

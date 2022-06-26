@@ -123,10 +123,10 @@ using ArgParse
         # Run forward model
         run_SCM_handler(
             case,
-            case_dir;
-            u = collect(Float64, values(params)),
-            u_names = collect(String, keys(params)),
-            param_map = param_map,
+            case_dir,
+            collect(Float64, values(params)),
+            collect(String, keys(params)),
+            param_map;
             namelist = namelist,
             uuid = "$ens_i",
             les = get(namelist["meta"], "lesfile", nothing),

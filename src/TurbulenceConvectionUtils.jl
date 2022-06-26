@@ -96,7 +96,7 @@ space using PCA.
 The function also outputs a boolean diagnosing whether the
 requested SCM simulation failed.
 
-Inputs:
+# Arguments
 
  - `u`               :: Values of parameters to be used in simulations.
  - `u_names`         :: SCM names for parameters `u`.
@@ -104,11 +104,12 @@ Inputs:
                         See [`ParameterMap`](@ref) for details.
  - `RM`              :: Vector of `ReferenceModel`s
  - `RS`              :: reference statistics for simulation
+
+# Keywords
  - `error_check`     :: Returns as an additional argument whether the SCM call errored.
  - `failure_handler` :: Method used to handle failed simulations.
 
-Outputs:
-
+# Returns
  - `sim_dirs`    :: Vector of simulation output directories
  - `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
  - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
@@ -166,10 +167,9 @@ end
         param_map::ParameterMap,
     ) where {FT <: Real, IT <: Int}
 
-Runs the single-column model (SCM) under a single configuration
-(i.e., ReferenceModel) using a set of parameters u, and returns
-the forward model evaluation in both the original and the latent
-PCA space.
+Run the single-column model (SCM) under a single configuration (i.e., ReferenceModel) 
+using a set of parameters u, and return the forward model evaluation in both the original 
+and the latent PCA space.
 
 Inputs:
 
@@ -184,10 +184,10 @@ Inputs:
 
 Outputs:
 
- - `sim_dir`     ::  Simulation output directory.
- - `g_scm`       :: Forward model evaluation in original output space.
- - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - `model_error` :: Whether the simulation errored with the requested configuration.
+ - `sim_dir::String`     :: Simulation output directory.
+ - `g_scm::Vector`       :: Forward model evaluation in original output space.
+ - `g_scm_pca::Vector`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+ - `model_error::Bool`   :: Whether the simulation errored with the requested configuration.
 """
 function eval_single_ref_model(
     m_index::IT,
@@ -196,7 +196,8 @@ function eval_single_ref_model(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-) where {FT <: Real, IT <: Int}
+    namelist_args = nothing,
+) where {FT <: Real, IT <: Integer}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
@@ -219,11 +220,13 @@ end
 """
     run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
 
-Run the single-column model (SCM) for a reference model object
-using default parameters, and write the output to file.
+Run the single-column model (SCM) for a reference model object using default parameters,
+and write the output to file.
 
-Inputs:
- - `m`                    :: A `ReferenceModel`.
+# Arguments:
+ - `m`                    :: A [`ReferenceModel`](@ref).
+ 
+ # Keywords
  - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
  - `run_single_timestep`  :: if true, run only one time step.
 """
@@ -257,99 +260,60 @@ function run_reference_SCM(
     end
 end
 
-
 """
-    run_SCM_handler(
-        m::ReferenceModel,
-        tmpdir::String,
-        u::Array{FT, 1},
-        u_names::Array{String, 1},
-        param_map::ParameterMap,
-    ) where {FT<:AbstractFloat}
+    run_SCM_handler(case_name::String, out_dir, u, u_names, param_map; [namelist, namelist_args, uuid, les])
+    run_SCM_handler(m::ReferenceModel, out_dir, u, u_names, param_map)
 
-Run a case using a set of parameters `u_names` with values `u`,
-and return directory pointing to where data is stored for simulation run.
+Run a TurbulenceConvection.jl case. Return directory path where simulation data is stored pointing and a flag for whether the simulation failed.
 
-Inputs:
+The case is specified with the first function argument, either by providing the case name as a `String`,
+or by passing a [`ReferenceModel`](@ref) `m`. The `out_dir` is the path where the output directory is 
+to be stored. The returned path is therefore of the form `out_dir/Output.case_name.uuid` where `uuid`
+is a simulation run identifier (defaults to "01"). 
 
- - m             :: Reference model
- - tmpdir        :: Temporary directory to store simulation results in
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - `param_map`   :: A mapping operator to define relations between parameters.
-                    See [`ParameterMap`](@ref) for details.
+The keywords `u` and `u_names` are vectors of parameter values and names that will be modified in the TC.jl run. 
 
-Outputs:
+If a `case_name` is provided, a `namelist` can optionally be provided that defines all case-specific 
+parameters and run-options needed to run TC.jl. If this not provided, the default case-specific 
+namelist from TC.jl is used. Additional arguments to modify the TC.jl namelist can 
+also be provided to `namelist_args`; see also [`change_entry!`](@ref).
 
- - output_dir   :: directory containing output data from the SCM run.
- - model_error   :: Boolean specifying whether the simulation failed.
-"""
-function run_SCM_handler(
-    m::ReferenceModel,
-    tmpdir::String,
-    u::Vector{FT},
-    u_names::Vector{String},
-    param_map::ParameterMap,
-) where {FT <: AbstractFloat}
+The [`ParameterMap`](@ref) `param_map` sets the values of specific parameters provided pre-defined mapping operators. 
+See also [`ParameterMap`](@ref).
 
-    # fetch namelist
-    namelist = get_scm_namelist(m)
-    # output subset of variables needed for calibration
-    namelist["stats_io"]["calibrate_io"] = true
+If the case is `LES_driven_SCM`, a path to an LES stats file must be provided to `les`. 
+See also [`get_cfsite_les_dir`](@ref).
 
-    # run TurbulenceConvection.jl with modified parameters
-    return run_SCM_handler(
-        m.case_name,
-        tmpdir;
-        u = u,
-        u_names = u_names,
-        param_map = param_map,
-        namelist = namelist,
-        uuid = basename(tmpdir), # set random uuid
-        les = get(namelist["meta"], "lesfile", nothing),
-    )
-end
+Note that if a [`ReferenceModel`](@ref) `m` is passed, `namelist`, `uuid` and `les` are not valid keywords.
+In this case, `namelist` and `les` are fetched from the `ReferenceModel`, and `uuid` is a random string.
 
+# Arguments
+- `m`               :: A [`ReferenceModel`](@ref)
+- `case_name`       :: Name of case to run. For example: `Bomex`, `TRMM_LBA`, `LES_driven_SCM`.
+- `out_dir`         :: Path to where folder with simulation results are to be saved.
+- `u`               :: Values of parameters to be used in simulations.
+- `u_names`         :: SCM names for parameters `u`.
+- `param_map`       :: A mapping operator to define relations between parameters. See [`ParameterMap`](@ref) for details.
 
-"""
-    run_SCM_handler(
-        case_name::String,
-        out_dir::String;
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-        namelist::Dict,
-        uuid::String = "01",
-        les::Union{NamedTuple, String} = nothing,
-    )
+# Keywords
+- `namelist`        :: namelist to use for simulation.
+- `uuid`            :: uuid of SCM run
+- `les`             :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
 
-Run a TurbulenceConvection.jl case and return directory pointing to where data is stored for simulation run.
-
-Inputs:
- - case_name     :: case name
- - out_dir       :: Directory to store simulation results in.
- Optional Inputs:
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - `param_map`   :: A mapping operator to define relations between parameters.
-                    See [`ParameterMap`](@ref) for details.
- - namelist      :: namelist to use for simulation.
- - uuid          :: uuid of SCM run
- - les           :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
- Outputs:
- - output_dir   :: directory containing output data from the SCM run.
- - model_error   :: Boolean specifying whether the simulation failed.
+# Returns
+- `String`          :: Directory path where output data from the TC.jl run is stored.
+- `Bool`            :: `true` if the simulation failed/crashed, `false` otherwise.
 """
 function run_SCM_handler(
-    case_name::String,
-    out_dir::String;
-    u::Vector{FT},
-    u_names::Vector{String},
-    param_map::ParameterMap,
+    case_name::AbstractString,
+    out_dir::AbstractString,
+    u::Vector{<:Real},
+    u_names::Vector{<:AbstractString},
+    param_map::ParameterMap;
     namelist::Dict,
-    uuid::String = "01",
-    les::Union{NamedTuple, String, Nothing} = nothing,
-) where {FT <: AbstractFloat}
+    uuid::AbstractString = "01",
+    les::Union{NamedTuple, AbstractString, Nothing} = nothing,
+)
     model_error = false
 
     namelist["meta"]["uuid"] = uuid
@@ -396,23 +360,51 @@ function run_SCM_handler(
     return data_directory(out_dir, case_name, uuid), model_error
 end
 
+function run_SCM_handler(
+    m::ReferenceModel,
+    out_dir::String,
+    u::Vector{<:Real},
+    u_names::Vector{String},
+    param_map::ParameterMap,
+)
+
+    # fetch namelist
+    namelist = get_scm_namelist(m)
+    # output subset of variables needed for calibration
+    namelist["stats_io"]["calibrate_io"] = true
+    # set random uuid
+    uuid = randstring(RandomDevice(), 5)
+
+    # run TurbulenceConvection.jl with modified parameters
+    return run_SCM_handler(
+        m.case_name,
+        out_dir,
+        u,
+        u_names,
+        param_map;
+        namelist = namelist,
+        namelist_args = namelist_args,
+        uuid = uuid,
+        les = get(namelist["meta"], "lesfile", nothing),
+    )
+end
+
 """
     create_parameter_vectors(u_names, u, param_map, namelist)
 
 Given vector of parameter names and corresponding values, combine any vector components
 into single parameter vectors for input into SCM.
 
-Inputs:
+Arguments:
+ - `u_names`    :: SCM names for parameters `u`, which may contain vector components.
+ - `u`          :: Values of parameters to be used in simulations, which may contain vector components.
+ - `param_map`  :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+ - `namelist`   :: The parameter namelist for TurbulenceConvection.jl
 
- - `u_names` :: SCM names for parameters `u`, which may contain vector components.
- - `u` :: Values of parameters to be used in simulations, which may contain vector components.
- - `param_map` :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `namelist` :: The parameter namelist for TurbulenceConvection.jl
+Returns:
 
-Outputs:
-
- -  `u_names_out` :: SCM names for parameters `u`.
- -  `u_out` :: Values of parameters to be used in simulations.
+ -  `u_names_out`   :: SCM names for parameters `u`.
+ -  `u_out`         :: Values of parameters to be used in simulations.
 """
 function create_parameter_vectors(
     u_names::Vector{String},
@@ -502,7 +494,7 @@ Behavior of this function is specified in the output config, i.e. `config["outpu
 is set to true, TC.jl output is saved, and if additionally a list of iterations is specified in `save_tc_iterations`,
 only these EKP iterations are saved.
 
-Arguments:
+# Arguments
 - `config`      :: The calibration config dictionary.
     To save TC.jl output, set `save_tc_output` to `true` in the output config.
     To only save specific EKP iterations, specify these in a vector in `save_tc_iterations` in the output config.

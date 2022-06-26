@@ -72,10 +72,10 @@ function run_TC_optimal(
         # Run TC.jl
         run_SCM_handler(
             case,
-            $tc_output_dir;
-            u = $u,
-            u_names = $u_names,
-            param_map = $param_map,
+            $tc_output_dir,
+            $u,
+            $u_names,
+            $param_map;
             namelist = namelist,
             uuid = uuid,
             les = case_nt.les_path,
