@@ -23,17 +23,19 @@ include(joinpath(test_dir, "config.jl"))
 config = get_config()
 # Generate reference data
 ref_config = config["reference"]
+y_dir = ref_config["y_dir"][1]
 ref_model = ReferenceModel(
     ref_config["y_names"][1],
-    ref_config["y_dir"][1],
-    ref_config["y_dir"][1],
+    y_dir,
     ref_config["case_name"][1],
     ref_config["t_start"][1],
     ref_config["t_end"][1],
 )
 namelist_args = config["scm"]["namelist_args"]
 # Generate "true" data
-run_reference_SCM(ref_model, run_single_timestep = false)
+output_root = dirname(y_dir)
+uuid = last(split(y_dir, "."))
+run_reference_SCM(ref_model; output_root = output_root, uuid = uuid, run_single_timestep = false)
 
 # Test a range of calibration initializations
 @testset "init_calibration" begin
@@ -67,7 +69,10 @@ run_reference_SCM(ref_model, run_single_timestep = false)
         config["regularization"]["tikhonov_mode"] = tikhonov_mode
         config["validation"] = validation
 
-        outdir_path = init_calibration(config; config_path = joinpath(test_dir, "config.jl"), mode = mode)
+        temp_file = tempname(pwd())
+        test_id = basename(temp_file)
+        outdir_path =
+            init_calibration(config; config_path = joinpath(test_dir, "config.jl"), mode = mode, job_id = test_id)
 
         @test isdir(outdir_path)
         @test isfile(joinpath(outdir_path, "prior.jld2"))
@@ -86,10 +91,12 @@ end
 @testset "Pipeline with restart" begin
 
     ###  Test HPC pipeline
-    outdir_path = init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
+    temp_file = tempname(pwd())
+    test_id = basename(temp_file)
+    outdir_path =
+        init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"), job_id = test_id)
 
     # Check for output
-    @test all(isdir.(config["reference"]["scm_parent_dir"]))
     @test isdir(outdir_path)
     @test isfile(joinpath(outdir_path, "prior.jld2"))
     @test isfile(joinpath(outdir_path, "ekobj_iter_1.jld2"))
@@ -133,7 +140,7 @@ end
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
 
-    restart_calibration(ekobj, priors, 2, config, outdir_path, mode = "hpc")
+    restart_calibration(ekobj, priors, 2, config, outdir_path; mode = "hpc", job_id = test_id)
     @test isfile(joinpath(outdir_path, "ekobj_iter_3.jld2"))
     @test isfile(joinpath(outdir_path, "versions_3.txt"))
     versions = readlines(joinpath(outdir_path, "versions_3.txt"))
@@ -155,7 +162,9 @@ end
     config["validation"]["batch_size"] = 1
     config["process"]["augmented"] = true
     config["regularization"]["l2_reg"] = 0.5
-    init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"))
+    temp_file = tempname(pwd())
+    test_id = basename(temp_file)
+    init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"), job_id = test_id)
     outdir_path_list = glob("results_*_SCM*", config["output"]["outdir_root"])
     outdir_path = outdir_path_list[1]
     versions = readlines(joinpath(outdir_path, "versions_1.txt"))
@@ -218,7 +227,7 @@ end
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
 
-    restart_calibration(ekobj, priors, 2, config, outdir_path, mode = "hpc")
+    restart_calibration(ekobj, priors, 2, config, outdir_path; mode = "hpc", job_id = test_id)
     @test isfile(joinpath(outdir_path, "ekobj_iter_3.jld2"))
     @test isfile(joinpath(outdir_path, "versions_3.txt"))
     versions = readlines(joinpath(outdir_path, "versions_3.txt"))

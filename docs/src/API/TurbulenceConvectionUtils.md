@@ -13,7 +13,7 @@ run_SCM_handler
 create_parameter_vectors
 generate_scm_input
 parse_version_inds
-get_gcm_les_uuid
 precondition
+get_gcm_les_uuid
 save_tc_data
 ```

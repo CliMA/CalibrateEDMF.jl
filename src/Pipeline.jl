@@ -46,7 +46,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
-    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
     outdir_root = get_entry(out_config, "outdir_root", pwd())
 
     proc_config = config["process"]
@@ -178,13 +177,6 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
     n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
     namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
-    scm_path_kwargs = if haskey(ref_config, "scm_dir")
-        Dict(:scm_dir => ref_config["scm_dir"])
-    elseif all(haskey.(Ref(ref_config), ["scm_parent_dir", "scm_suffix"]))
-        Dict(:scm_parent_dir => ref_config["scm_parent_dir"], :scm_suffix => ref_config["scm_suffix"])
-    else
-        throw(ArgumentError("config must either contain `scm_dir` or both `scm_parent_dir` and `scm_suffix`."))
-    end
 
     rm_kwargs = Dict(
         :y_names => ref_config["y_names"],
@@ -201,7 +193,6 @@ function get_ref_model_kwargs(ref_config::Dict{Any, Any})
         :n_obs => n_obs,
         :namelist_args => namelist_args,
     )
-    merge!(rm_kwargs, scm_path_kwargs)
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)
         @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
@@ -519,9 +510,6 @@ function restart_calibration(
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
 
-    out_config = config["output"]
-    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
-
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     val_config = get(config, "validation", nothing)
@@ -554,7 +542,6 @@ function restart_calibration(
             param_map,
             outdir_path,
             last_iteration,
-            overwrite = overwrite_scm_file,
             namelist_args = namelist_args,
         )
     end
@@ -575,7 +562,6 @@ end
         param_map::ParameterMap,
         outdir_path::String,
         last_iteration::IT;
-        overwrite::Bool = false,
         namelist_args = nothing,
     ) where {IT <: Integer}
 
@@ -600,7 +586,6 @@ function restart_validation(
     param_map::ParameterMap,
     outdir_path::String,
     last_iteration::IT;
-    overwrite::Bool = false,
     namelist_args = nothing,
 ) where {IT <: Integer}
 

@@ -20,9 +20,10 @@ using ..HelperFuncs
 
 export ModelEvaluator
 export run_SCM, run_SCM_handler, run_reference_SCM
-export generate_scm_input, parse_version_inds, get_gcm_les_uuid, eval_single_ref_model
+export generate_scm_input, parse_version_inds, eval_single_ref_model
 export save_full_ensemble_data
 export precondition
+export get_gcm_les_uuid
 export save_tc_data
 
 """
@@ -231,13 +232,20 @@ Inputs:
  - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
  - `run_single_timestep`  :: if true, run only one time step.
 """
-function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
-    output_dir = scm_dir(m)
+function run_reference_SCM(
+    m::ReferenceModel;
+    output_root::AbstractString = pwd(),
+    uuid::AbstractString = "01",
+    overwrite::Bool = false,
+    run_single_timestep::Bool = true,
+)
+    output_dir = data_directory(output_root, m.case_name, uuid)
     if ~isdir(joinpath(output_dir, "stats")) | overwrite
         namelist = get_scm_namelist(m)
 
-        default_t_max = namelist["time_stepping"]["t_max"]
-        default_adapt_dt = namelist["time_stepping"]["adapt_dt"]
+        namelist["output"]["output_root"] = output_root
+        namelist["meta"]["uuid"] = uuid
+
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
             namelist["time_stepping"]["adapt_dt"] = false
@@ -250,14 +258,6 @@ function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_singl
         end
         if ret_code ≠ :success
             @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
-        end
-        if run_single_timestep
-            # reset t_max to default and overwrite stored namelist file
-            namelist["time_stepping"]["t_max"] = default_t_max
-            namelist["time_stepping"]["adapt_dt"] = default_adapt_dt
-            open(namelist_directory(output_dir, m), "w") do io
-                JSON.print(io, namelist, 4)
-            end
         end
     end
 end
@@ -502,27 +502,21 @@ Given `version = "ix_ey"`, return the iteration index `x` and ensemble index `y`
 parse_version_inds(version::String) = parse.(Int, SubString.(split(version, "_"), 2, lastindex.(split(version, "_"))))
 
 """
-    get_gcm_les_uuid(
-        cfsite_number::Integer;
-        forcing_model::String,
-        month::Integer,
-        experiment::String,)
+    get_gcm_les_uuid(cfsite_number; [forcing_model::String, month, experiment])
 
-Generate unique and self-describing uuid given information about a GCM-driven LES
-simulation from [Shen2022](@cite).
+Generate unique and self-describing uuid given information about a GCM-driven LES simulation from [Shen2022](@cite).
+
+# Examples
+```
+julia> get_gcm_les_uuid(1; forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+"1_HadGEM2-A_07_amip"
+```
 """
-function get_gcm_les_uuid(
-    cfsite_number::Integer;
-    forcing_model::String = "HadGEM2-A",
-    month::Integer = 7,
-    experiment::String = "amip",
-)
-    cfsite_number = string(cfsite_number)
-    month = string(month, pad = 2)
-    return join([cfsite_number, forcing_model, month, experiment], '_')
+function get_gcm_les_uuid(cfsite_number; forcing_model, month::Integer, experiment)
+    return "$(cfsite_number)_$(forcing_model)_$(string(month, pad = 2))_$(experiment)"
 end
 
-""" 
+"""
     save_tc_data(cases, outdir_path, sim_dirs, version, suffix)
 
 Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.

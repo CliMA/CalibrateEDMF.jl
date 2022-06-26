@@ -13,7 +13,9 @@ using CalibrateEDMF.DistributionUtils
 @testset "ReferenceStatistics" begin
     # Choose same SCM to speed computation
     data_dir = mktempdir()
-    scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
+    case = "Bomex"
+    uuid = "012"
+    y_dirs = repeat([joinpath(data_dir, "Output.$case.$uuid")], 2)
     # Reduce resolution and t_max to speed computation as well
     t_max = 4 * 3600.0
     dt_max = 30.0
@@ -26,22 +28,23 @@ using CalibrateEDMF.DistributionUtils
         ("stats_io", "frequency", io_frequency),
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
+        ("logging", "truncate_stack_trace", true),
     ]
 
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean", "lwp_mean"]],
-        :y_dir => scm_dirs,
-        :scm_dir => scm_dirs,
+        :y_dir => y_dirs,
         :case_name => repeat(["Bomex"], 2),
         :t_start => repeat([t_max - 2.0 * 3600], 2),
         :t_end => repeat([t_max], 2),
         :namelist_args => repeat([namelist_args], 2),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
+    run_reference_SCM.(ref_models, output_root = data_dir, uuid = uuid, overwrite = false, run_single_timestep = false)
+
 
     # Test penalty behavior of ReferenceStatistics.get_profile
-    filename = get_stats_path(scm_dirs[1])
+    filename = get_stats_path(y_dirs[1])
 
     # if simulation lines up with ti, tf => no penalty
     y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = 0.0, tf = t_max)

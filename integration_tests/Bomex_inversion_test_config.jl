@@ -38,7 +38,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     config["save_tc_output"] = true  # save sims
     config["save_tc_iterations"] = [1, 4]  # save subset of iterations
     return config
@@ -92,8 +91,6 @@ function get_reference_config(::Bomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
@@ -115,8 +112,6 @@ function get_reference_config(::ValidateBomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
