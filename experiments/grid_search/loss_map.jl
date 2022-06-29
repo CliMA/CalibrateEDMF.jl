@@ -9,7 +9,7 @@ using Distributed
     using CalibrateEDMF.LESUtils
     using CalibrateEDMF.ReferenceModels
     import CalibrateEDMF.ModelTypes: LES
-    import CalibrateEDMF.Pipeline: get_ref_model_kwargs, get_ref_stats_kwargs
+    import CalibrateEDMF.Pipeline: get_ref_stats_kwargs
     import LinearAlgebra: dot
     import Statistics: mean
     import JSON
@@ -131,7 +131,8 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
     sim_type = get_entry(config["grid_search"], "sim_type", "reference")
     @assert sim_type in ("reference", "validation")
     ref_config = config[sim_type]  # or validation
-    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
 

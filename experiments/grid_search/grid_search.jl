@@ -57,7 +57,7 @@ using ArgParse
         "Simulation output root directory"
         output_root::String
         "Additional namelist arguments"
-        namelist_args::Union{AbstractVector, Nothing}
+        namelist_args::Union{Nothing, Vector{<:Tuple}}
         "Parameter param_map, see [`ParameterMap`](@ref) for details"
         param_map::ParameterMap
     end
@@ -98,7 +98,7 @@ using ArgParse
         case::S,
         case_id::Integer,
         output_root::S,
-        namelist_args::Union{AbstractVector, Nothing},
+        namelist_args::Union{Nothing, Vector{<:Tuple}},
         param_map::ParameterMap,
     ) where {S <: AbstractString}
         # Create path to store forward model output
@@ -161,6 +161,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
         case_id = length(cases[1:i][(cases .== case)[1:i]])
         push!(case_name_id, (case, case_id))
     end
+    # TODO: Fix case-specific handling of `namelist_args`
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     param_map = get_entry(get(config, "prior", Dict()), "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 

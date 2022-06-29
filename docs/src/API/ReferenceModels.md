@@ -6,6 +6,7 @@ CurrentModule = CalibrateEDMF.ReferenceModels
 
 ```@docs
 ReferenceModel
+get_ref_model_kwargs
 construct_reference_models
 time_shift_reference_model
 get_z_obs

@@ -13,7 +13,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
-import CalibrateEDMF.HelperFuncs: do_nothing_param_map
+import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!
 
 @testset "TurbulenceConvectionUtils" begin
     @testset "test create_parameter_vectors" begin
@@ -92,7 +92,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         prior = construct_priors(constraints; to_file = false)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map)
         @test model_error
 
         @test_logs (:warn,) (:error,) match_mode = :any precondition(
@@ -101,7 +101,6 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             param_map,
             ref_models,
             ref_stats,
-            namelist_args,
             max_counter = 1,
         )
     end
@@ -127,9 +126,10 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         ref_models = construct_reference_models(kwargs_ref_model; seed = seed)
         run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, run_single_timestep = true)
 
+        ref_model1 = ref_models[1]
         # ensure namelist generated with `run_reference_SCM` matches default namelist
         default_namelist = NameList.default_namelist(case_name; write = false, set_seed = true, seed = seed)
-        reference_namelist = get_scm_namelist(ref_models[1])
+        reference_namelist = get_scm_namelist(ref_model1)
 
         default_namelist["stats_io"]["calibrate_io"] = true  # `get_scm_namelist` (in `construct_reference_models`) sets this entry to true
 
@@ -154,10 +154,14 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.0),
             ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
         ]
+        # Set optional namelist args
+        for namelist_arg in namelist_args
+            change_entry!(ref_model1.namelist, namelist_arg)
+        end
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_model1, data_dir, u, u_names, param_map)
 
-        run_scm_namelist_path = namelist_directory(res_dir, ref_models[1])
+        run_scm_namelist_path = namelist_directory(res_dir, ref_model1)
         run_scm_namelist = JSON.parsefile(run_scm_namelist_path)
         expected_run_scm_namelist = deepcopy(default_namelist)
         expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["entrainment_factor"] = 0.15
@@ -177,5 +181,5 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         for (key, value) in expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]
             @test Tuple(run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"][key]) == Tuple(value)
         end
-    end
-end
+    end  # end @testset "Namelist modification"
+end  # end @testset "TurbulenceConvectionUtils"

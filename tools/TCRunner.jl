@@ -35,6 +35,7 @@ function run_TC_optimal(
     metric::String = "mse_full",
     n_ens::Int = 1,
 )
+    # TODO: Fix case-specific `namelist_args` for TCRunner
     namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 

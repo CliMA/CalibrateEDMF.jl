@@ -244,6 +244,7 @@ function write_current(diags::NetCDFIO_Diags, var_name::String, data; group)
             "Failed to write array of dimension $(size(data)) as $var_name",
             " to NetCDF file. Expected array of dimension $(size(var)[1:end-1]).",
         )
+        # TODO: throw(e)
         e
     end
 end

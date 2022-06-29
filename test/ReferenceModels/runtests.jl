@@ -1,6 +1,7 @@
 using Test
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
+import CalibrateEDMF.HelperFuncs: get_entry
 using Random
 
 pwdir = mktempdir()
@@ -36,7 +37,7 @@ pwdir = mktempdir()
 
     # Test stretched grid
     namelist_args = [("grid", "stretch", "flag", true)]
-    ref_model_stretched = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf, namelist_args = namelist_args)
+    ref_model_stretched = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf; namelist_args = namelist_args)
     z_stretch = get_z_obs(ref_model_stretched)
     @test isa(z_stretch, Array)
     # Test stretching
@@ -122,4 +123,57 @@ end
     @test length(z) == 15
     @test z[2] - z[1] ≈ 150.0 * (20 - 1) / (15 - 1)
 
+end
+
+@testset "ReferenceModel namelist_args prioritization" begin
+    config = Dict(
+        "reference" => Dict(
+            "case_name" => ["Bomex", "Rico", "TRMM_LBA"],
+            "y_dir" => ["Output.Bomex.01", "Output.Rico.01", "Output.TRMM_LBA.01"],
+            "scm_dir" => ["Output.Bomex.01", "Output.Rico.01", "Output.TRMM_LBA.01"],
+            "y_names" => repeat([["thetal_mean"]], 3),
+            "t_start" => [0.0, 1.0, 1.0],
+            "t_end" => [1.0, 2.0, 2.0],
+            "namelist_args" => [
+                [("time_stepping", "dt_max", 21.1), ("stats_io", "frequency", 121.0)],
+                [("time_stepping", "dt_max", 29.1), ("stats_io", "frequency", 122.0)],
+                nothing,
+            ],
+        ),
+        "scm" => Dict("namelist_args" => [("time_stepping", "dt_max", 30.1), ("grid", "nz", 23)]),
+    )
+    # 1a. Test that overwriting works correctly: i.e. case-specific namelist args overwrite global (scm-dict) namelist args
+    # 1b. Test that `nothing` in case-specific namelist args works as expected
+    ref_config = config["reference"]
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
+    ref_models = construct_reference_models(kwargs_ref_model)
+
+    # 1a. Overwriting works correctly
+    @test ref_models[1].namelist["time_stepping"]["dt_max"] == 21.1
+    @test ref_models[1].namelist["stats_io"]["frequency"] == 121.0
+    @test ref_models[1].namelist["grid"]["nz"] == 23
+    @test ref_models[2].namelist["time_stepping"]["dt_max"] == 29.1
+    @test ref_models[2].namelist["stats_io"]["frequency"] == 122.0
+    @test ref_models[2].namelist["grid"]["nz"] == 23
+    # 1b. empty case-specific namelist args handled correctly
+    @test ref_models[3].namelist["time_stepping"]["dt_max"] == 30.1
+    @test ref_models[3].namelist["grid"]["nz"] == 23
+
+    # 2. Check that `nothing` global namelist args handled correctly
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = nothing)
+    ref_models = construct_reference_models(kwargs_ref_model)
+
+    @test ref_models[1].namelist["time_stepping"]["dt_max"] == 21.1
+    @test ref_models[2].namelist["time_stepping"]["dt_max"] == 29.1
+    @test ref_models[3].namelist["time_stepping"]["dt_max"] != 30.1
+
+    # 3. Check that no passed case-specific, nor global namelist arguments works correctly
+    pop!(ref_config, "namelist_args")
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = nothing)
+    ref_models = construct_reference_models(kwargs_ref_model)
+
+    @test ref_models[1].namelist["time_stepping"]["dt_max"] != 21.1
+    @test ref_models[2].namelist["time_stepping"]["dt_max"] != 29.1
+    @test ref_models[3].namelist["time_stepping"]["dt_max"] != 30.1
 end
