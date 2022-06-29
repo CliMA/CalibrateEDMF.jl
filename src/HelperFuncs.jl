@@ -222,7 +222,7 @@ Output:
  - The interpolated vector.
 """
 function vertical_interpolation(var_name::String, filename::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
-    z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
+    z_ref = get_height(filename; get_faces = is_face_variable(filename, var_name))
     var_ = nc_fetch(filename, var_name)
     if ndims(var_) == 2
         # Create interpolant
@@ -458,7 +458,7 @@ function get_stats_path(dir)
         if isa(e, AssertionError)
             @warn "No unique stats netCDF file found in $stats. Extending search to other files."
             try
-                stat_files = readdir(stats, join = true) # WindowsOS/julia relpath bug
+                stat_files = readdir(stats; join = true) # WindowsOS/julia relpath bug
                 if length(stat_files) == 1
                     return stat_files[1]
                 else

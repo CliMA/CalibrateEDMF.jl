@@ -219,7 +219,7 @@ function generate_tekp(
     # Augment system with regularization towards prior mean
     y_aug = vcat([ref_stats.y, μ]...)
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
-    Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
+    Γ_aug = cat(Γ_aug_list...; dims = (1, 2))
 
     kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer)
     ekp =

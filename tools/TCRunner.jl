@@ -46,7 +46,7 @@ function run_TC_optimal(
         case = case_nt.case
         @info "Running $(case) ($(case_nt.case_id)). Ensemble member $ens_ind."
         # Get namelist for case
-        namelist = NameList.default_namelist(case, write = false, set_seed = false)
+        namelist = NameList.default_namelist(case; write = false, set_seed = false)
         run_SCM_handler(
             case,
             $tc_output_dir;

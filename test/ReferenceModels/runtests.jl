@@ -29,14 +29,14 @@ pwdir = mktempdir()
 
     # Test coarse model
     n_obs = 20
-    ref_model_coarse = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf, n_obs = n_obs)
+    ref_model_coarse = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf; n_obs = n_obs)
     z_coarse = get_z_obs(ref_model_coarse)
     @test isa(z_coarse, Array)
     @test length(z_coarse) == n_obs
 
     # Test stretched grid
     namelist_args = [("grid", "stretch", "flag", true)]
-    ref_model_stretched = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf, namelist_args = namelist_args)
+    ref_model_stretched = ReferenceModel(y_names, les_dir_test, case_name_test, ti, tf; namelist_args = namelist_args)
     z_stretch = get_z_obs(ref_model_stretched)
     @test isa(z_stretch, Array)
     # Test stretching

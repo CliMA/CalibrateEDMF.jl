@@ -42,7 +42,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         @test only(u_out[u_names_out .== "bar"]) == [3.0, 1.0]
     end
 
-    @test get_gcm_les_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") ==
+    @test get_gcm_les_uuid(1; forcing_model = "model1", month = 1, experiment = "experiment1") ==
           "1_model1_01_experiment1"
 
     @testset "TC.jl error handling" begin

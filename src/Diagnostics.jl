@@ -427,7 +427,7 @@ function io_dictionary_val_metrics(
         y_val[1:d] = val_ref_stats.y
         y_val[(d + 1):d_aug] = ekp.obs_mean[(end - d_aug + d + 1):end]
         Γ_θ = ekp.obs_noise_cov[(end - d_aug + d + 1):end, (end - d_aug + d + 1):end]
-        Γ_val = cat([val_ref_stats.Γ, Γ_θ]..., dims = (1, 2))
+        Γ_val = cat([val_ref_stats.Γ, Γ_θ]...; dims = (1, 2))
     else
         y_val = val_ref_stats.y
         Γ_val = val_ref_stats.Γ
@@ -656,7 +656,7 @@ function get_u_mean(ekp::EnsembleKalmanProcess)
         return get_u_mean_final(ekp)
     else
         u = get_u_final(ekp)
-        return vcat(mean(u, dims = 2)...)
+        return vcat(mean(u; dims = 2)...)
     end
 end
 
@@ -665,7 +665,7 @@ function get_u_cov(ekp::EnsembleKalmanProcess)
         return deepcopy(ekp.process.uu_cov[end])
     else
         u = get_u_final(ekp)
-        return cov(u, dims = 2)
+        return cov(u; dims = 2)
     end
 end
 
@@ -702,7 +702,7 @@ function get_ϕ_cov(ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     else
         u = get_u_final(ekp)
         ϕ = transform_unconstrained_to_constrained(priors, u)
-        return cov(ϕ, dims = 2)
+        return cov(ϕ; dims = 2)
     end
 end
 
@@ -747,8 +747,8 @@ Returns the index of the nearest neighbor to the ensemble mean parameter, in unc
 """
 function get_mean_nearest_neighbor(ekp::EnsembleKalmanProcess)
     u = get_u_final(ekp)
-    u_mean = mean(u, dims = 2)
-    return argmin(vcat(sum((u .- u_mean) .^ 2, dims = 1)...))
+    u_mean = mean(u; dims = 2)
+    return argmin(vcat(sum((u .- u_mean) .^ 2; dims = 1)...))
 end
 
 """

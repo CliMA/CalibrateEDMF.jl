@@ -108,7 +108,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         for m in RM
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(model))
+            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize; z_scm = get_z_obs(model))
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
@@ -130,12 +130,12 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         end
 
         # Construct global observational covariance matrix, original space
-        Γ_full = sparse(cat(Γ_full_vec..., dims = (1, 2)))
+        Γ_full = sparse(cat(Γ_full_vec...; dims = (1, 2)))
 
         # Scale by number of dimensions (averaging loss per dimension)
         Γ_vec = dim_scaling ? length(Γ_vec) .* map(x -> size(x, 1) * x, Γ_vec) : Γ_vec
         # Construct global observational covariance matrix, PCA
-        Γ = cat(Γ_vec..., dims = (1, 2))
+        Γ = cat(Γ_vec...; dims = (1, 2))
         # Condition global covariance matrix, PCA
         if tikhonov_mode == "relative"
             @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
@@ -219,7 +219,7 @@ function get_obs(
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
-    y, prof_indices = get_profile(m, y_nc_file(m), y_names, z_scm = z_scm, prof_ind = true)
+    y, prof_indices = get_profile(m, y_nc_file(m), y_names; z_scm = z_scm, prof_ind = true)
     # normalize
     y = normalize_profile(y, norm_vec, length(z_scm), prof_indices)
     return y, Σ, norm_vec
@@ -234,7 +234,7 @@ function get_obs(
 ) where {FT <: Real}
     y_names = isa(y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
+    get_obs(m, y_names, Σ_names, normalize; z_scm = z_scm)
 end
 
 """
@@ -375,7 +375,7 @@ function get_profile(
     for var_name in y_names
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         if ndims(var_) == 2
-            var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
+            var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index]; dims = 2) : var_[:, ti_index]
             append!(is_profile, true)
         elseif ndims(var_) == 1
             var_mean = !isnothing(tf) ? mean(var_[ti_index:tf_index]) : var_[ti_index]
@@ -392,7 +392,7 @@ function get_profile(
     z_scm::Union{Vector{T}, T} = nothing,
     prof_ind::Bool = false,
 ) where {T}
-    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind)
+    get_profile(m, filename, m.y_names; z_scm = z_scm, prof_ind = prof_ind)
 end
 
 function get_profile(
@@ -402,7 +402,7 @@ function get_profile(
     z_scm::Union{Vector{T}, T} = nothing,
     prof_ind::Bool = false,
 ) where {T}
-    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind)
+    get_profile(filename, y_names; ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind)
 end
 
 """
@@ -431,7 +431,7 @@ function get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         if ndims(var_) == 2
             # Store pooled variance
-            pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
+            pool_var[i] = mean(var(var_[:, ti_index:tf_index]; dims = 2)) + eps(FT) # vertically averaged time-variance of variable
             # Normalize timeseries
             ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) # dims: (Nz, Nt)
         elseif ndims(var_) == 1
@@ -442,9 +442,9 @@ function get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::
         else
             throw(ArgumentError("Variable `$var_name` has more than 2 dimensions, 1 or 2 were expected."))
         end
-        ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt)
+        ts_vec = cat(ts_vec, ts_var_i; dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt)
     end
-    cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
+    cov_mat = cov(ts_vec; dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     return cov_mat, pool_var
 end
 
