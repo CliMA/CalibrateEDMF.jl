@@ -83,7 +83,7 @@ using Glob
             t_max = namelist["time_stepping"]["t_max"]
             if t[end] < t_max
                 @warn "Simulation did not finish during grid search deleting output directory: \n $output_dir"
-                rm(output_dir, force = true, recursive = true)
+                rm(output_dir; force = true, recursive = true)
             end
 
             @warn string(
@@ -101,11 +101,11 @@ using Glob
         z_obs = get_z_obs(m)
 
         # Reference data
-        y_full_case, prof_indices = get_profile(m, get_stats_path(y_dir), y_loss_names, z_scm = z_obs, prof_ind = true)
+        y_full_case, prof_indices = get_profile(m, get_stats_path(y_dir), y_loss_names; z_scm = z_obs, prof_ind = true)
         y_norm = normalize_profile(y_full_case, RS.norm_vec[case_ind], length(z_obs), prof_indices)
 
         # SCM data
-        g_full_case_i, prof_indices = get_profile(m, scm_file, z_scm = z_obs, prof_ind = true)
+        g_full_case_i, prof_indices = get_profile(m, scm_file; z_scm = z_obs, prof_ind = true)
         g_norm = normalize_profile(g_full_case_i, RS.norm_vec[case_ind], length(z_obs), prof_indices)
 
         # PCA
@@ -169,7 +169,7 @@ function compute_loss_map(config::Dict, sim_dir::AbstractString)
             loss_2D_sec = reshape(sim_loss, size(loss_2D_sec))
 
             # save output
-            NC.defGroup(ds, group_name, attrib = [])
+            NC.defGroup(ds, group_name; attrib = [])
             ensemble_member = 1:n_ens
             group_root = ds.group[group_name]  # group is e.g. 'sorting_power.entrainment_factor'
             # Define dimensions: param_name_1, param_name_2, case, ensemble_member

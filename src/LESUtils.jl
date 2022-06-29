@@ -102,7 +102,7 @@ function get_cfsite_les_dir(
     month::Integer = 7,
     experiment::String = "amip",
 )
-    month = string(month, pad = 2)
+    month = string(month; pad = 2)
     try
         LES_library = get_LES_library()
         @assert forcing_model in keys(LES_library)

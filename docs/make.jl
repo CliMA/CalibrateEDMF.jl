@@ -44,7 +44,7 @@ format = Documenter.HTML(
 #! format: on
 
 makedocs(
-    bib,
+    bib;
     sitename = "CalibrateEDMF.jl",
     # strict = true, # TODO: make docs strict
     format = format,
@@ -55,7 +55,7 @@ makedocs(
     pages = pages,
 )
 
-deploydocs(
+deploydocs(;
     repo = "github.com/CliMA/CalibrateEDMF.jl.git",
     target = "build",
     push_preview = true,

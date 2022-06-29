@@ -15,7 +15,7 @@ config_path = joinpath(@__DIR__, "grid_search_integration_test_config.jl")
 include(config_path)
 config = get_config()  # 
 out_dir = joinpath(@__DIR__, "output", "grid_search")
-rm(out_dir, recursive = true, force = true)  # delete old test output
+rm(out_dir; recursive = true, force = true)  # delete old test output
 @time begin
     grid_search(config, config_path, out_dir)
     @info "Grid search complete"

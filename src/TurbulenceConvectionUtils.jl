@@ -152,7 +152,7 @@ function run_SCM(
         ME.param_names,
         ME.param_map,
         ME.ref_models,
-        ME.ref_stats,
+        ME.ref_stats;
         error_check = error_check,
         namelist_args = namelist_args,
         failure_handler = failure_handler,
@@ -210,10 +210,10 @@ function eval_single_ref_model(
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
-        g_scm = get_profile(m, filename, z_scm = z_obs) # Get shape
+        g_scm = get_profile(m, filename; z_scm = z_obs) # Get shape
         g_scm = fill(NaN, length(g_scm))
     else
-        g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
+        g_scm, prof_indices = get_profile(m, filename; z_scm = z_obs, prof_ind = true)
         g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
     end
     # perform PCA reduction
@@ -604,7 +604,7 @@ function precondition(
     param_names = priors.name
     # Wrapper around SCM
     g_(u::Array{Float64, 1}) =
-        run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
+        run_SCM(u, param_names, param_map, ref_models, ref_stats; error_check = true, namelist_args = namelist_args)
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
@@ -619,7 +619,7 @@ function precondition(
             param_map,
             ref_models,
             ref_stats,
-            namelist_args,
+            namelist_args;
             counter = counter + 1,
             max_counter = max_counter,
         )

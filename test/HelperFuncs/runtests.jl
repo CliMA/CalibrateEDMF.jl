@@ -34,7 +34,7 @@ end
 
 @testset "check_nans" begin
     arr = [1.0, NaN, 3.0]
-    arr2 = penalize_nan(arr, penalization = 1.0e5)
+    arr2 = penalize_nan(arr; penalization = 1.0e5)
     @test arr2 ≈ [1.0, 1.0e5, 3.0]
 end
 
@@ -81,7 +81,7 @@ end
     @test_throws ErrorException fetch_interpolate_transform("tequila_resolved_z_flux", data_filename, nothing)
     # Get height
     zc = get_height(data_filename)
-    zf = get_height(data_filename, get_faces = true)
+    zf = get_height(data_filename; get_faces = true)
     # TC.jl faces start at z=0
     @test zf[1] ≈ 0
     @test zc[1] > zf[1]
@@ -123,7 +123,7 @@ end
     @test u1 == [11.0, 12.0, 3.0, 4.0]
 
     # String and Number mapping
-    param_map2 = ParameterMap(
+    param_map2 = ParameterMap(;
         mapping = Dict(
             "general_stochastic_ent_params_{3}" => 33.0,
             "general_stochastic_ent_params_{4}" => "general_stochastic_ent_params_{2}",
@@ -135,10 +135,10 @@ end
     @test u2 == [11.0, 12.0, 33.0, 12.0]
 
     # Parameter map to non-existent parameter
-    param_map3 = ParameterMap(mapping = Dict("general_stochastic_ent_params_{4}" => "fake_param"))
+    param_map3 = ParameterMap(; mapping = Dict("general_stochastic_ent_params_{4}" => "fake_param"))
     @test_throws AssertionError expand_params(u_names, u, param_map3, namelist)
 
     # Parameter map to unknown type
-    param_map4 = ParameterMap(mapping = Dict("general_stochastic_ent_params_{4}" => [1, 2]))
+    param_map4 = ParameterMap(; mapping = Dict("general_stochastic_ent_params_{4}" => [1, 2]))
     @test_throws ArgumentError expand_params(u_names, u, param_map4, namelist)
 end

@@ -33,4 +33,4 @@ last_iteration = maximum(iters)
 priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
 ekobj = load(ekobj_path(outdir_path, last_iteration))["ekp"]
 config = get_config()
-restart_calibration(ekobj, priors, last_iteration, config, outdir_path, job_id = parsed_args["job_id"])
+restart_calibration(ekobj, priors, last_iteration, config, outdir_path; job_id = parsed_args["job_id"])

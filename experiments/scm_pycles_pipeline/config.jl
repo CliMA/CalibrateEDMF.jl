@@ -168,9 +168,9 @@ function get_grid_search_config()
     config = Dict()
     # Grid search is performed over each pair of parameters, across all specified values
     config["parameters"] = Dict(
-        "entrainment_factor" => range(0.2, 0.5, length = 4),
-        "detrainment_factor" => range(0.2, 0.5, length = 4),
-        "updraft_mixing_frac" => range(0.45, 0.6, length = 4),
+        "entrainment_factor" => range(0.2, 0.5; length = 4),
+        "detrainment_factor" => range(0.2, 0.5; length = 4),
+        "updraft_mixing_frac" => range(0.45, 0.6; length = 4),
     )
     # Number of simulations to run with identical configuration (except random seed)
     config["ensemble_size"] = 1

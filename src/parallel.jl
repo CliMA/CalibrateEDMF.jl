@@ -20,7 +20,7 @@ function run_SCM_parallel(
         ME.param_names,
         ME.param_map,
         ME.ref_models,
-        ME.ref_stats,
+        ME.ref_stats;
         error_check = error_check,
         namelist_args = namelist_args,
         failure_handler = failure_handler,
@@ -77,10 +77,10 @@ function eval_single_ref_model(
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
-        g_scm = get_profile(m, filename, z_scm = z_obs) # Get shape
+        g_scm = get_profile(m, filename; z_scm = z_obs) # Get shape
         g_scm = fill(NaN, length(g_scm))
     else
-        g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
+        g_scm, prof_indices = get_profile(m, filename; z_scm = z_obs, prof_ind = true)
         g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
     end
     # perform PCA reduction
@@ -114,7 +114,7 @@ function versioned_model_eval_parallel(
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
 
     sim_dirs, g_scm, g_scm_pca =
-        run_SCM_parallel(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
+        run_SCM_parallel(model_evaluator; namelist_args = namelist_args, failure_handler = failure_handler)
 
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)

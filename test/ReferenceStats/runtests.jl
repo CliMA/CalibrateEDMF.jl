@@ -89,7 +89,7 @@ using CalibrateEDMF.DistributionUtils
         @test full_length(ref_stats) == size(ref_stats.Γ_full, 1)
         @test (pca_length(ref_stats) < full_length(ref_stats)) == perform_PCA
         for (ci, m) in enumerate(ref_models)
-            y_case, _, _ = get_obs(m, SCM(), SCM(), norm, z_scm = get_z_obs(m))
+            y_case, _, _ = get_obs(m, SCM(), SCM(), norm; z_scm = get_z_obs(m))
             @test full_length(ref_stats, ci) == length(y_case)
             y_case_pca = ref_stats.pca_vec[ci]' * y_case
             @test pca_length(ref_stats, ci) == length(y_case_pca)
@@ -137,8 +137,8 @@ using CalibrateEDMF.DistributionUtils
         fs = [0.2, 0.1, 0.05, 0.2, 0.1]
         for (dof, t, f) in zip(dofs, ts, fs)
             time_evol = rand(dof, t)
-            μ = vcat(mean(time_evol, dims = 2)...)
-            Γ = cov(time_evol, dims = 2)
+            μ = vcat(mean(time_evol; dims = 2)...)
+            Γ = cov(time_evol; dims = 2)
             λ, eigvecs = eigen(Γ)
             λ_pca, P_pca = pca(Γ, f)
             len_pca = length(λ_pca)

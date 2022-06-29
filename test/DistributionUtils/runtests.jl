@@ -7,7 +7,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     tmpdir = mktempdir()
 
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar" => [bounded(0.2, 2.0)])
-    priors1 = construct_priors(params, outdir_path = tmpdir, to_file = false, unconstrained_σ = 1.0)
+    priors1 = construct_priors(params; outdir_path = tmpdir, to_file = false, unconstrained_σ = 1.0)
 
     @test isempty(readdir(tmpdir))
     # Construction from Dict does not retain ordering
@@ -28,7 +28,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     μ_correct = Dict("foo" => [0.4], "bar" => [0.5])
     μ_incorrect1 = Dict("foo" => [0.0], "bar" => [2.5]) # Out of bounds
     μ_incorrect2 = Dict("foo" => [0.1]) # Incorrect shape
-    priors3 = construct_priors(params, outdir_path = tmpdir, prior_mean = μ_correct)
+    priors3 = construct_priors(params; outdir_path = tmpdir, prior_mean = μ_correct)
 
     @test !isempty(readdir(tmpdir))
     @test readdir(tmpdir)[1] == "prior.jld2"
@@ -43,7 +43,7 @@ end
     # vector and float -> correct
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [no_constraint(), bounded(-3.0, 3.0), no_constraint()])
     prior_μ = Dict("foo" => [0.4], "bar_vect" => [1.0, 2.0, 3.0])
-    priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
+    priors = construct_priors(params; outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
 
     @test priors.name == ["bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
     @test priors.constraint == [no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
@@ -64,7 +64,7 @@ end
 
     # unspecified prior mean should yield μ=0
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
-    priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ)
+    priors = construct_priors(params; outdir_path = tmpdir, unconstrained_σ = unc_σ)
     @test [priors.distribution[i].distribution.μ for i in 1:length(priors.distribution)] == zeros(length(priors.distribution))
 
 end

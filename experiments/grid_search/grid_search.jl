@@ -114,7 +114,7 @@ using ArgParse
         mkpath(case_dir)
 
         # Get namelist for case
-        namelist = NameList.default_namelist(case, write = false, set_seed = false)
+        namelist = NameList.default_namelist(case; write = false, set_seed = false)
 
         params = get_parameter_pairs(namelist, param1, param2, value1, value2)
 
@@ -147,7 +147,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
     # Make output folder
     mkpath(out_dir)
     if config_path != joinpath(out_dir, "config.jl")
-        cp(config_path, joinpath(out_dir, "config.jl"), force = true)
+        cp(config_path, joinpath(out_dir, "config.jl"); force = true)
     end
 
     # get config entries
@@ -188,7 +188,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
             )
         end
     end
-    pmap(run_sims, sim_configs, on_error = e -> @warn "Worker failure" exception = (e, catch_backtrace()))  #, on_error = e -> NaN)
+    pmap(run_sims, sim_configs; on_error = e -> @warn "Worker failure" exception = (e, catch_backtrace()))  #, on_error = e -> NaN)
 end
 
 

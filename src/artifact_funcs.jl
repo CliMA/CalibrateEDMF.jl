@@ -26,7 +26,7 @@ function get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output
             artifact_dir,
             lazy_download,
             artifact_type,
-            AW.ArtifactFile[AW.ArtifactFile(url = local_to_box[casename], filename = string(casename, ".nc")),],
+            AW.ArtifactFile[AW.ArtifactFile(; url = local_to_box[casename], filename = string(casename, ".nc")),],
         )
         output_artifact_path = AW.get_data_folder(output_artifact)
         @info "Artifact output path: $output_artifact_path"

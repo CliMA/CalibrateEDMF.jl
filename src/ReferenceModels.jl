@@ -91,7 +91,7 @@ function ReferenceModel(
     seed::Union{Integer, Nothing} = nothing,
 )
     # Always create new namelist
-    namelist = get_scm_namelist(case_name, y_dir = y_dir, namelist_args = namelist_args, seed = seed)
+    namelist = get_scm_namelist(case_name; y_dir = y_dir, namelist_args = namelist_args, seed = seed)
     z_obs = construct_z_obs(namelist)
     z_obs = !isnothing(n_obs) ? Array(range(z_obs[1], z_obs[end], n_obs)) : z_obs
     FT = eltype(z_obs)
@@ -218,7 +218,7 @@ function construct_reference_models(
         push!(
             ref_models,
             ReferenceModel(
-                args...,
+                args...;
                 Σ_dir = get(kw, :Σ_dir, nothing),
                 Σ_t_start = get(kw, :Σ_t_start, nothing),
                 Σ_t_end = get(kw, :Σ_t_end, nothing),
