@@ -39,7 +39,8 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     ref_config = config["reference"]
     y_ref_type = ref_config["y_reference_type"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
-    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
@@ -64,8 +65,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
     prior_μ = get_entry(config["prior"], "prior_mean", nothing)
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
-
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     val_config = get(config, "validation", nothing)
 
@@ -157,7 +156,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Initialize validation
     val_ref_models, val_ref_stats =
         isnothing(val_config) ? repeat([nothing], 2) :
-        init_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path)
+        init_validation(val_config, reg_config, namelist_args, ekobj, priors, param_map, versions, outdir_path)
 
     # Diagnostics IO
     init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
@@ -168,36 +167,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         end
     end
     return outdir_path
-end
-
-function get_ref_model_kwargs(ref_config::Dict{Any, Any})
-    n_cases = length(ref_config["case_name"])
-    Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
-    Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
-    Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
-    n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
-    namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
-
-    rm_kwargs = Dict(
-        :y_names => ref_config["y_names"],
-        # Reference path specification
-        :y_dir => ref_config["y_dir"],
-        :Σ_dir => Σ_dir,
-        # Case name
-        :case_name => ref_config["case_name"],
-        # Define observation window (s)
-        :t_start => ref_config["t_start"],
-        :t_end => ref_config["t_end"],
-        :Σ_t_start => Σ_t_start,
-        :Σ_t_end => Σ_t_end,
-        :n_obs => n_obs,
-        :namelist_args => namelist_args,
-    )
-    n_RM = length(rm_kwargs[:case_name])
-    for (k, v) in pairs(rm_kwargs)
-        @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
-    end
-    return rm_kwargs
 end
 
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
@@ -254,6 +223,7 @@ end
 function init_validation(
     val_config::Dict{Any, Any},
     reg_config::Dict{Any, Any},
+    namelist_args::Union{Nothing, Vector{<:Tuple}},
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     param_map::ParameterMap,
@@ -261,7 +231,7 @@ function init_validation(
     outdir_path::String;
 )
 
-    kwargs_ref_model = get_ref_model_kwargs(val_config)
+    kwargs_ref_model = get_ref_model_kwargs(val_config; global_namelist_args = namelist_args)
     kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -503,14 +473,13 @@ function restart_calibration(
     # Get config
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
-    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
 
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
-
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     val_config = get(config, "validation", nothing)
 
@@ -586,10 +555,10 @@ function restart_validation(
     param_map::ParameterMap,
     outdir_path::String,
     last_iteration::IT;
-    namelist_args = nothing,
+    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
 ) where {IT <: Integer}
 
-    kwargs_ref_model = get_ref_model_kwargs(val_config)
+    kwargs_ref_model = get_ref_model_kwargs(val_config; global_namelist_args = namelist_args)
     kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -732,15 +701,13 @@ function versioned_model_eval(version::String, outdir_path::String, mode::String
     end
     # Load inputs
     scm_args = load(input_path)
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
     # Check consistent failure method for given algorithm
     @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] != "Sampler" : true
     model_evaluator = scm_args["model_evaluator"]
     batch_indices = scm_args["batch_indices"]
     # Eval
-    sim_dirs, g_scm, g_scm_pca =
-        run_SCM(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
+    sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, failure_handler = failure_handler)
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)
 

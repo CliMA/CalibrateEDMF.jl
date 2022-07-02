@@ -73,13 +73,11 @@ end
         RM::Vector{ReferenceModel},
         RS::ReferenceStatistics;
         error_check::Bool = false,
-        namelist_args = nothing,
         failure_handler = "high_loss",
     ) where {FT <: Real}
     run_SCM(
         ME::ModelEvaluator;
         error_check::Bool = false,
-        namelist_args = nothing,
         failure_handler = "high_loss",
     ) where {FT <: Real}
 
@@ -100,7 +98,6 @@ Inputs:
  - `RM`              :: Vector of `ReferenceModel`s
  - `RS`              :: reference statistics for simulation
  - `error_check`     :: Returns as an additional argument whether the SCM call errored.
- - `namelist_args`   :: Additional arguments passed to the TurbulenceConvection namelist.
  - `failure_handler` :: Method used to handle failed simulations.
 
 Outputs:
@@ -117,12 +114,11 @@ function run_SCM(
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
-    namelist_args = nothing,
     failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
-    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, param_map, namelist_args), enumerate(RM))
+    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, param_map), enumerate(RM))
     # Unpack
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
@@ -141,12 +137,7 @@ function run_SCM(
         return sim_dirs, g_scm, g_scm_pca
     end
 end
-function run_SCM(
-    ME::ModelEvaluator;
-    error_check::Bool = false,
-    namelist_args = nothing,
-    failure_handler = "high_loss",
-) where {FT <: Real}
+function run_SCM(ME::ModelEvaluator; error_check::Bool = false, failure_handler = "high_loss")
     return run_SCM(
         ME.param_cons,
         ME.param_names,
@@ -154,7 +145,6 @@ function run_SCM(
         ME.ref_models,
         ME.ref_stats,
         error_check = error_check,
-        namelist_args = namelist_args,
         failure_handler = failure_handler,
     )
 end
@@ -167,7 +157,6 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         param_map::ParameterMap,
-        namelist_args = nothing,
     ) where {FT <: Real, IT <: Int}
 
 Runs the single-column model (SCM) under a single configuration
@@ -185,7 +174,6 @@ Inputs:
  - `u_names`       :: SCM names for parameters `u`.
  - `param_map`     :: A mapping operator to define relations between parameters.
                         See [`ParameterMap`](@ref) for details.
- - `namelist_args` :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
 
@@ -201,12 +189,11 @@ function eval_single_ref_model(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist_args = nothing,
 ) where {FT <: Real, IT <: Int}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map, namelist_args)
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map)
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
@@ -270,7 +257,6 @@ end
         u::Array{FT, 1},
         u_names::Array{String, 1},
         param_map::ParameterMap,
-        namelist_args = nothing,
     ) where {FT<:AbstractFloat}
 
 Run a case using a set of parameters `u_names` with values `u`,
@@ -284,7 +270,6 @@ Inputs:
  - u_names       :: SCM names for parameters `u`.
  - `param_map`   :: A mapping operator to define relations between parameters.
                     See [`ParameterMap`](@ref) for details.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
 
@@ -297,7 +282,6 @@ function run_SCM_handler(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist_args = nothing,
 ) where {FT <: AbstractFloat}
 
     # fetch namelist
@@ -313,7 +297,6 @@ function run_SCM_handler(
         u_names = u_names,
         param_map = param_map,
         namelist = namelist,
-        namelist_args = namelist_args,
         uuid = basename(tmpdir), # set random uuid
         les = get(namelist["meta"], "lesfile", nothing),
     )
@@ -328,7 +311,7 @@ end
         u_names::Vector{String},
         param_map::ParameterMap,
         namelist::Union{Dict, Nothing} = nothing,
-        namelist_args::Union{Tuple, Nothing} = nothing,
+        namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
         uuid::String = "01",
         les::Union{NamedTuple, String} = nothing,
     )
@@ -358,7 +341,7 @@ function run_SCM_handler(
     u_names::Vector{String},
     param_map::ParameterMap,
     namelist::Union{Dict, Nothing} = nothing,
-    namelist_args::Union{Vector, Nothing} = nothing,
+    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
     uuid::String = "01",
     les::Union{NamedTuple, String, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
@@ -566,8 +549,7 @@ end
         priors,
         param_map::ParameterMap,
         ref_models::Vector{ReferenceModel},
-        ref_stats::ReferenceStatistics,
-        namelist_args = nothing;
+        ref_stats::ReferenceStatistics;
         counter::Integer = 0,
         max_counter::Integer = 10,
     ) where {FT <: Real}
@@ -583,7 +565,6 @@ Inputs:
  - `param_map`      :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - `ref_models`     :: Vector of ReferenceModels to check stability for.
  - `ref_stats`      :: ReferenceStatistics of the ReferenceModels.
- - `namelist_args`  :: Arguments passed to the TC.jl namelist.
  - `counter`        :: Accumulator tracking number of recursive calls to preconditioner.
  - `max_counter`    :: Maximum number of recursive calls to the preconditioner.
 
@@ -596,15 +577,13 @@ function precondition(
     priors::ParameterDistribution,
     param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
-    ref_stats::ReferenceStatistics,
-    namelist_args = nothing;
+    ref_stats::ReferenceStatistics;
     counter::Integer = 0,
     max_counter::Integer = 10,
 ) where {FT <: Real}
     param_names = priors.name
     # Wrapper around SCM
-    g_(u::Array{Float64, 1}) =
-        run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
+    g_(u::Array{Float64, 1}) = run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true)
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
@@ -618,8 +597,7 @@ function precondition(
             priors,
             param_map,
             ref_models,
-            ref_stats,
-            namelist_args,
+            ref_stats;
             counter = counter + 1,
             max_counter = max_counter,
         )
@@ -645,10 +623,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
+function precondition(ME::ModelEvaluator, priors)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats, namelist_args)
+    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats)

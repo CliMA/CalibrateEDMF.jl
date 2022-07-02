@@ -9,12 +9,7 @@ using CalibrateEDMF.HelperFuncs
 
 export run_SCM_parallel, eval_single_ref_model, versioned_model_eval_parallel
 
-function run_SCM_parallel(
-    ME::ModelEvaluator;
-    error_check::Bool = false,
-    namelist_args = nothing,
-    failure_handler = "high_loss",
-) where {FT <: Real}
+function run_SCM_parallel(ME::ModelEvaluator; error_check::Bool = false, failure_handler = "high_loss")
     return run_SCM_parallel(
         ME.param_cons,
         ME.param_names,
@@ -22,7 +17,6 @@ function run_SCM_parallel(
         ME.ref_models,
         ME.ref_stats,
         error_check = error_check,
-        namelist_args = namelist_args,
         failure_handler = failure_handler,
     )
 end
@@ -34,12 +28,11 @@ function run_SCM_parallel(
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
-    namelist_args = nothing,
     failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
-    result_arr = pmap(x -> eval_single_ref_model(x..., RS, u, u_names, param_map, namelist_args), enumerate(RM))
+    result_arr = pmap(x -> eval_single_ref_model(x..., RS, u, u_names, param_map), enumerate(RM))
     # Unpack
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
@@ -67,13 +60,12 @@ function eval_single_ref_model(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist_args = nothing,
 ) where {FT <: Real, IT <: Int}
 
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map, namelist_args)
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map)
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
@@ -107,14 +99,12 @@ function versioned_model_eval_parallel(
     end
     # Load inputs
     scm_args = load(input_path)
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     model_evaluator = scm_args["model_evaluator"]
     batch_indices = scm_args["batch_indices"]
     # Eval
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
 
-    sim_dirs, g_scm, g_scm_pca =
-        run_SCM_parallel(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
+    sim_dirs, g_scm, g_scm_pca = run_SCM_parallel(model_evaluator, failure_handler = failure_handler)
 
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)

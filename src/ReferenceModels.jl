@@ -20,7 +20,7 @@ export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
 export get_y_dir, get_Σ_dir, num_vars, uuid
 export y_nc_file, Σ_nc_file, get_scm_namelist
 export data_directory, namelist_directory
-export construct_reference_models
+export get_ref_model_kwargs, construct_reference_models
 export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
 export time_shift_reference_model, write_val_ref_model_batch
 
@@ -87,7 +87,7 @@ function ReferenceModel(
     Σ_t_start::Union{Real, Nothing} = nothing,
     Σ_t_end::Union{Real, Nothing} = nothing,
     n_obs::Union{Integer, Nothing} = nothing,
-    namelist_args = nothing,
+    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
     seed::Union{Integer, Nothing} = nothing,
 )
     # Always create new namelist
@@ -154,7 +154,7 @@ Outputs:
 function get_scm_namelist(
     case_name::String;
     y_dir::Union{String, Nothing} = nothing,
-    namelist_args = nothing,
+    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
     seed::Union{Integer, Nothing} = nothing,
 )::Dict
     namelist = if isnothing(seed)
@@ -192,9 +192,65 @@ function construct_z_obs(namelist::Dict)
 end
 
 """
+    get_ref_model_kwargs(ref_config::Dict; [global_namelist_args])
+
+Extract fields from the reference config necessary to construct [`ReferenceModel`](@ref)s.
+
+The namelist that defines a case is fetched from TC.jl for each case defined in `ref_config["case_name"]`.
+These can be overwritten in one of two ways;
+1. Define case-by-case overwrite entries in `ref_config["namelist_args"]`
+2. Define global overwrite entries with the keyword argument `global_namelist_args` (`Vector` of `Tuple`s).
+    These entries apply to all cases, training, validation, testing, etc.
+Note that the case-by-case `namelist_args` supersede both TC.jl defaults and global `namelist_args` entries.
+
+See also [`construct_reference_models`](@ref).
+"""
+function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing)
+    n_cases = length(ref_config["case_name"])
+    Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
+    Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
+    Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
+    n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
+    # Construct namelist_args from case-specific args merged with global args
+    # Note: Case-specific args takes precedence over global args
+    case_namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
+    global_args = isnothing(global_namelist_args) ? [] : global_namelist_args
+    namelist_args = [
+        begin
+            case_arg = isnothing(case_arg) ? [] : case_arg
+            merged_args = [global_args..., case_arg...]
+            isempty(merged_args) ? nothing : merged_args
+        end for case_arg in case_namelist_args
+    ]
+
+    rm_kwargs = Dict(
+        :y_names => ref_config["y_names"],
+        # Reference path specification
+        :y_dir => ref_config["y_dir"],
+        :Σ_dir => Σ_dir,
+        # Case name
+        :case_name => ref_config["case_name"],
+        # Define observation window (s)
+        :t_start => ref_config["t_start"],
+        :t_end => ref_config["t_end"],
+        :Σ_t_start => Σ_t_start,
+        :Σ_t_end => Σ_t_end,
+        :n_obs => n_obs,
+        :namelist_args => namelist_args,
+    )
+    n_RM = length(rm_kwargs[:case_name])
+    for (k, v) in pairs(rm_kwargs)
+        @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
+    end
+    return rm_kwargs
+end
+
+"""
     construct_reference_models(kwarg_ld::Dict{Symbol, Vector; [seed])::Vector{ReferenceModel}
 
 Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lists.
+
+See also [`get_ref_model_kwargs`](@ref).
 
 Inputs:
 

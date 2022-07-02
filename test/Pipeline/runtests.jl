@@ -8,7 +8,6 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.Pipeline
-using CalibrateEDMF.Pipeline: get_ref_model_kwargs
 using CalibrateEDMF.HelperFuncs
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -29,9 +28,8 @@ ref_model = ReferenceModel(
     y_dir,
     ref_config["case_name"][1],
     ref_config["t_start"][1],
-    ref_config["t_end"][1],
+    ref_config["t_end"][1];
 )
-namelist_args = config["scm"]["namelist_args"]
 # Generate "true" data
 output_root = dirname(y_dir)
 uuid = last(split(y_dir, "."))
@@ -113,8 +111,8 @@ end
     batch_indices = scm_args["batch_indices"]
     priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
     model_evaluator = scm_args["model_evaluator"]
-    model_evaluator = precondition(model_evaluator, priors, namelist_args = namelist_args)
-    sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator, namelist_args = namelist_args)
+    model_evaluator = precondition(model_evaluator, priors)
+    sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator)
     for version in versions
         g_scm = g_scm_orig .* (1.0 + rand())
         g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
@@ -173,7 +171,7 @@ end
     scm_args = load(scm_init_path(outdir_path, versions[1]))
     batch_indices = scm_args["batch_indices"]
     model_evaluator = scm_args["model_evaluator"]
-    sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator, namelist_args = namelist_args)
+    sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator)
     for version in versions
         g_scm = g_scm_orig .* (1.0 + rand())
         g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
