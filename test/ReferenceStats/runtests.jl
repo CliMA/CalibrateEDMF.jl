@@ -68,10 +68,10 @@ using CalibrateEDMF.DistributionUtils
     @test length(y) == 1
 
     # Test only tikhonov vs PCA and tikhonov
-    pca_list = [false, true]
-    norm_list = [false, true]
-    mode_list = ["absolute", "relative"]
-    dim_list = [false, true]
+    pca_list = [false, true, false]
+    norm_list = [false, true, true]
+    mode_list = ["absolute", "relative", "relative"]
+    dim_list = [false, true, true]
     for (perform_PCA, norm, tikhonov_mode, dim_scaling) in zip(pca_list, norm_list, mode_list, dim_list)
         ref_stats = ReferenceStatistics(
             ref_models;
@@ -114,16 +114,6 @@ using CalibrateEDMF.DistributionUtils
             end
         end
     end
-
-    # Verify that incorrect definitions throw error
-    @test_throws AssertionError ReferenceStatistics(
-        ref_models;
-        perform_PCA = false,
-        normalize = false,
-        tikhonov_mode = "relative",
-        y_type = SCM(),
-        Σ_type = SCM(),
-    )
 
     l2_reg = Dict("foo" => [0.1], "bar" => [0.3, 0.0, 0.4])
     reg_indices = flat_dict_keys_where(l2_reg, above_eps)

@@ -138,9 +138,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         Γ = cat(Γ_vec..., dims = (1, 2))
         # Condition global covariance matrix, PCA
         if tikhonov_mode == "relative"
-            @assert perform_PCA "Relative Tikhonov mode only available after PCA change of basis."
             tikhonov_noise = max(tikhonov_noise, 10 * sqrt(eps(FT)))
-            Γ = Γ + tikhonov_noise * maximum(diag(Γ)) * I
+            Γ = Γ + tikhonov_noise * eigmax(Γ) * I
         else
             Γ = Γ + tikhonov_noise * I
         end
