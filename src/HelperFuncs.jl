@@ -29,6 +29,8 @@ export vertical_interpolation,
     expand_dict_entry,
     get_entry,
     change_entry!,
+    update_namelist!,
+    merge_namelist_args,
     ParameterMap,
     do_nothing_param_map,
     expand_params,
@@ -204,6 +206,38 @@ end
 """ Get the namelist value for some parameter name"""
 get_namelist_value(namelist::Dict, param_name::AbstractString) =
     namelist_subdict_by_key(namelist, param_name)[param_name]
+
+"""
+    update_namelist!(namelist, namelist_args)
+
+Update `namelist` with arguments given by `namelist_args`.
+
+`namelist_args` is a `Vector` of `Tuple`s, where each `Tuple` specifies the keys to traverse the `namelist`, and the
+last element of the `Tuple` is the value to be set.
+"""
+function update_namelist!(namelist::Dict, namelist_args::Vector{<:Tuple})
+    for namelist_arg in namelist_args
+        change_entry!(namelist, namelist_arg)
+    end
+end
+update_namelist!(::Dict, ::Nothing) = nothing
+
+"""
+    merge_namelist_args(args, overwrite_args)
+
+Combine two lists of namelist arguments by joining the lists, in order.
+
+This method is intended to be used in the context of case-specific- and global namelist_args.
+In that case, `args = global_args` and `overwrite_args = case_args`.
+
+Either argument can be `nothing`, in which case the other argument is returned; if both are `nothing`, return `nothing`.
+
+See also [`update_namelist!`](@ref).
+"""
+merge_namelist_args(args::Vector{<:Tuple}, overwrite_args::Vector{<:Tuple}) = [args..., overwrite_args...]
+merge_namelist_args(args::Vector{<:Tuple}, ::Nothing) = args
+merge_namelist_args(::Nothing, overwrite_args::Vector{<:Tuple}) = overwrite_args
+merge_namelist_args(::Nothing, ::Nothing) = nothing
 
 """
     vertical_interpolation(
