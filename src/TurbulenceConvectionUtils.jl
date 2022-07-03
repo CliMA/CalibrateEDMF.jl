@@ -73,54 +73,38 @@ end
 
 
 """
-    run_SCM(
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-        RM::Vector{ReferenceModel},
-        RS::ReferenceStatistics;
-        error_check::Bool = false,
-        failure_handler = "high_loss",
-    ) where {FT <: Real}
-    run_SCM(
-        ME::ModelEvaluator;
-        error_check::Bool = false,
-        failure_handler = "high_loss",
-    ) where {FT <: Real}
+    run_SCM(u, u_names, param_map, RM::Vector{ReferenceModel}, RS::ReferenceStatistics; 
+            [error_check = false, failure_handler = "high_loss"])
+    run_SCM(ME::ModelEvaluator; [error_check = false, failure_handler = "high_loss"])
 
-Run the single-column model (SCM) using a set of parameters
-and return the value of outputs defined in y_names, possibly
-after normalization and projection onto lower dimensional
-space using PCA.
+Run the single-column model (SCM) using a set of parameters and return the value of outputs defined in y_names, possibly
+after normalization and projection onto lower dimensional space using PCA.
 
-The function also outputs a boolean diagnosing whether the
-requested SCM simulation failed.
+The function also outputs a boolean diagnosing whether the requested SCM simulation failed.
 
 # Arguments
-
- - `u`               :: Values of parameters to be used in simulations.
- - `u_names`         :: SCM names for parameters `u`.
- - `param_map`       :: A mapping operator to define relations between parameters.
-                        See [`ParameterMap`](@ref) for details.
- - `RM`              :: Vector of `ReferenceModel`s
- - `RS`              :: reference statistics for simulation
+- `u`           :: Values of parameters to be used in simulations.
+- `u_names`     :: SCM names for parameters `u`.
+- `param_map`   :: A mapping operator to define relations between parameters. See also [`ParameterMap`](@ref).
+- `RM`          :: Vector of `ReferenceModel`s
+- `RS`          :: Reference statistics for simulation
 
 # Keywords
- - `error_check`     :: Returns as an additional argument whether the SCM call errored.
- - `failure_handler` :: Method used to handle failed simulations.
+- `error_check`     :: Returns as an additional argument whether the SCM call errored.
+- `failure_handler` :: Method used to handle failed simulations.
 
 # Returns
- - `sim_dirs`    :: Vector of simulation output directories
- - `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
- - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - `model_error` :: Whether the simulation errored with the requested configuration.
+- `sim_dirs`    :: Vector of simulation output directories
+- `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
+- `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+- `model_error` :: Whether the simulation errored with the requested configuration.
 """
 function run_SCM(
     u::Vector{FT},
-    u_names::Vector{String},
+    u_names::Vector{<:AbstractString},
     param_map::ParameterMap,
     RM::Vector{ReferenceModel},
-    RS::ReferenceStatistics;
+    RS::ReferenceStatistics{FT};
     error_check::Bool = false,
     failure_handler = "high_loss",
 ) where {FT <: Real}
@@ -158,46 +142,34 @@ function run_SCM(ME::ModelEvaluator; error_check::Bool = false, failure_handler 
 end
 
 """
-    eval_single_ref_model(
-        m_index::IT,
-        m::ReferenceModel,
-        RS::ReferenceStatistics,
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-    ) where {FT <: Real, IT <: Int}
+    eval_single_ref_model(m_index, m::ReferenceModel, RS::ReferenceStatistics, u, u_names, param_map)
 
-Run the single-column model (SCM) under a single configuration (i.e., ReferenceModel) 
-using a set of parameters u, and return the forward model evaluation in both the original 
+Run the single-column model (SCM) under a single configuration (i.e., [`ReferenceModel`](@ref)) 
+using a list of parameters `u` with names `u_names`, and return the forward model evaluation in both the original 
 and the latent PCA space.
 
-Inputs:
+# Arguments
+- `m_index`       :: Index of `m` in within the list of overarching `ReferenceModel`s vector used to construct `RS`.
+- `m`             :: A [`ReferenceModel`](@ref).
+- `RS`            :: The [`ReferenceStatistics`](@ref) for simulation.
+- `u`             :: Values of parameters to be used in simulations.
+- `u_names`       :: SCM names corresponding to parameter values `u`.
+- `param_map`     :: A mapping operator to define relations between parameters. See also [`ParameterMap`](@ref).
 
- - `m_index`       :: The index of the ReferenceModel within the overarching
-                    ref_models vector used to construct the ReferenceStatistics.
- - `m`             :: A ReferenceModel.
- - `RS`            :: reference statistics for simulation
- - `u`             :: Values of parameters to be used in simulations.
- - `u_names`       :: SCM names for parameters `u`.
- - `param_map`     :: A mapping operator to define relations between parameters.
-                        See [`ParameterMap`](@ref) for details.
-
-Outputs:
-
- - `sim_dir::String`     :: Simulation output directory.
- - `g_scm::Vector`       :: Forward model evaluation in original output space.
- - `g_scm_pca::Vector`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - `model_error::Bool`   :: Whether the simulation errored with the requested configuration.
+# Returns
+- `sim_dir::String`     :: Simulation output directory.
+- `g_scm::Vector`       :: Forward model evaluation in original output space.
+- `g_scm_pca::Vector`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+- `model_error::Bool`   :: Whether the simulation errored with the requested configuration.
 """
 function eval_single_ref_model(
-    m_index::IT,
+    m_index::Integer,
     m::ReferenceModel,
     RS::ReferenceStatistics,
     u::Vector{FT},
-    u_names::Vector{String},
+    u_names::Vector{<:AbstractString},
     param_map::ParameterMap,
-    namelist_args = nothing,
-) where {FT <: Real, IT <: Integer}
+) where {FT <: Real}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
@@ -218,17 +190,18 @@ function eval_single_ref_model(
 end
 
 """
-    run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
+    run_reference_SCM(m::ReferenceModel; [overwrite = false, run_single_timestep = true])
 
-Run the single-column model (SCM) for a reference model object using default parameters,
-and write the output to file.
+Run the single-column model (SCM) for a reference model object using default parameters, and write the output to file.
 
 # Arguments:
- - `m`                    :: A [`ReferenceModel`](@ref).
+- `m`                    :: A [`ReferenceModel`](@ref).
  
- # Keywords
- - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
- - `run_single_timestep`  :: if true, run only one time step.
+# Keywords
+- `output_root`         :: Directory within which the simulation results folder is saved to.
+- `uuid`                :: Simulation identifier. Appended to the simulation results folder.
+- `overwrite`           :: If `true`, run TC.jl and overwrite existing simulation files.
+- `run_single_timestep` :: If `true`, run only one time step.
 """
 function run_reference_SCM(
     m::ReferenceModel;
@@ -362,9 +335,9 @@ end
 
 function run_SCM_handler(
     m::ReferenceModel,
-    out_dir::String,
+    out_dir::AbstractString,
     u::Vector{<:Real},
-    u_names::Vector{String},
+    u_names::Vector{<:AbstractString},
     param_map::ParameterMap,
 )
 
@@ -392,26 +365,24 @@ end
 """
     create_parameter_vectors(u_names, u, param_map, namelist)
 
-Given vector of parameter names and corresponding values, combine any vector components
-into single parameter vectors for input into SCM.
+Given vector of parameter names and corresponding values, combine any vector components into single parameter vectors for input into SCM.
 
 Arguments:
- - `u_names`    :: SCM names for parameters `u`, which may contain vector components.
- - `u`          :: Values of parameters to be used in simulations, which may contain vector components.
- - `param_map`  :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `namelist`   :: The parameter namelist for TurbulenceConvection.jl
+- `u_names`    :: SCM names for parameters `u`, which may contain vector components.
+- `u`          :: Values of parameters to be used in simulations, which may contain vector components.
+- `param_map`  :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- `namelist`   :: The parameter namelist for TurbulenceConvection.jl
 
 Returns:
-
- -  `u_names_out`   :: SCM names for parameters `u`.
- -  `u_out`         :: Values of parameters to be used in simulations.
+-  `Vector{String}`         :: SCM names for parameters `u`.
+-  `Vector{Vector{Real}}`   :: Values of parameters to be used in simulations.
 """
 function create_parameter_vectors(
-    u_names::Vector{String},
-    u::Vector{FT},
+    u_names::Vector{<:AbstractString},
+    u::Vector{<:Real},
     param_map::ParameterMap,
     namelist::Dict,
-) where {FT <: AbstractFloat}
+)
     # Apply the `param_map` from the calibrated parameters to all parameters.
     u_names, u = expand_params(u_names, u, param_map, namelist)
 
@@ -442,11 +413,10 @@ function create_parameter_vectors(
 end
 
 """
-    generate_scm_input(model_evaluators, iteration, outdir_path = pwd(), batch_indices = nothing)
+    generate_scm_input(model_evaluators, iteration, [outdir_path = pwd(), batch_indices = nothing])
 
-Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM
-evaluations at different parameter vectors, as well as their
-assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
+Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM evaluations at different parameter vectors, 
+as well as their assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
 """
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
@@ -490,14 +460,12 @@ end
 
 Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.
 
-Behavior of this function is specified in the output config, i.e. `config["output"]`. If the flag `save_tc_output`
-is set to true, TC.jl output is saved, and if additionally a list of iterations is specified in `save_tc_iterations`,
-only these EKP iterations are saved.
+If the flag `save_tc_output` is set to true in the output config, i.e. `config["output"]`, TC.jl output is saved, 
+and if additionally a list of iterations is specified in `save_tc_iterations` (also in the output config),
+only those EKP iterations are saved.
 
 # Arguments
 - `config`      :: The calibration config dictionary.
-    To save TC.jl output, set `save_tc_output` to `true` in the output config.
-    To only save specific EKP iterations, specify these in a vector in `save_tc_iterations` in the output config.
 - `outdir_path` :: The results `results_folder` path
 - `sim_dirs`    :: List of (temporary) directories where raw simulation output is initially saved to
 - `version`     :: An identifier for the current iteration and ensemble index
