@@ -64,11 +64,11 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
     "Reference data, length: nSim * n_vars * n_zLevels (possibly reduced by PCA)"
     y::Vector{FT}
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"
-    Γ::Matrix{FT}
+    Γ::AbstractMatrix{FT}
     "Vector (length: `nSim`) of normalizing factors (length: `n_vars`)"
     norm_vec::Vector{Vector{FT}}
     "Vector (length: `nSim`) of PCA projection matrices with leading eigenvectors as columns"
-    pca_vec::Vector{Union{Matrix{FT}, UniformScaling}}
+    pca_vec::Vector{Union{AbstractMatrix{FT}, UniformScaling}}
     "Full reference data vector, length: `nSim * n_vars * n_zLevels`"
     y_full::Vector{FT}
     "Full covariance matrix, dims: (y,y)"
@@ -119,7 +119,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
             else
                 append!(y, y_)
                 push!(Γ_vec, y_var_)
-                push!(pca_vec, 1.0I)
+                push!(pca_vec, 1.0I(length(y_)))
                 push!(ndof_case, length(y_))
             end
             # Save full dimensionality (normalized) output for error computation
@@ -254,7 +254,7 @@ Outputs:
  - `y_var_pca`        :: Projection of `y_var` on principal subspace.
  - `P_pca`            :: Projection matrix onto principal subspace, with leading eigenvectors as columns.
 """
-function obs_PCA(y_mean::Vector{FT}, y_var::Matrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
+function obs_PCA(y_mean::Vector{FT}, y_var::AbstractMatrix{FT}, allowed_var_loss::FT = 1.0e-1) where {FT <: Real}
     λ_pca, P_pca = pca(y_var, allowed_var_loss)
     # Project mean
     y_pca = P_pca' * y_mean
