@@ -42,9 +42,10 @@ using CalibrateEDMF.DistributionUtils
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, output_root = data_dir, uuid = uuid, overwrite = false, run_single_timestep = false)
 
-
-    # Test penalty behavior of ReferenceStatistics.get_profile
     filename = get_stats_path(y_dirs[1])
+    ref_model = ref_models[1]
+
+    ## Test penalty behavior of ReferenceStatistics.get_profile
 
     # if simulation lines up with ti, tf => no penalty
     y = ReferenceStats.get_profile(filename, ["u_mean", "v_mean"]; ti = 0.0, tf = t_max)
@@ -66,6 +67,20 @@ using CalibrateEDMF.DistributionUtils
     # Test recovery of averaged scalars from timeseries
     y = ReferenceStats.get_profile(filename, ["lwp_mean"]; ti = 0.0, tf = t_max)
     @test length(y) == 1
+
+    # Test profile indices
+    y, profile_indices =
+        ReferenceStats.get_profile(filename, ["u_mean", "lwp_mean", "v_mean"]; ti = 0.0, tf = t_max, prof_ind = true)
+    @test profile_indices == [true, false, true]
+
+    z_obs = get_z_obs(ref_model)
+    obs = ["u_mean", "v_mean"]
+    Σ_norm, pool_var_1 = ReferenceStats.get_time_covariance(ref_model, obs, z_obs; normalize = true)
+    Σ, pool_var_2 = ReferenceStats.get_time_covariance(ref_model, obs, z_obs; normalize = false)
+    @assert pool_var_1 ≈ pool_var_2
+    @assert !(Σ ≈ Σ_norm)
+    @assert tr(Σ_norm) ≈ length(z_obs) * length(obs)
+    @assert !(tr(Σ) ≈ length(z_obs) * length(obs))
 
     # Test only tikhonov vs PCA and tikhonov
     pca_list = [false, true, false]

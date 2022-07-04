@@ -214,7 +214,7 @@ function get_obs(
     z_scm::Union{Vector{FT}, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
-    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm)
+    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm, normalize = normalize)
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
@@ -319,7 +319,7 @@ Inputs:
  - `tf`          :: Final time of averaging window.
  - `z_scm`       :: If given, interpolate LES observations to given levels.
  - `m`           :: ReferenceModel from which to fetch profiles, implicitly defines `ti` and `tf`.
- - `prof_ind`    :: Whether to return a boolean array indicated the variables that are profiles (i.e., not scalars). 
+ - `prof_ind`    :: Whether to return a boolean array indicating the variables that are profiles (i.e., not scalars). 
 
 Outputs:
 
@@ -405,17 +405,29 @@ function get_profile(
 end
 
 """
-    get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::Vector{FT}) where {FT <: Real}
+    get_time_covariance(
+        m::ReferenceModel,
+        y_names::Vector{String},
+        z_scm::Vector{FT};
+        normalize::Bool = true,
+    ) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
 is obtained in time.
 
 Inputs:
  - `m`            :: Reference model.
- - `y_names`    :: List of variable names to be included.
+ - `y_names`      :: List of variable names to be included.
  - `z_scm`        :: If given, interpolates covariance matrix to this locations.
+ - `normalize`    :: Whether to normalize the time series with the pooled variance
+        before computing the covariance, or not.
 """
-function get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::Vector{FT}) where {FT <: Real}
+function get_time_covariance(
+    m::ReferenceModel,
+    y_names::Vector{String},
+    z_scm::Vector{FT};
+    normalize::Bool = true,
+) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
     # Find closest interval in data
@@ -432,12 +444,13 @@ function get_time_covariance(m::ReferenceModel, y_names::Vector{String}, z_scm::
             # Store pooled variance
             pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
             # Normalize timeseries
-            ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) # dims: (Nz, Nt)
+            ts_var_i = normalize ? var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) : var_[:, ti_index:tf_index] # dims: (Nz, Nt)
         elseif ndims(var_) == 1
             # Store pooled variance
             pool_var[i] = var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
             # Normalize timeseries
-            ts_var_i = Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) # dims: (1, Nt)
+            ts_var_i =
+                normalize ? Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) : Array(var_[ti_index:tf_index]') # dims: (1, Nt)
         else
             throw(ArgumentError("Variable `$var_name` has more than 2 dimensions, 1 or 2 were expected."))
         end
