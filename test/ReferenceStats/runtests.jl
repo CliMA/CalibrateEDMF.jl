@@ -87,7 +87,9 @@ using CalibrateEDMF.DistributionUtils
     norm_list = [false, true, true]
     mode_list = ["absolute", "relative", "relative"]
     dim_list = [false, true, true]
-    for (perform_PCA, norm, tikhonov_mode, dim_scaling) in zip(pca_list, norm_list, mode_list, dim_list)
+    model_err_list = [nothing, [[0.1], [0.0, 0.0]], [nothing, [0.2, 1.0]]]
+    for (perform_PCA, norm, tikhonov_mode, dim_scaling, model_err) in
+        zip(pca_list, norm_list, mode_list, dim_list, model_err_list)
         ref_stats = ReferenceStatistics(
             ref_models;
             perform_PCA = perform_PCA,
@@ -98,6 +100,7 @@ using CalibrateEDMF.DistributionUtils
             dim_scaling = dim_scaling,
             y_type = SCM(),
             Σ_type = SCM(),
+            model_errors = model_err,
         )
 
         @test pca_length(ref_stats) == size(ref_stats.Γ, 1)
@@ -118,9 +121,11 @@ using CalibrateEDMF.DistributionUtils
         if perform_PCA == false
             # Tikhonov regularization results in variance inflation
             @test tr(ref_stats.Γ) > tr(ref_stats.Γ_full)
-            # Since the same configuration is added twice,
-            # the full covariance is singular,
-            @test det(ref_stats.Γ_full) ≈ 0
+            # Since the same configuration is added twice, the full
+            # covariance is singular if no model error is added.
+            if isnothing(model_err)
+                @test det(ref_stats.Γ_full) ≈ 0
+            end
             # But not the regularized covariance.
             @test det(ref_stats.Γ) > 0
             for ci in 1:2

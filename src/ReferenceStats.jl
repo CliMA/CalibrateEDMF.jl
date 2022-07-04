@@ -6,6 +6,7 @@ using Interpolations
 using LinearAlgebra
 using DocStringExtensions
 
+using ..AbstractTypes
 using ..ReferenceModels
 using ..ModelTypes
 using ..LESUtils
@@ -16,7 +17,6 @@ export ReferenceStatistics
 export pca_length, full_length
 export get_obs, get_profile, obs_PCA, pca
 export pca_inds, full_inds
-
 
 """
     ReferenceStatistics{FT <: Real, IT <: Integer}
@@ -41,6 +41,7 @@ $(TYPEDFIELDS)
         y_type::ModelType = LES(),
         Σ_type::ModelType = LES(),
         Δt::FT = 6 * 3600.0,
+        model_errors::OptVec{T} = nothing,
     ) where {FT <: Real}
 
 Constructs the ReferenceStatistics defining the inverse problem.
@@ -59,6 +60,8 @@ Inputs:
  - `y_type`           :: Type of reference mean data. Either LES() or SCM().
  - `Σ_type`           :: Type of reference covariance data. Either LES() or SCM().
  - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
+ - `model_errors`     :: Vector of model errors added to the internal variability noise, each containing
+                            the model error per variable normalized by the pooled variable variance.
 """
 Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
     "Reference data, length: nSim * n_vars * n_zLevels (possibly reduced by PCA)"
@@ -92,7 +95,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         y_type::ModelType = LES(),
         Σ_type::ModelType = LES(),
         Δt::FT = 6 * 3600.0,
-    ) where {FT <: Real}
+        model_errors::OptVec{T} = nothing,
+    ) where {FT <: Real, T}
         IT = Int64
         # Init arrays
         y = FT[]
@@ -105,10 +109,12 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         ndof_full_case = IT[]
         zdof = IT[]
 
-        for m in RM
+        for (i, m) in enumerate(RM)
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
+            model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(model))
+            y_, y_var_, pool_var =
+                get_obs(model, y_type, Σ_type, normalize, z_scm = get_z_obs(model), model_error = model_error)
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
@@ -200,6 +206,8 @@ If `z_scm` is given, interpolate observations to the given levels.
 
 # Keywords
 - `z_scm`        :: If given, interpolate LES observations to given array of vertical levels.
+- `model_error`  :: Model error per variable, added to the internal variability noise, and
+                    normalized by the pooled variance of the variable.
 
 # Returns
 - `y::Vector`           :: Mean of observations `y`, possibly interpolated to `z_scm` levels.
@@ -211,10 +219,11 @@ function get_obs(
     y_names::Vector{String},
     Σ_names::Vector{String},
     normalize::Bool;
-    z_scm::Union{Vector{FT}, Nothing} = nothing,
+    z_scm::OptVec{FT} = nothing,
+    model_error::OptVec{FT} = nothing,
 ) where {FT <: Real}
     # time covariance
-    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm, normalize = normalize)
+    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm, normalize = normalize, model_error = model_error)
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
@@ -229,11 +238,12 @@ function get_obs(
     y_type::Union{LES, SCM},
     Σ_type::Union{LES, SCM},
     normalize::Bool;
-    z_scm::Union{Vector{FT}, Nothing},
+    z_scm::OptVec{FT},
+    model_error::OptVec{FT} = nothing,
 ) where {FT <: Real}
     y_names = isa(y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm)
+    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error)
 end
 
 """
@@ -330,7 +340,7 @@ function get_profile(
     y_names::Vector{String};
     ti::Real = 0.0,
     tf::Union{Real, Nothing} = nothing,
-    z_scm::Union{Vector{T}, T} = nothing,
+    z_scm::OptVec{T} = nothing,
     prof_ind::Bool = false,
 ) where {T}
 
@@ -385,12 +395,7 @@ function get_profile(
     return prof_ind ? (y, is_profile) : y
 end
 
-function get_profile(
-    m::ReferenceModel,
-    filename::String;
-    z_scm::Union{Vector{T}, T} = nothing,
-    prof_ind::Bool = false,
-) where {T}
+function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false) where {T}
     get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind)
 end
 
@@ -398,7 +403,7 @@ function get_profile(
     m::ReferenceModel,
     filename::String,
     y_names::Vector{String};
-    z_scm::Union{Vector{T}, T} = nothing,
+    z_scm::OptVec{T} = nothing,
     prof_ind::Bool = false,
 ) where {T}
     get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind)
@@ -410,6 +415,7 @@ end
         y_names::Vector{String},
         z_scm::Vector{FT};
         normalize::Bool = true,
+        model_error::OptVec{FT} = nothing,
     ) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
@@ -421,12 +427,15 @@ Inputs:
  - `z_scm`        :: If given, interpolates covariance matrix to this locations.
  - `normalize`    :: Whether to normalize the time series with the pooled variance
         before computing the covariance, or not.
+- `model_error`  :: Model error per variable, added to the internal variability noise, and
+                    normalized by the pooled variance of the variable.
 """
 function get_time_covariance(
     m::ReferenceModel,
     y_names::Vector{String},
     z_scm::Vector{FT};
     normalize::Bool = true,
+    model_error::OptVec{FT} = nothing,
 ) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
@@ -437,6 +446,7 @@ function get_time_covariance(
     ts_vec = zeros(0, N_samples)
     num_outputs = length(y_names)
     pool_var = zeros(num_outputs)
+    model_error_expanded = Vector{FT}[]
 
     for (i, var_name) in enumerate(y_names)
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
@@ -455,8 +465,15 @@ function get_time_covariance(
             throw(ArgumentError("Variable `$var_name` has more than 2 dimensions, 1 or 2 were expected."))
         end
         ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt)
+
+        # Add structural model error
+        if !isnothing(model_error)
+            var_model_error = normalize ? model_error[i] : model_error[i] * pool_var[i]
+            model_error_expanded = cat(model_error_expanded, repeat([var_model_error], size(ts_var_i, 1)), dims = 1)
+        end
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
+    cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
     return cov_mat, pool_var
 end
 
