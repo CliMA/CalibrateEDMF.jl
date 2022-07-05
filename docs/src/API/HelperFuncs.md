@@ -26,4 +26,6 @@ jld2_path
 write_versions
 get_entry
 change_entry!
+update_namelist!
+merge_namelist_args
 ```

@@ -163,14 +163,9 @@ function get_scm_namelist(
         NameList.default_namelist(case_name; write = false, set_seed = true, seed = seed)
     end
 
-
     namelist["stats_io"]["calibrate_io"] = true
 
-    if !isnothing(namelist_args)
-        for namelist_arg in namelist_args
-            change_entry!(namelist, namelist_arg)
-        end
-    end
+    update_namelist!(namelist, namelist_args)
 
     # if `LES_driven_SCM` case, provide input LES stats file
     if case_name == "LES_driven_SCM"
@@ -214,14 +209,7 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::Union{Noth
     # Construct namelist_args from case-specific args merged with global args
     # Note: Case-specific args takes precedence over global args
     case_namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
-    global_args = isnothing(global_namelist_args) ? [] : global_namelist_args
-    namelist_args = [
-        begin
-            case_arg = isnothing(case_arg) ? [] : case_arg
-            merged_args = [global_args..., case_arg...]
-            isempty(merged_args) ? nothing : merged_args
-        end for case_arg in case_namelist_args
-    ]
+    namelist_args = merge_namelist_args.(Ref(global_namelist_args), case_namelist_args)
 
     rm_kwargs = Dict(
         :y_names => ref_config["y_names"],

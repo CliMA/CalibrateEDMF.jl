@@ -13,7 +13,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
-import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!
+import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_namelist!
 
 @testset "TurbulenceConvectionUtils" begin
     @testset "test create_parameter_vectors" begin
@@ -155,9 +155,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!
             ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
         ]
         # Set optional namelist args
-        for namelist_arg in namelist_args
-            change_entry!(ref_model1.namelist, namelist_arg)
-        end
+        update_namelist!(ref_model1.namelist, namelist_args)
 
         res_dir, model_error = run_SCM_handler(ref_model1, data_dir, u, u_names, param_map)
 

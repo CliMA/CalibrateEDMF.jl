@@ -310,8 +310,7 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         param_map::ParameterMap,
-        namelist::Union{Dict, Nothing} = nothing,
-        namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
+        namelist::Dict,
         uuid::String = "01",
         les::Union{NamedTuple, String} = nothing,
     )
@@ -327,7 +326,6 @@ Inputs:
  - `param_map`   :: A mapping operator to define relations between parameters.
                     See [`ParameterMap`](@ref) for details.
  - namelist      :: namelist to use for simulation.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
  - uuid          :: uuid of SCM run
  - les           :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
  Outputs:
@@ -340,29 +338,17 @@ function run_SCM_handler(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist::Union{Dict, Nothing} = nothing,
-    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
+    namelist::Dict,
     uuid::String = "01",
     les::Union{NamedTuple, String, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
     model_error = false
-
-    # fetch default namelist if not provided
-    if isnothing(namelist)
-        namelist = NameList.default_namelist(case_name)
-    end
 
     namelist["meta"]["uuid"] = uuid
     # set output dir to `out_dir`
     namelist["output"]["output_root"] = out_dir
 
     u_names, u = create_parameter_vectors(u_names, u, param_map, namelist)
-    # Set optional namelist args
-    if !isnothing(namelist_args)
-        for namelist_arg in namelist_args
-            change_entry!(namelist, namelist_arg)
-        end
-    end
 
     # update learnable parameter values
     @assert length(u_names) == length(u)

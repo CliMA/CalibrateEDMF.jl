@@ -115,6 +115,8 @@ using ArgParse
 
         # Get namelist for case
         namelist = NameList.default_namelist(case, write = false, set_seed = false)
+        # Set optional namelist args
+        update_namelist!(namelist, namelist_args)
 
         params = get_parameter_pairs(namelist, param1, param2, value1, value2)
 
@@ -126,7 +128,6 @@ using ArgParse
             u_names = collect(String, keys(params)),
             param_map = param_map,
             namelist = namelist,
-            namelist_args = namelist_args,
             uuid = "$ens_i",
             les = get(namelist["meta"], "lesfile", nothing),
         )
@@ -153,16 +154,19 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
     # get config entries
     parameters = config["grid_search"]["parameters"]
     n_ens = config["grid_search"]["ensemble_size"]
+    cases = config[sim_type]["case_name"]
+
+    # get namelist_args
+    global_namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    case_namelist_args = expand_dict_entry(config[sim_type], "namelist_args", length(cases))
+    namelist_args_vec = merge_namelist_args.(Ref(global_namelist_args), case_namelist_args)
 
     # Get cases and count repeat instances of same case names
-    cases = config[sim_type]["case_name"]
-    case_name_id = Tuple[]
+    case_config = Tuple[]
     for (i, case) in enumerate(cases)
         case_id = length(cases[1:i][(cases .== case)[1:i]])
-        push!(case_name_id, (case, case_id))
+        push!(case_config, (case, case_id, namelist_args_vec[i]))
     end
-    # TODO: Fix case-specific handling of `namelist_args`
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     param_map = get_entry(get(config, "prior", Dict()), "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     # Construct simulation configs
@@ -170,7 +174,7 @@ function grid_search(config::Dict, config_path::String, out_dir::String)
     param_pairs = combinations(param_names, 2)
     sim_configs = SimConfig[]
     for (param1, param2) in param_pairs
-        for (case, case_id) in case_name_id
+        for (case, case_id, namelist_args) in case_config
             config_product = Iterators.product(parameters[param1], parameters[param2], 1:n_ens)
             append!(
                 sim_configs,

@@ -64,13 +64,16 @@ function get_reference_config(::GridSearchCases)
     # config["Σ_dir"] = [...]
     config["t_start"] = repeat([100.0], n_cases)
     config["t_end"] = repeat([200.0], n_cases)
+
+    # for purely testing purposes of case-specific & global `namelist_args` merging. 
+    # See also `test/HelperFuncs/runtests.jl > @testset "namelist utilities"`.
+    config["namelist_args"] = [[("time_stepping", "t_max", 199.0)], nothing, [("time_stepping", "t_max", 201.0)]]
     return config
 end
 
 function get_scm_config()
     config = Dict()
     # List of tuples like [("time_stepping", "dt_min", 1.0)], or nothing
-    config["namelist_args"] = nothing
     config["namelist_args"] = [
         ("time_stepping", "t_max", 200.0),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "moisture_deficit"),
