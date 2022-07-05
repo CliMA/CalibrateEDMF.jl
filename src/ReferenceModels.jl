@@ -139,7 +139,7 @@ get_t_end(m::ReferenceModel) = m.y_t_end
 get_t_start_Σ(m::ReferenceModel) = m.Σ_t_start
 get_t_end_Σ(m::ReferenceModel) = m.Σ_t_end
 
-"Returns the observed vertical locations for a reference model"
+"Return the observed vertical locations for a reference model"
 get_z_obs(m::ReferenceModel) = m.z_obs
 
 get_y_dir(m::ReferenceModel) = m.y_dir
@@ -161,15 +161,18 @@ num_vars(m::ReferenceModel) = length(m.y_names)
 """
     get_scm_namelist(case_name; [y_dir, overwrite, namelist_args, seed])
 
-Returns a TurbulenceConvection.jl namelist, given a case and a list of namelist arguments.
+Return a TurbulenceConvection.jl namelist, given a case and a list of namelist arguments.
 
-Inputs:
- - `case_name`      :: Name of the TurbulenceConvection.jl case considered.
- - `y_dir`          :: Directory with LES data to drive the SCM with, if `case_name` is `LES_driven_SCM`.
- - `namelist_args`  :: Vector of non-default arguments to be used in the namelist, defined as a vector of tuples.
- - `seed`           :: If set, seed is an integer, and is the seed value to generate a TC namelist.
-Outputs:
- - `namelist`       :: The TurbulenceConvection.jl namelist.
+# Arguments
+- `case_name`      :: Name of the TurbulenceConvection.jl case considered.
+
+# Keywords
+- `y_dir`          :: Directory with LES data to drive the SCM with, if `case_name` is `LES_driven_SCM`.
+- `namelist_args`  :: Vector of non-default arguments to be used in the namelist, defined as a vector of tuples.
+- `seed`           :: If set, seed is an integer, and is the seed value to generate a TC namelist.
+
+# Returns
+- `namelist`       :: The TurbulenceConvection.jl namelist.
 """
 function get_scm_namelist(
     case_name::String;
@@ -199,7 +202,7 @@ end
 """
     construct_z_obs(namelist::Dict)
 
-Constructs the vector of observed locations given a TurbulenceConvection.jl namelist.
+Construct a vector of observed locations given a `TurbulenceConvection.jl` namelist.
 """
 function construct_z_obs(namelist::Dict)
     (; z_mesh) = construct_mesh(namelist)
@@ -261,14 +264,13 @@ Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lis
 
 See also [`get_ref_model_kwargs`](@ref).
 
-Inputs:
+# Arguments
+- `kwarg_ld`   :: Dictionary of keyword argument lists
+- `seed`       :: If set, seed is an integer, and is the seed value to generate a TC namelist for each case
 
- - `kwarg_ld`   :: Dictionary of keyword argument lists
- - `seed`       :: If set, seed is an integer, and is the seed value to generate a TC namelist for each case
-
-Outputs:
-
- - `ref_models` :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument list of the dictionary.
+# Returns
+- `ref_models` :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument 
+    list of the dictionary.
 """
 function construct_reference_models(
     kwarg_ld::Dict{Symbol, Vector{T} where T};
@@ -299,17 +301,14 @@ end
 """
     time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
 
-Returns a time-shifted ReferenceModel, considering an interval relative to the last
-available time step of the original model.
+Returns a time-shifted [`ReferenceModel`](@ref), considering an interval relative to the last available time step of the original model.
 
-Inputs:
+# Arguments
+- `m`   :: A [`ReferenceModel`](@ref).
+- `Δt`  :: [LES last time - SCM start time (LES timeframe)]
 
- - `m`     :: A ReferenceModel.
- - `Δt`  :: [LES last time - SCM start time (LES timeframe)]
-
-Outputs:
-
- - The time-shifted ReferenceModel.
+# Returns
+- The time-shifted ReferenceModel.
 """
 function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
     filename = y_nc_file(m)
@@ -360,10 +359,9 @@ $(TYPEDFIELDS)
 
 `ReferenceModelBatch` constructor given a dictionary of keyword argument lists.
 
-Inputs:
-
- - `kwarg_ld`     :: Dictionary of keyword argument lists
- - `shuffling`    :: Whether to shuffle the order of ReferenceModels.
+# Arguments
+- `kwarg_ld`     :: Dictionary of keyword argument lists
+- `shuffling`    :: Whether to shuffle the order of ReferenceModels.
 """
 Base.@kwdef struct ReferenceModelBatch
     "Vector containing all reference models"
@@ -386,21 +384,17 @@ end
 """
     get_minibatch!(ref_models::ReferenceModelBatch, batch_size::Int)
 
-Returns a minibatch of `ReferenceModel`s from a ReferenceModelBatch and updates
-the eval order.
+Return a minibatch of [`ReferenceModel`](@ref)s from a [`ReferenceModelBatch`](@ref) and updates the eval order.
 
-The size of the minibatch is either the requested size, or the remainder of the
-elements in the eval_order for this epoch.
+The size of the minibatch is either the requested size, or the remainder of the elements in the eval_order for this epoch.
 
-Inputs:
+# Arguments
+- `ref_model_batch` :: A `ReferenceModelBatch`.
+- `batch_size`      :: The number of `ReferenceModel`s to retrieve.
 
- - `ref_model_batch` :: A ReferenceModelBatch.
- - `batch_size`      :: The number of `ReferenceModel`s to retrieve.
-
-Outputs:
-
- - A vector of `ReferenceModel`s.
- - The indices of the returned `ReferenceModel`s.
+# Returns
+- A vector of `ReferenceModel`s.
+- The indices of the returned `ReferenceModel`s.
 """
 function get_minibatch!(ref_model_batch::ReferenceModelBatch, batch_size::Int)
     batch = min(batch_size, length(ref_model_batch.eval_order))
@@ -408,7 +402,7 @@ function get_minibatch!(ref_model_batch::ReferenceModelBatch, batch_size::Int)
     return ref_model_batch.ref_models[indices], indices
 end
 
-"Restarts a shuffled evaluation order if the current epoch has finished."
+"Restart a shuffled evaluation order if the current epoch has finished."
 function reshuffle_on_epoch_end(ref_model_batch::ReferenceModelBatch, shuffling::Bool = true)
     if isempty(ref_model_batch.eval_order)
         @info "Current epoch finished. Reshuffling dataset."

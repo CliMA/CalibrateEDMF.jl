@@ -20,11 +20,7 @@ export io_dictionary_val_reference, io_dictionary_prior
 
 """
     io_dictionary_reference()
-    io_dictionary_reference(
-        ref_stats::ReferenceStatistics,
-        ref_models::Vector{ReferenceModel},
-        write_full_stats::Bool = true,
-    )
+    io_dictionary_reference(ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel}, [write_full_stats = true])
 
 Dictionary of diagnostics for the [`ReferenceModel`](@ref)s and [`ReferenceStatistics`](@ref) that define the inverse problem.
 
@@ -121,11 +117,7 @@ end
 
 """
     io_dictionary_val_reference()
-    io_dictionary_val_reference(
-        ref_stats::ReferenceStatistics,
-        ref_models::Vector{ReferenceModel},
-        write_full_stats::Bool = true,
-    )
+    io_dictionary_val_reference(ref_stats::ReferenceStatistics, ref_models::Vector{ReferenceModel}, [write_full_stats = true])
 
 Dictionary of diagnostics for the [`ReferenceModel`](@ref)s and [`ReferenceStatistics`](@ref) in the validation set.
 
@@ -569,8 +561,7 @@ Dictionary of particle-wise validation diagnostics involving forward model evalu
 
 # Elements
 - `val_g`              :: Validation forward model evaluation in reduced space.
-- `val_g_full`         :: Validation forward model evaluation in primitive output space, 
-normalized using the pooled field covariance.
+- `val_g_full`         :: Validation forward model evaluation in primitive output space, normalized using the pooled field covariance.
 - `val_mse_full`       :: Particle-wise evaluation of MSE(`val_g_full`, `val_y_full`).
 - `val_batch_indices`  :: Indices of validation `ReferenceModel`s evaluated per iteration.
 """

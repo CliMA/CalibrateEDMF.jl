@@ -10,12 +10,10 @@ using ..HelperFuncs
 
 
 """
-    get_LES_library
+    get_LES_library()
 
-Hierarchical dictionary of available cfSite LES simulations, following similar
-forcing to that described in [Shen2022](@cite), but including additional sites.
-The following cfsites are available across listed models, months,
-and experiments.
+Hierarchical dictionary of available cfSite LES simulations, following similar forcing to that described in [Shen2022](@cite), 
+but including additional sites. The following cfsites are available across listed models, months, and experiments.
 """
 function get_LES_library()
     LES_library = get_shallow_LES_library()
@@ -61,8 +59,7 @@ end
     get_les_names(y_names::Vector{String}, filename::String)
     get_les_names(m::ReferenceModel, filename::String)
 
-Returns the aliases of the variables actually present in the nc
-file (`filename`) corresponding to SCM variables `y_names`.
+Returns the aliases of the variables actually present in the nc file (`filename`) corresponding to SCM variables `y_names`.
 """
 get_les_names(m::ReferenceModel, filename::String)::Vector{String} = get_les_names(m.y_names, filename)
 function get_les_names(y_names::Vector{String}, filename::String)::Vector{String}
@@ -74,7 +71,7 @@ end
 """
     find_alias(aliases::Tuple{Vararg{String}}, filename::String)
 
-Finds the alias present in an NCDataset from a list of possible aliases.
+Find the alias present in an NCDataset from a list of possible aliases.
 """
 function find_alias(aliases::Tuple{Vararg{String}}, filename::String)
     NCDatasets.NCDataset(filename) do ds
@@ -104,16 +101,15 @@ end
 Given information about an LES run from [Shen2022](@cite),
 fetch LES directory on central cluster.
 
-Inputs:
+# Arguments
+- `cfsite_number`   :: cfsite number
+- `forcing_model`   :: {"HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1", "IPSL-CM6A-LR"} - name of climate model used for forcing. 
+    Currently, only "HadGEM2-A" simulations are available reliably.
+- `month`           :: {1, 4, 7, 10} - month of simulation.
+- `experiment`      :: {"amip", "amip4K"} - experiment from which LES was forced.
 
- - cfsite_number  :: cfsite number
- - forcing_model :: {"HadGEM2-A", "CNRM-CM5", "CNRM-CM6-1", "IPSL-CM6A-LR"} - name of climate model used for forcing. Currently, only "HadGEM2-A" simulations are available reliably.
- - month :: {1, 4, 7, 10} - month of simulation.
- - experiment :: {"amip", "amip4K"} - experiment from which LES was forced.
-
-Outputs:
-
- - les_dir - path to les simulation containing stats folder
+# Returns
+- `les_dir` :: path to les simulation containing stats folder
 """
 function get_cfsite_les_dir(
     cfsite_number::Integer;

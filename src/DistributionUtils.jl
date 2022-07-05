@@ -23,13 +23,12 @@ Given a dictionary of parameter names to parameter vectors of arbitrary length,
 return a new dictionary that maps a unique parameter name to each element of the full
 flattened vector of parameters.
 
-Inputs:
+# Arguments
+- `param_dict` :: Dictionary of parameter names to constraints.
 
- - param_dict :: Dictionary of parameter names to constraints.
-
-Outputs:
- - u_names :: Vector{String} :: vector of parameter names
- - values :: Vector{Vector{T}} :: vector of single-valued vectors encapsulating parameter values.
+# Returns
+- `u_names::Vector{String}`     :: vector of parameter names
+- `values::Vector{Vector{T}}`   :: vector of single-valued vectors encapsulating parameter values.
 """
 function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
 
@@ -61,11 +60,12 @@ identity(x) = x
 Flattens the values of a dictionary with parameter vectors as keys, and returns the indices of
 entries in the flattened dictionary satisfying a given condition.
 
-Inputs:
-    param_dict :: Dictionary of parameter names to vectors.
-    condition :: A condition function operating on each dictionary value.
-Outputs:
-    Indices of flattened entries satisfying the `condition`.
+# Arguments
+- `param_dict`  :: Dictionary of parameter names to vectors.
+- `condition`   :: A condition function operating on each dictionary value.
+
+# Returns
+- Indices of flattened entries satisfying the `condition`.
 """
 function flat_dict_keys_where(param_dict::Dict{String, Vector{T}}, condition::Function = identity) where {T}
     # flatten global dict
@@ -88,27 +88,23 @@ end
         to_file::Bool = true,
     )
 
-Define a prior Gaussian ParameterDistribution in unconstrained space
-from a dictionary of constraints.
+Define a prior Gaussian `ParameterDistribution` in unconstrained space from a dictionary of constraints.
 
-This constructor assumes independent priors and the same unconstrained
-standard deviation for each parameter. Note that the standard deviation
-in unconstrained space is normalized with respect to the constrained
-interval width, so it automatically takes into account parameter scales.
+This constructor assumes independent priors and the same unconstrained standard deviation for each parameter. 
+Note that the standard deviation in unconstrained space is normalized with respect to the constrained interval width, 
+so it automatically takes into account parameter scales.
 
-The constructor also allows passing a prior mean for each parameter in
-constrained space.
+The constructor also allows passing a prior mean for each parameter in constrained space.
 
-Inputs:
- - params :: Dictionary of parameter names to constraints.
- - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space).
- - prior_mean :: The mean value of the prior in constrained space. If not given,
-    the prior is selected to be 0 in unconstrained space.
- - outdir_path :: Output path.
- - to_file :: Whether to write the serialized prior to a JLD2 file.
+# Arguments
+- `params`          :: Dictionary of parameter names to constraints.
+- `unconstrained_σ` :: Standard deviation of the transformed gaussians (unconstrained space).
+- `prior_mean`      :: The mean value of the prior in constrained space. If not given, the prior is selected to be 0 in unconstrained space.
+- `outdir_path`     :: Output path.
+- `to_file`         :: Whether to write the serialized prior to a `JLD2` file.
 
-Output:
- - The prior ParameterDistribution.
+# Returns
+- The prior ParameterDistribution.
 """
 function construct_priors(
     params::Dict{String, Vector{Constraint}};
@@ -150,8 +146,7 @@ end
 """
     deserialize_prior(prior_dict::Dict{String, Any})
 
-Generates a prior ParameterDistribution from arguments stored
-in a dictionary.
+Generates a prior ParameterDistribution from arguments stored in a dictionary.
 """
 function deserialize_prior(prior_dict::Dict{String, T}) where {T}
     marginal_priors =
@@ -162,8 +157,7 @@ end
 """
     logmean_and_logstd(μ, σ)
 
-Returns the lognormal parameters μ and σ from the mean μ and std σ of the
-lognormal distribution.
+Returns the lognormal parameters μ and σ from the mean μ and std σ of the lognormal distribution.
 """
 function logmean_and_logstd(μ, σ)
     σ_log = sqrt(log(1.0 + σ^2 / μ^2))
@@ -175,8 +169,7 @@ end
 """
     mean_and_std_from_ln(μ, σ)
 
-Returns the mean and variance of the lognormal distribution
-from the lognormal parameters μ and σ.
+Returns the mean and variance of the lognormal distribution from the lognormal parameters μ and σ.
 """
 function mean_and_std_from_ln(μ_log, σ_log)
     μ = exp(μ_log + σ_log^2 / 2)

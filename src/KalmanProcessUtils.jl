@@ -88,20 +88,19 @@ get_Δt(lrs::PiecewiseConstantGrowth, iteration::IT) where {IT <: Int} = lrs.Δt
         to_file::Bool = true,
     ) where {T}
 
-Generates, and possible writes to file, an EnsembleKalmanProcess
-from a parameter ensemble and reference statistics.
+Generates, and possible writes to file, an `EnsembleKalmanProcess` from a parameter ensemble and reference statistics.
 
-Inputs:
- - ref_stats :: ReferenceStatistics defining the inverse problem.
- - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
- - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
- - failure_handler :: String describing what failure handler to use.
- - localizer :: Covariance localization method.
- - outdir_path :: Output path.
- - to_file :: Whether to write the serialized prior to a JLD2 file.
+# Arguments
+- `ref_stats`       :: `ReferenceStatistics` defining the inverse problem.
+- `process`         :: Type of `EnsembleKalmanProcess` used to evolve the ensemble.
+- `u`               :: An ensemble of parameter vectors, used if `!isa(process, Unscented)`.
+- `failure_handler` :: String describing what failure handler to use.
+- `localizer`       :: Covariance localization method.
+- `outdir_path`     :: Output path.
+- `to_file`         :: Whether to write the serialized prior to a `JLD2` file.
 
-Output:
- - The generated EnsembleKalmanProcess.
+# Returns
+- The generated `EnsembleKalmanProcess`.
 """
 function generate_ekp(
     ref_stats::ReferenceStatistics,
@@ -144,29 +143,26 @@ end
         to_file::Bool = true,
     ) where {T, R}
 
-Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
-from a parameter ensemble and reference statistics.
+Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess from a parameter ensemble and reference statistics.
 
-Tikhonov regularization is implemented through output state augmentation
-with the input parameter vector. The input L2 regularization hyperparameter
-should be interpreted as the inverse of the variance of our prior belief in
+Tikhonov regularization is implemented through output state augmentation with the input parameter vector. 
+The input L2 regularization hyperparameter should be interpreted as the inverse of the variance of our prior belief in
 the magnitude of the parameters.
 
-Inputs:
- - ref_stats :: ReferenceStatistics defining the inverse problem.
- - priors :: Parameter priors used for L2 (i.e., Tikhonov) regularization
- - process :: Type of EnsembleKalmanProcess used to evolve the ensemble.
- - u :: An ensemble of parameter vectors, used if !isa(process, Unscented).
- - l2_reg :: L2 regularization hyperparameter driving parameter values toward prior.
-        May be a float (isotropic regularization) or a dictionary of regularizations
-        per parameter.
- - failure_handler :: String describing what failure handler to use.
- - localizer :: Covariance localization method.
- - outdir_path :: Output path.
- - to_file :: Whether to write the serialized prior to a JLD2 file.
+# Arguments
+- `ref_stats`       :: `ReferenceStatistics` defining the inverse problem.
+- `priors`          :: Parameter priors used for L2 (i.e., Tikhonov) regularization
+- `process`         :: Type of `EnsembleKalmanProcess` used to evolve the ensemble.
+- `u`               :: An ensemble of parameter vectors, used if `!isa(process, Unscented)`.
+- `l2_reg`          :: L2 regularization hyperparameter driving parameter values toward prior.
+    May be a float (isotropic regularization) or a dictionary of regularizations per parameter.
+- `failure_handler` :: String describing what failure handler to use.
+- `localizer`       :: Covariance localization method.
+- `outdir_path`     :: Output path.
+- `to_file`         :: Whether to write the serialized prior to a JLD2 file.
 
-Output:
- - The generated augmented EnsembleKalmanProcess.
+# Returns
+- The generated augmented `EnsembleKalmanProcess`.
 """
 function generate_tekp(
     ref_stats::ReferenceStatistics,

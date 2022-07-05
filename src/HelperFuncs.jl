@@ -120,10 +120,10 @@ from the `namelist` so that for any vector component in `u_names_calib`,
 all other components of that vector are also specified.
 
 # Arguments
-- `u_names_calib`: A list of parameter names that are being calibrated
-- `u_calib`: A list of values associated with the parameter names
-- `param_map`: A [`ParameterMap`](@ref) specifying a parameter mapping.
-- `namelist`: A dictionary of default parameter values.
+- `u_names_calib`   :: A list of parameter names that are being calibrated
+- `u_calib`         :: A list of values associated with the parameter names
+- `param_map`       :: A [`ParameterMap`](@ref) specifying a parameter mapping.
+- `namelist`        :: A dictionary of default parameter values.
 
 Returns a tuple of two vectors defining parameter names and parameter values,
 possibly expanded relative to the input arguments to define all components of
@@ -171,9 +171,8 @@ end
 
 Expand `params` dictionary with defaults from `namelist`.
 
-In practice, `params` is only expanded if it contains vector components,
-in which case default values of unspecified components are fetched from
-the namelist and appended to `params`.
+In practice, `params` is only expanded if it contains vector components, in which case default values of unspecified 
+components are fetched from the namelist and appended to `params`.
 """
 function fill_param_vectors(namelist::Dict, params::Dict{<:AbstractString, <:Number})
     # Fetch default vector parameters from `namelist` that match `params`
@@ -190,7 +189,7 @@ end
 
 Return the subdict of `namelist` that has `param_name` as a key.
 
-The namelist is defined in TurbulenceConvection.jl
+The namelist is defined in `TurbulenceConvection.jl`
 """
 function namelist_subdict_by_key(namelist::Dict, param_name::AbstractString)::Dict
     subdict = if haskey(namelist["turbulence"]["EDMF_PrognosticTKE"], param_name)
@@ -252,12 +251,13 @@ merge_namelist_args(::Nothing, ::Nothing) = nothing
 
 Returns the netcdf variable `var_name` interpolated to heights `z_scm`.
 
-Inputs:
- - `var_name` :: Name of variable in the netcdf dataset.
- - `filename` :: nc filename
- - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
-Output:
- - The interpolated vector.
+# Arguments
+- `var_name`   :: Name of variable in the netcdf dataset.
+- `filename`   :: nc filename
+- `z_scm`      :: Vertical coordinate vector onto which `var_name` is interpolated.
+
+# Returns
+- The interpolated vector.
 """
 function vertical_interpolation(var_name::String, filename::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
     z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
@@ -282,12 +282,13 @@ end
 
 Returns the netcdf variable `var_name`, possibly interpolated to heights `z_scm`.
 
-Inputs:
- - `var_name` :: Name of variable in the netcdf dataset.
- - `filename` :: nc filename
- - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
-Output:
- - The interpolated vector.
+# Arguments
+- `var_name`    :: Name of variable in the netcdf dataset.
+- `filename`    :: nc filename
+- `z_scm`       :: Vertical coordinate vector onto which `var_name` is interpolated.
+
+# Returns
+- The interpolated vector.
 """
 function nc_fetch_interpolate(var_name::String, filename::String, z_scm::OptVec{<:Real})
     if !is_timeseries(filename, var_name) && !isnothing(z_scm)
@@ -300,16 +301,16 @@ end
 """
     fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
 
-Returns the netcdf variable `var_name`, possibly interpolated to heights `z_scm`. If the
-variable needs to be transformed to be equivalent to an SCM variable, applies the
-transformation as well.
+Returns the netcdf variable `var_name`, possibly interpolated to heights z_scm. If the variable needs to be transformed
+to be equivalent to an SCM variable, applies the transformation as well.
 
-Inputs:
- - `var_name` :: Name of variable in the netcdf dataset.
- - `filename` :: nc filename
- - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
-Output:
- - The interpolated and transformed vector.
+# Arguments
+- `var_name`   :: Name of variable in the netcdf dataset.
+- `filename`   :: nc filename
+- `z_scm`      :: Vertical coordinate vector onto which `var_name` is interpolated.
+
+# Returns
+- The interpolated and transformed vector.
 
 ### PyCLES variables that require transformations:
 
@@ -366,12 +367,12 @@ end
 
 Returns the vertical cell centers or faces of the given configuration.
 
-Inputs:
- - filename :: nc filename.
- - get_faces :: If true, returns the coordinates of cell faces. Otherwise,
-    returns the coordinates of cell centers.
-Output:
- - z: Vertical level coordinates.
+# Arguments
+- `filename`  :: nc filename.
+- `get_faces` :: If true, returns the coordinates of cell faces. Otherwise, returns the coordinates of cell centers.
+
+# Returns
+- `z`   :: Vertical level coordinates.
 """
 function get_height(filename::String; get_faces::Bool = false)
     if get_faces
@@ -385,28 +386,27 @@ end
     normalize_profile(
         y::Array{FT},
         norm_vec::Array{FT},
-        prof_dof::IT,
+        prof_dof::Integer,
         prof_indices::OptVec{Bool} = nothing,
-    ) where {FT <: Real, IT <: Integer}
+    ) where {FT <: Real}
 
-Perform normalization of the aggregate observation vector `y` using separate
-normalization constants for each variable, contained in `norm_vec`.
+Perform normalization of the aggregate observation vector `y` using separate normalization constants for each variable, contained in `norm_vec`.
 
-Inputs:
- - `y` :: Aggregate observation vector.
- - `norm_vec` :: Vector of squares of normalization factors.
- - `prof_dof` :: Degrees of freedom of vertical profiles contained in `y`.
- - `prof_indices` :: Vector of booleans specifying which variables are profiles, and which
-    are timeseries.
-Output:
- - The normalized aggregate observation vector.
+# Arguments
+- `y`              :: Aggregate observation vector.
+- `norm_vec`       :: Vector of squares of normalization factors.
+- `prof_dof`       :: Degrees of freedom of vertical profiles contained in `y`.
+- `prof_indices`   :: Vector of booleans specifying which variables are profiles, and which are timeseries.
+
+# Returns
+- The normalized aggregate observation vector.
 """
 function normalize_profile(
     y::Array{FT},
     norm_vec::Array{FT},
-    prof_dof::IT,
+    prof_dof::Integer,
     prof_indices::OptVec{Bool} = nothing,
-) where {FT <: Real, IT <: Integer}
+) where {FT <: Real}
     y_ = deepcopy(y)
     n_vars = length(norm_vec)
     prof_indices = isnothing(prof_indices) ? repeat([true], n_vars) : prof_indices
@@ -420,12 +420,10 @@ function normalize_profile(
 end
 
 """
-    nc_fetch(filename::String, var_names::NTuple{N, Tuple}) where {N}
+    nc_fetch(filename::String, var_names::Tuple)
     nc_fetch(filename::String, var_name::String)
 
-Returns the data for a variable `var_name` (or
-tuple of strings, `varnames`), looping through
-all dataset groups.
+Return the data for a variable `var_name` (or `Tuple` of `String`s, `varnames`), looping through all dataset groups.
 """
 function nc_fetch(filename::String, var_names::Tuple)
     NCDataset(filename) do ds
@@ -449,15 +447,12 @@ nc_fetch(filename::String, var_name::String) = nc_fetch(filename, (var_name,))
 """
     is_face_variable(filename::String, var_name::String)
 
-A `Bool` indicating whether the given variable is defined in a face,
-or not (cell center).
+A `Bool` indicating whether the given variable is defined in a face, or not (cell center).
 
-TurbulenceConvection data are consistent, meaning that variables at
-cell faces (resp. centers) have as dim `zf` (resp., `zc`).
+`TurbulenceConvection` data are consistent, meaning that variables at cell faces (resp. centers) have as dim `zf` (resp., `zc`).
 
-PyCLES variables are inconsistent. All variables have as a dim `z`,
-the cell face locations, but most of them (except for the statistical
-moments of w) are actually defined at cell centers (`z_half`). 
+PyCLES variables are inconsistent. All variables have as a dim `z`, the cell face locations, but most of them 
+(except for the statistical moments of w) are actually defined at cell centers (`z_half`). 
 """
 function is_face_variable(filename::String, var_name::String)
     # PyCLES cell face variables
@@ -504,7 +499,7 @@ end
 """
     get_stats_path(dir)
 
-Given directory to standard LES or SCM output, fetch path to stats file.
+Given directory to standard `LES` or `SCM` output, fetch path to stats file.
 """
 function get_stats_path(dir)
     stats = joinpath(dir, "stats")
@@ -548,11 +543,9 @@ end
     compute_mse(g_arr::Vector{Vector{FT}}, y::Vector{FT})::Vector{FT}
     compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT}
 
-Computes the L2-norm error of each vector, column or row of an array
-with respect to a vector y.
+Compute the L2-norm error of each vector, column or row of an array with respect to a vector y.
 
-Output:
- - The mse for each ensemble member.
+Returns the mean squared error (MSE) for each ensemble member.
 """
 function compute_mse(g_arr::Vector{Vector{FT}}, y::Vector{FT})::Vector{FT} where {FT <: Real}
     diffs = [g - y for g in g_arr]
@@ -576,7 +569,7 @@ end
 """
     penalize_nan(arr::Vector{FT}; penalization::FT = 1.0e5) where {FT <: AbstractFloat}
 
-Substitutes all NaN entries in `arr` by a penalization factor.
+Substitute all NaN entries in `arr` by a penalization factor.
 """
 function penalize_nan(arr::Vector{FT}; penalization::FT = 1.0e5) where {FT <: AbstractFloat}
     return map(elem -> isnan(elem) ? penalization : elem, arr)
@@ -585,8 +578,7 @@ end
 """
     serialize_struct(s::T) where {T}
 
-Serializes the given structure as a dictionary to
-allow storage in JLD2 format.
+Serializes the given structure as a dictionary to allow storage in JLD2 format.
 """
 function serialize_struct(s::T) where {T}
     keys = propertynames(s)
@@ -597,15 +589,14 @@ end
 """
     deserialize_struct(dict::Dict{String}, ::Type{T})
 
-Deserializes the given dictionary and constructs a struct
-of the given type with the dictionary values.
+Deserializes the given dictionary and constructs a struct of the given type with the dictionary values.
 """
 deserialize_struct(dict::Dict{String}, ::Type{T}) where {T} = T(map(fn -> dict["$fn"], fieldnames(T))...)
 
 """
     jld2_path(root::String, identifier::Union{String, Int}, prefix::String)
 
-Generates a JLD2 path, given a root path, an identifier and a prefix.
+Generates a `JLD2` path, given a root path, an identifier and a prefix.
 """
 function jld2_path(root::String, identifier::Union{String, Int}, prefix::String)
     return joinpath(root, "$(prefix)$(identifier).jld2")
@@ -621,7 +612,7 @@ ekobj_path(root, iter; prefix = "ekobj_iter_") = jld2_path(root, iter, prefix)
 """
     write_versions(versions, iteration; outdir_path = pwd())
 
-Writes versions associated with an EnsembleKalmanProcess iteration to a text file.
+Writes versions associated with an `EnsembleKalmanProcess` iteration to a text file.
 """
 function write_versions(versions::Vector{String}, iteration::Int; outdir_path::String = pwd())
     open(joinpath(outdir_path, "versions_$(iteration).txt"), "w") do io
@@ -656,10 +647,9 @@ end
 
 Changes the entry of a nested dictionary, given a tuple of all its keys and the new value
 
-Inputs:
- - `dict`           :: Parent dictionary with an arbitrary number of nested dictionaries.
- - `keys_and_value` :: Tuple of keys from the parent dictionary to the entry to be modified,
-                     and the value to use to modify it.
+# Arguments
+- `dict`           :: Parent dictionary with an arbitrary number of nested dictionaries.
+- `keys_and_value` :: Tuple of keys from the parent dictionary to the entry to be modified, and the value to use to modify it.
 """
 function change_entry!(dict, keys_and_value)
     function get_last_nested_dict(dict, keys)

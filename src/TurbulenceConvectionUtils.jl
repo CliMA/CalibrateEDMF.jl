@@ -237,7 +237,7 @@ end
     run_SCM_handler(case_name::String, out_dir, u, u_names, param_map; [namelist, namelist_args, uuid, les])
     run_SCM_handler(m::ReferenceModel, out_dir, u, u_names, param_map)
 
-Run a TurbulenceConvection.jl case. Return directory path where simulation data is stored pointing and a flag for whether the simulation failed.
+Run a TurbulenceConvection.jl case. Return directory path where simulation data is stored and a flag for whether the simulation failed.
 
 The case is specified with the first function argument, either by providing the case name as a `String`,
 or by passing a [`ReferenceModel`](@ref) `m`. The `out_dir` is the path where the output directory is 
@@ -271,7 +271,8 @@ In this case, `namelist` and `les` are fetched from the `ReferenceModel`, and `u
 # Keywords
 - `namelist`        :: namelist to use for simulation.
 - `uuid`            :: uuid of SCM run
-- `les`             :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
+- `les`             :: path to LES stats file, or NamedTuple with keywords 
+                        {forcing_model, month, experiment, cfsite_number} needed to specify path. 
 
 # Returns
 - `String`          :: Directory path where output data from the TC.jl run is stored.
@@ -498,40 +499,28 @@ end
 
 
 """
-    precondition(
-        param::Vector{FT},
-        priors,
-        param_map::ParameterMap,
-        ref_models::Vector{ReferenceModel},
-        ref_stats::ReferenceStatistics;
-        counter::Integer = 0,
-        max_counter::Integer = 10,
-    ) where {FT <: Real}
+    precondition(param::Vector{<:Real}, priors, param_map, ref_models, ref_stats; [counter, max_counter = 10])
 
-Substitute parameter vector `param` by a parameter vector drawn
-from the same prior, conditioned on the forward model being stable.
+Substitute parameter vector `param` by a parameter vector drawn from the same prior, conditioned on the forward model being stable.
 
-Inputs:
+# Arguments
+- `param`       :: A parameter vector that may possibly result in unstable forward model evaluations (in unconstrained space).
+- `priors`      :: Priors from which the parameters were drawn.
+- `param_map`   :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- `ref_models`  :: Vector of ReferenceModels to check stability for.
+- `ref_stats`   :: ReferenceStatistics of the ReferenceModels.
+- `counter`     :: Accumulator tracking number of recursive calls to preconditioner.
+- `max_counter` :: Maximum number of recursive calls to the preconditioner.
 
- - `param`          :: A parameter vector that may possibly result in unstable
-                        forward model evaluations (in unconstrained space).
- - `priors`         :: Priors from which the parameters were drawn.
- - `param_map`      :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `ref_models`     :: Vector of ReferenceModels to check stability for.
- - `ref_stats`      :: ReferenceStatistics of the ReferenceModels.
- - `counter`        :: Accumulator tracking number of recursive calls to preconditioner.
- - `max_counter`    :: Maximum number of recursive calls to the preconditioner.
-
-Outputs:
-
- - `new_param` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
+# Returns
+- `Vector{<:Real}` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
 """
 function precondition(
     param::Vector{FT},
     priors::ParameterDistribution,
     param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
-    ref_stats::ReferenceStatistics;
+    ref_stats::ReferenceStatistics{FT};
     counter::Integer = 0,
     max_counter::Integer = 10,
 ) where {FT <: Real}
@@ -567,15 +556,15 @@ end
 """
     precondition(ME::ModelEvaluator, priors)
 
-Substitute the parameter vector of a ModelEvaluator by another
-one drawn from the given `priors`, conditioned on the forward
-model being stable.
+Substitute the parameter vector of a [`ModelEvaluator`](@ref) by another one drawn from the given `priors`, 
+conditioned on the forward model being stable.
 
-Inputs:
- - ME          :: A ModelEvaluator.
- - priors      :: Priors from which the parameters were drawn.
-Outputs:
- - A preconditioned ModelEvaluator.
+# Arguments
+- `ME`      :: A ModelEvaluator.
+- `priors`  :: Priors from which the parameters were drawn.
+
+# Returns
+- `ModelEvaluator`  ::  A preconditioned [`ModelEvaluator`](@ref).
 """
 function precondition(ME::ModelEvaluator, priors)
     # Precondition in unconstrained space
