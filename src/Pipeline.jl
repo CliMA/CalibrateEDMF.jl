@@ -172,6 +172,7 @@ end
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
     y_ref_type = ref_config["y_reference_type"]
     Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
+    model_errors = get_entry(ref_config, "model_errors", nothing)
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
     normalize = get_entry(reg_config, "normalize", true)
@@ -187,6 +188,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :dim_scaling => dim_scaling,
         :y_type => y_ref_type,
         :Σ_type => Σ_ref_type,
+        :model_errors => model_errors,
     )
 end
 
