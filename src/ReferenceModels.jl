@@ -1,7 +1,30 @@
 module ReferenceModels
 
+export ReferenceModel,
+    ReferenceModelBatch,
+    get_t_start,
+    get_t_end,
+    get_t_start_Σ,
+    get_t_end_Σ,
+    get_z_obs,
+    get_y_dir,
+    get_Σ_dir,
+    num_vars,
+    uuid,
+    y_nc_file,
+    Σ_nc_file,
+    get_scm_namelist,
+    data_directory,
+    namelist_directory,
+    get_ref_model_kwargs,
+    construct_reference_models,
+    get_minibatch!,
+    reshuffle_on_epoch_end,
+    write_ref_model_batch,
+    time_shift_reference_model,
+    write_val_ref_model_batch
+
 using JLD2
-using ..HelperFuncs
 using Random
 using DocStringExtensions
 
@@ -15,14 +38,10 @@ export main1d
 import NCDatasets
 NC = NCDatasets
 
-export ReferenceModel, ReferenceModelBatch
-export get_t_start, get_t_end, get_t_start_Σ, get_t_end_Σ, get_z_obs
-export get_y_dir, get_Σ_dir, num_vars, uuid
-export y_nc_file, Σ_nc_file, get_scm_namelist
-export data_directory, namelist_directory
-export get_ref_model_kwargs, construct_reference_models
-export get_minibatch!, reshuffle_on_epoch_end, write_ref_model_batch
-export time_shift_reference_model, write_val_ref_model_batch
+using ..AbstractTypes
+using ..HelperFuncs
+
+import ..AbstractTypes: OptVec, OptInt, OptString, OptReal
 
 """
     ReferenceModel{FT <: Real}
@@ -83,12 +102,12 @@ function ReferenceModel(
     case_name::String,
     t_start::Real,
     t_end::Real;
-    Σ_dir::Union{String, Nothing} = nothing,
-    Σ_t_start::Union{Real, Nothing} = nothing,
-    Σ_t_end::Union{Real, Nothing} = nothing,
-    n_obs::Union{Integer, Nothing} = nothing,
-    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
-    seed::Union{Integer, Nothing} = nothing,
+    Σ_dir::OptString = nothing,
+    Σ_t_start::OptReal = nothing,
+    Σ_t_end::OptReal = nothing,
+    n_obs::OptInt = nothing,
+    namelist_args::OptVec{<:Tuple} = nothing,
+    seed::OptInt = nothing,
 )
     # Always create new namelist
     namelist = get_scm_namelist(case_name, y_dir = y_dir, namelist_args = namelist_args, seed = seed)
@@ -153,9 +172,9 @@ Outputs:
 """
 function get_scm_namelist(
     case_name::String;
-    y_dir::Union{String, Nothing} = nothing,
-    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
-    seed::Union{Integer, Nothing} = nothing,
+    y_dir::OptString = nothing,
+    namelist_args::OptVec{<:Tuple} = nothing,
+    seed::OptInt = nothing,
 )::Dict
     namelist = if isnothing(seed)
         NameList.default_namelist(case_name; write = false, set_seed = false)
@@ -200,7 +219,7 @@ Note that the case-by-case `namelist_args` supersede both TC.jl defaults and glo
 
 See also [`construct_reference_models`](@ref).
 """
-function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing)
+function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:Tuple} = nothing)
     n_cases = length(ref_config["case_name"])
     Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
@@ -251,7 +270,7 @@ Outputs:
 """
 function construct_reference_models(
     kwarg_ld::Dict{Symbol, Vector{T} where T};
-    seed::Union{Integer, Nothing} = nothing,
+    seed::OptInt = nothing,
 )::Vector{ReferenceModel}
     n_RM = length(kwarg_ld[:case_name])
     ref_models = Vector{ReferenceModel}()

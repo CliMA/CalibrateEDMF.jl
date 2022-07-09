@@ -5,7 +5,6 @@ Generic utils.
 """
 module HelperFuncs
 
-# We can work on qualifying these later
 export vertical_interpolation,
     nc_fetch_interpolate,
     fetch_interpolate_transform,
@@ -43,6 +42,9 @@ using LinearAlgebra
 using Glob
 using JSON
 using Random
+
+using ..AbstractTypes
+import ..AbstractTypes: OptVec
 
 """
     struct ParameterMap
@@ -274,11 +276,7 @@ function vertical_interpolation(var_name::String, filename::String, z_scm::Vecto
 end
 
 """
-    nc_fetch_interpolate(
-        var_name::String,
-        filename::String,
-        z_scm::Union{Vector{<:Real}, Nothing};
-    )
+    nc_fetch_interpolate(var_name::String, filename::String, z_scm::OptVec{<:Real})
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
 
@@ -289,7 +287,7 @@ Inputs:
 Output:
  - The interpolated vector.
 """
-function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{Vector{<:Real}, Nothing};)
+function nc_fetch_interpolate(var_name::String, filename::String, z_scm::OptVec{<:Real})
     if !is_timeseries(filename, var_name) && !isnothing(z_scm)
         return vertical_interpolation(var_name, filename, z_scm)
     else
@@ -298,11 +296,7 @@ function nc_fetch_interpolate(var_name::String, filename::String, z_scm::Union{V
 end
 
 """
-    fetch_interpolate_transform(
-        var_name::String,
-        filename::String,
-        z_scm::Union{Vector{<:Real}, Nothing};
-    )
+    fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
 
 Returns the netcdf variable var_name, possibly interpolated to heights z_scm. If the
 variable needs to be transformed to be equivalent to an SCM variable, applies the
@@ -315,7 +309,7 @@ Inputs:
 Output:
  - The interpolated and transformed vector.
 """
-function fetch_interpolate_transform(var_name::String, filename::String, z_scm::Union{Vector{<:Real}, Nothing};)
+function fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
     # PyCLES vertical fluxes are per volume, not mass
     if occursin("resolved_z_flux", var_name)
         var_ = nc_fetch_interpolate(var_name, filename, z_scm)
@@ -356,7 +350,7 @@ end
         y::Array{FT},
         norm_vec::Array{FT},
         prof_dof::IT,
-        prof_indices::Union{BitVector, Nothing} = nothing,
+        prof_indices::OptVec{Bool} = nothing,
     ) where {FT <: Real, IT <: Integer}
 
 Perform normalization of the aggregate observation vector `y` using separate
@@ -375,7 +369,7 @@ function normalize_profile(
     y::Array{FT},
     norm_vec::Array{FT},
     prof_dof::IT,
-    prof_indices::Union{Vector{Bool}, Nothing} = nothing,
+    prof_indices::OptVec{Bool} = nothing,
 ) where {FT <: Real, IT <: Integer}
     y_ = deepcopy(y)
     n_vars = length(norm_vec)

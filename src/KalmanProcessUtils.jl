@@ -5,6 +5,9 @@ Utils for the construction and handling of Kalman Process structs.
 """
 module KalmanProcessUtils
 
+export generate_ekp,
+    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, PiecewiseConstantDecay, PiecewiseConstantGrowth
+
 using LinearAlgebra
 using Statistics
 using JLD2
@@ -22,11 +25,6 @@ using ..ModelTypes
 using ..LESUtils
 using ..HelperFuncs
 using ..DistributionUtils
-
-
-export generate_ekp, generate_tekp
-export get_sparse_indices, get_regularized_indices
-export get_Δt, PiecewiseConstantDecay, PiecewiseConstantGrowth
 
 abstract type LearningRateScheduler end
 

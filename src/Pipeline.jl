@@ -1,9 +1,17 @@
 module Pipeline
 
+export init_calibration, ek_update, versioned_model_eval, restart_calibration
+
 using Statistics
 using Random
 using JLD2
 import Dates
+
+# Import EKP modules
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
+import EnsembleKalmanProcesses: update_ensemble!
 
 using ..DistributionUtils
 using ..ReferenceModels
@@ -12,14 +20,8 @@ using ..TurbulenceConvectionUtils
 using ..NetCDFIO
 using ..HelperFuncs
 using ..KalmanProcessUtils
-
-# Import EKP modules
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
-using EnsembleKalmanProcesses.Localizers
-import EnsembleKalmanProcesses: update_ensemble!
-
-export init_calibration, ek_update, versioned_model_eval, restart_calibration
+using ..AbstractTypes
+import ..AbstractTypes: Opt, OptVec, OptString
 
 """
     init_calibration(job_id::String, config::Dict{Any, Any})
@@ -201,8 +203,8 @@ function create_output_dir(
     n_param::IT,
     N_ens::IT,
     N_iter::IT,
-    batch_size::Union{IT, Nothing},
-    config_path::Union{String, Nothing},
+    batch_size::Opt{IT},
+    config_path::OptString,
     y_ref_type,
 ) where {FT <: Real, IT <: Integer}
     # Output path
@@ -225,7 +227,7 @@ end
 function init_validation(
     val_config::Dict{Any, Any},
     reg_config::Dict{Any, Any},
-    namelist_args::Union{Nothing, Vector{<:Tuple}},
+    namelist_args::OptVec{<:Tuple},
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     param_map::ParameterMap,
@@ -557,7 +559,7 @@ function restart_validation(
     param_map::ParameterMap,
     outdir_path::String,
     last_iteration::IT;
-    namelist_args::Union{Nothing, Vector{<:Tuple}} = nothing,
+    namelist_args::OptVec{<:Tuple} = nothing,
 ) where {IT <: Integer}
 
     kwargs_ref_model = get_ref_model_kwargs(val_config; global_namelist_args = namelist_args)
@@ -828,7 +830,7 @@ function write_model_evaluators(
     ref_stats::ReferenceStatistics,
     outdir_path::String,
     iteration::Int,
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 )
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
@@ -865,8 +867,8 @@ function init_diagnostics(
     ref_stats::ReferenceStatistics,
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
-    val_ref_models::Union{Vector{ReferenceModel}, Nothing} = nothing,
-    val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
+    val_ref_models::OptVec{ReferenceModel} = nothing,
+    val_ref_stats::Opt{ReferenceStatistics} = nothing,
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     N_ens = size(get_u_final(ekp), 2)
@@ -909,7 +911,7 @@ function update_diagnostics(
     ref_stats::ReferenceStatistics,
     g_full::Array{FT, 2},
     versions::Union{Vector{Int}, Vector{String}},
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 ) where {FT <: Real}
 
     mse_full = compute_mse(g_full, ref_stats.y_full)
