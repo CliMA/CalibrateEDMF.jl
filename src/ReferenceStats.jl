@@ -1,5 +1,7 @@
 module ReferenceStats
 
+export ReferenceStatistics, pca_length, full_length, get_obs, get_profile, obs_PCA, pca, pca_inds, full_inds
+
 using SparseArrays
 using Statistics
 using Interpolations
@@ -13,10 +15,7 @@ using ..LESUtils
 using ..HelperFuncs
 using ..DistributionUtils
 
-export ReferenceStatistics
-export pca_length, full_length
-export get_obs, get_profile, obs_PCA, pca
-export pca_inds, full_inds
+import ..AbstractTypes: OptVec, OptReal
 
 """
     ReferenceStatistics{FT <: Real, IT <: Integer}
@@ -300,7 +299,7 @@ end
         filename::String,
         y_names::Vector{String};
         ti::Real = 0.0,
-        tf::Union{Real, Nothing} = nothing,
+        tf::OptReal = nothing,
         z_scm::Union{Vector{T}, T} = nothing,
         prof_ind::Bool = false,
     ) where {T}
@@ -339,7 +338,7 @@ function get_profile(
     filename::String,
     y_names::Vector{String};
     ti::Real = 0.0,
-    tf::Union{Real, Nothing} = nothing,
+    tf::OptReal = nothing,
     z_scm::OptVec{T} = nothing,
     prof_ind::Bool = false,
 ) where {T}

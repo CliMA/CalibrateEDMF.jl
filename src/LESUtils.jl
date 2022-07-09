@@ -1,12 +1,12 @@
 module LESUtils
 
+export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
+
 import NCDatasets
 import ..ReferenceModels: ReferenceModel
 import TurbulenceConvection
 const TC = TurbulenceConvection
 using ..HelperFuncs
-
-export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
 
 
 """

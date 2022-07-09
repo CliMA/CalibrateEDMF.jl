@@ -1,30 +1,34 @@
 module TurbulenceConvectionUtils
 
+export ModelEvaluator,
+    run_SCM,
+    run_SCM_handler,
+    run_reference_SCM,
+    generate_scm_input,
+    parse_version_inds,
+    eval_single_ref_model,
+    save_full_ensemble_data,
+    precondition,
+    get_gcm_les_uuid,
+    save_tc_data
+
 import Logging
 using JLD2
 using JSON
 using Random
 using DocStringExtensions
+using TurbulenceConvection
+# EKP modules
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: construct_initial_ensemble
 
 using ..ReferenceModels
 import ..ReferenceModels: NameList
 
 using ..ReferenceStats
 using ..HelperFuncs
-# EKP modules
-using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: construct_initial_ensemble
-using TurbulenceConvection
-
-using ..HelperFuncs
-
-export ModelEvaluator
-export run_SCM, run_SCM_handler, run_reference_SCM
-export generate_scm_input, parse_version_inds, eval_single_ref_model
-export save_full_ensemble_data
-export precondition
-export get_gcm_les_uuid
-export save_tc_data
+using ..AbstractTypes
+import ..AbstractTypes: OptVec
 
 """
     ModelEvaluator
@@ -452,7 +456,7 @@ function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
     iteration::Int,
     outdir_path::String = pwd(),
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 ) where {FT <: AbstractFloat}
     versions = String[]
     for (ens_i, model_evaluator) in enumerate(model_evaluators)
