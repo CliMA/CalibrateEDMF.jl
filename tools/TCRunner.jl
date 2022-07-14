@@ -60,6 +60,15 @@ function run_TC_optimal(
         namelist = NameList.default_namelist(case, write = false, set_seed = false)
         # Set optional namelist args
         update_namelist!(namelist, case_nt.namelist_arg)
+
+        uuid = "$(case_nt.case_id)_$(ens_ind)"
+        # Add cfSite identifier in case of `LES_driven_SCM`
+        if case == "LES_driven_SCM"
+            stats_filename = split(case_nt.les_path, "/")[end]
+            filename_strips = split(stats_filename, ".")[2:(end - 1)]
+            push!(filename_strips, uuid)
+            uuid = join(filename_strips, ".")
+        end
         # Run TC.jl
         run_SCM_handler(
             case,
@@ -68,7 +77,7 @@ function run_TC_optimal(
             u_names = $u_names,
             param_map = $param_map,
             namelist = namelist,
-            uuid = "$(case_nt.case_id)_$(ens_ind)",
+            uuid = uuid,
             les = case_nt.les_path,
         )
     end

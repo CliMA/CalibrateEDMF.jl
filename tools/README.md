@@ -34,7 +34,7 @@ A command line script for running `TurbulenceConvection.jl` with a set of optima
 | ------- | -------|
 | reference | Run TC with optimal parameters on all cases in the training set (`reference` in the calibration config.) |
 | validation | Run TC with optimal parameters on all cases in the validation set (`validation` in the calibration config.) |
-| test |  Run TC with optimal parameters on all cases in a newly-defined test set, (cases defined in `get_reference_config(::ScmTest)` in the config file defined at `--run_set_config`). See `tools/test_set_config.jl` for an example.|
+| test |  Run TC with optimal parameters on all cases in a newly-defined test set, (cases defined in `get_reference_config(::ScmTest)` in the config file defined at `--run_set_config`). See `test_sets/test_set_config.jl` for an example.|
 
 ### Usage 
 ```
