@@ -1,11 +1,15 @@
 using Distributed
-@everywhere using Pkg
-@everywhere Pkg.activate(dirname(@__DIR__))
-@everywhere using CalibrateEDMF.TurbulenceConvectionUtils
-@everywhere using CalibrateEDMF.HelperFuncs
-@everywhere import CalibrateEDMF.ReferenceModels: NameList
-@everywhere include("DiagnosticsTools.jl")
-@everywhere using Random
+@everywhere begin
+    using Pkg
+    Pkg.activate(dirname(@__DIR__))
+end
+@everywhere begin
+    using CalibrateEDMF.TurbulenceConvectionUtils
+    using CalibrateEDMF.HelperFuncs
+    import CalibrateEDMF.ReferenceModels: NameList
+    include("DiagnosticsTools.jl")
+    using Random
+end
 using ArgParse
 using Dates
 
@@ -39,9 +43,10 @@ function run_TC_optimal(
     n_ens::Int = 1,
 )
     cases = run_cases["case_name"]
-    # get namelist_args
+    # get global namelist_args
     global_namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     case_namelist_args = expand_dict_entry(run_cases, "namelist_args", length(cases))
+    # Assemble namelist_args per case
     namelist_args = merge_namelist_args.(Ref(global_namelist_args), case_namelist_args)
 
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
@@ -54,7 +59,7 @@ function run_TC_optimal(
         # Get namelist for case
         namelist = NameList.default_namelist(case, write = false, set_seed = false)
         # Set optional namelist args
-        update_namelist!(namelist, $namelist_args)
+        update_namelist!(namelist, case_nt.namelist_arg)
         # Run TC.jl
         run_SCM_handler(
             case,
@@ -72,7 +77,8 @@ function run_TC_optimal(
     for (i, case) in enumerate(cases)
         case_id = length(cases[1:i][(cases .== case)[1:i]])
         les_path = (case == "LES_driven_SCM") ? get_stats_path(run_cases["y_dir"][i]) : nothing
-        push!(case_nt, (; case, case_id, les_path))
+        namelist_arg = !isnothing(namelist_args) ? namelist_args[i] : nothing
+        push!(case_nt, (; case, case_id, les_path, namelist_arg))
     end
 
     case_ens = Iterators.product(case_nt, 1:n_ens)
