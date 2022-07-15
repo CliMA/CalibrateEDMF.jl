@@ -11,6 +11,7 @@ namelist_args = [
     ("time_stepping", "dt_max", 2.0),
     ("stats_io", "frequency", 60.0),
     ("grid", "stretch", "flag", true),
+    # ("grid", "nz", 80),
 ]
 
 get_reference_config(::ScmTest) = get_reference_config(Amip4K_SCT())

@@ -30,7 +30,7 @@ function optimal_parameters(ds_path::String; method::String = "best_nn_particle_
     valid_metrics = ("mse_full", "val_mse_full")
     @assert metric in valid_metrics "Invalid metric: $metric"
 
-    valid_methods = ("best_nn_particle_mean", "best_particle")
+    valid_methods = ("best_nn_particle_mean", "best_particle", "last_nn_particle_mean")
     @assert method in valid_methods "Invalid method: $method"
 
     if method == "best_nn_particle_mean"
@@ -42,6 +42,14 @@ function optimal_parameters(ds_path::String; method::String = "best_nn_particle_
             u = ds.group["particle_diags"]["phi"][nn_mean_index, :, mse_min_i] # (n_particles, n_params, n_iterations)
             u_names = ds.group["ensemble_diags"]["param"][:]
             @info "Optimal parameters found at: iteration = $mse_min_i ; nn particle = $nn_mean_index"
+            (; u_names, u)
+        end
+    elseif method == "last_nn_particle_mean"
+        optimal = NCDataset(ds_path) do ds
+            nn_mean_index = ds.group["metrics"]["nn_mean_index"][end - 1]
+            u = ds.group["particle_diags"]["phi"][nn_mean_index, :, end - 1] # (n_particles, n_params, n_iterations)
+            u_names = ds.group["ensemble_diags"]["param"][:]
+            @info "Optimal parameters found at last iteration ; nn particle = $nn_mean_index"
             (; u_names, u)
         end
     elseif method == "best_particle"
@@ -80,7 +88,7 @@ function optimal_mse(ds_path::String; method::String = "best_nn_particle_mean", 
     valid_metrics = ("mse_full", "val_mse_full")
     @assert metric in valid_metrics "Invalid metric: $metric"
 
-    valid_methods = ("best_nn_particle_mean", "best_particle")
+    valid_methods = ("best_nn_particle_mean", "best_particle", "last_nn_particle_mean")
     @assert method in valid_methods "Invalid method: $method"
 
     if method == "best_nn_particle_mean"
@@ -96,6 +104,18 @@ function optimal_mse(ds_path::String; method::String = "best_nn_particle_mean", 
                 mse_val = nothing
             end
             @info "Optimal mse found at: iteration = $mse_min_i"
+            (; mse_train, mse_val)
+        end
+    elseif method == "last_nn_particle_mean"
+        optimal = NCDataset(ds_path) do ds
+            mse_train = ds.group["metrics"]["mse_full_nn_mean"][end - 1]
+            # if val dataset provided, return val mse
+            if ("val_mse_full_nn_mean" in keys(ds.group["metrics"]))
+                mse_val = ds.group["metrics"]["val_mse_full_nn_mean"][:][end - 1]
+            else
+                mse_val = nothing
+            end
+            @info "Optimal mse found at last iteration."
             (; mse_train, mse_val)
         end
     elseif method == "best_particle"
