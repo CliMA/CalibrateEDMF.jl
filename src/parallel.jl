@@ -61,7 +61,6 @@ function eval_single_ref_model(
     u_names::Vector{String},
     param_map::ParameterMap,
 ) where {FT <: Real, IT <: Int}
-
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
@@ -69,14 +68,15 @@ function eval_single_ref_model(
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
-        g_scm = get_profile(m, filename, z_scm = z_obs) # Get shape
-        g_scm = fill(NaN, length(g_scm))
+        d_full, d = size(RS.pca_vec[m_index])
+        g_scm = fill(NaN, d_full)
+        g_scm_pca = fill(NaN, d)
     else
         g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
         g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
+        # perform PCA reduction
+        g_scm_pca = RS.pca_vec[m_index]' * g_scm
     end
-    # perform PCA reduction
-    g_scm_pca = RS.pca_vec[m_index]' * g_scm
     return sim_dir, g_scm, g_scm_pca, model_error
 end
 
