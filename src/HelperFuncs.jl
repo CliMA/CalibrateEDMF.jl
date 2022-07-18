@@ -199,6 +199,8 @@ function namelist_subdict_by_key(namelist::Dict, param_name::AbstractString)::Di
         namelist["microphysics"]
     elseif haskey(namelist["time_stepping"], param_name)
         namelist["time_stepping"]
+    elseif haskey(namelist["grid"]["stretch"], param_name)
+        namelist["grid"]["stretch"]
     else
         throw(ArgumentError("Parameter $param_name cannot be calibrated. Consider adding namelist dictionary if needed."))
     end
