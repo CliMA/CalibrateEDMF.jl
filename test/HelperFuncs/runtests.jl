@@ -97,6 +97,7 @@ end
         ),
         "microphysics" => Dict(),
         "time_stepping" => Dict("t_max" => 12.0),
+        "grid" => Dict("stretch" => Dict("dz_toa" => 20.0)),
     )
 
     @test namelist_subdict_by_key(namelist, "sorting_power")["sorting_power"] == 1.0
