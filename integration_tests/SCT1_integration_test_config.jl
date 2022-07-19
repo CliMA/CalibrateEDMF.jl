@@ -25,7 +25,8 @@ namelist_args = [
     ("stats_io", "frequency", 60.0),
     ("stats_io", "calibrate_io", true),
     ("thermodynamics", "sgs", "mean"),
-    ("grid", "nz", 80),
+    ("grid", "stretch", "flag", true),
+    ("grid", "stretch", "dz_surf", 50.0),
 ]
 
 function get_config()
@@ -102,8 +103,7 @@ function get_reference_config(::SCT1Train)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_names"] = repeat([["s_mean", "ql_mean", "total_flux_qt", "total_flux_s", "u_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
@@ -128,8 +128,7 @@ function get_reference_config(::SCT1Val)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_names"] = repeat([["s_mean", "ql_mean", "total_flux_qt", "total_flux_s", "u_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
