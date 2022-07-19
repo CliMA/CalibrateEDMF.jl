@@ -250,7 +250,7 @@ merge_namelist_args(::Nothing, ::Nothing) = nothing
         z_scm::Vector{FT};
     ) where {FT <: AbstractFloat}
 
-Returns the netcdf variable var_name interpolated to heights z_scm.
+Returns the netcdf variable `var_name` interpolated to heights `z_scm`.
 
 Inputs:
  - `var_name` :: Name of variable in the netcdf dataset.
@@ -280,7 +280,7 @@ end
 """
     nc_fetch_interpolate(var_name::String, filename::String, z_scm::OptVec{<:Real})
 
-Returns the netcdf variable var_name, possibly interpolated to heights z_scm.
+Returns the netcdf variable `var_name`, possibly interpolated to heights `z_scm`.
 
 Inputs:
  - `var_name` :: Name of variable in the netcdf dataset.
@@ -300,7 +300,7 @@ end
 """
     fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
 
-Returns the netcdf variable var_name, possibly interpolated to heights z_scm. If the
+Returns the netcdf variable `var_name`, possibly interpolated to heights `z_scm`. If the
 variable needs to be transformed to be equivalent to an SCM variable, applies the
 transformation as well.
 
@@ -310,17 +310,51 @@ Inputs:
  - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
 Output:
  - The interpolated and transformed vector.
+
+### PyCLES variables that require transformations:
+
+- PyCLES diagnostic vertical fluxes (defined in [AuxiliaryStatistics.pyx](https://github.com/CliMA/pycles/blob/master/AuxiliaryStatistics.pyx#L845)) are specific quantities,
+    not multiplied by density, and written at cell centers. These include all `resolved_z_flux_(...)` and
+    `sgs_z_flux_(...)` diagnostics. For instance the `resolved_z_flux_theta` is ``\\langle{w^*\\theta^*}\\rangle``.
+    In contrast, all `massflux_(...)`, `diffusive_flux_(...)` and `total_flux_(...)` outputs from
+    TC.jl are already multiplied by density and written at cell faces; e.g. `total_flux_h` is ``\\rho\\langle{w^*\\theta^*}\\rangle``.
+    The location mismatch is handled through `is_face_variable` and interpolation. Another difference
+    is that the `total_flux_(...)` in TC.jl simulations includes the full flux, whereas the PyCLES `resolved`
+    definitions only include the resolved flux. We must add the `sgs_z_flux_(...)` component here.
+
+- PyCLES prognostic vertical fluxes (defined in [ScalarAdvection.pyx](https://github.com/CliMA/pycles/blob/master/ScalarAdvection.pyx#L136),
+    [ScalarDiffusion.pyx](https://github.com/CliMA/pycles/blob/master/ScalarDiffusion.pyx#L174), MomentumAdvection.pyx,
+    MomentumDiffusion.pyx) are defined at cell centers and have already been multiplied by density. They are computed
+    at cell faces in the low-level functions in [`scalar_advection.h`](https://github.com/CliMA/pycles/blob/master/Csrc/scalar_diffusion.h#L31) and `scalar_diffusion.h`,
+    and then [interpolated](https://github.com/CliMA/pycles/blob/master/ScalarDiffusion.pyx#L173)
+    in the `.pyx` files before they are written to file. These include all
+    `(...)_flux_z` and `(...)__sgs_flux_z` fluxes. In contrast, flux diagnostics from TC.jl are defined
+    at cell faces. This mismatch is handled through `is_face_variable`. Another difference is that the `total_flux_(...)`
+    in TC.jl simulations includes the full flux, whereas the PyCLES `(...)_flux_z` definition only includes the resolved
+    flux. We must add the `(...)__sgs_flux_z` component here.
 """
 function fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
-    # PyCLES vertical fluxes are per volume, not mass
+    # Multiply by density, add sgs flux
     if occursin("resolved_z_flux", var_name)
-        var_ = nc_fetch_interpolate(var_name, filename, z_scm)
+        resolved_flux = nc_fetch_interpolate(var_name, filename, z_scm)
+        sgs_flux_name = string("sgs_z_flux", last(split(var_name, "resolved_z_flux")))
+        sgs_flux = nc_fetch_interpolate(sgs_flux_name, filename, z_scm)
         rho_half = nc_fetch_interpolate("rho0_half", filename, z_scm)
-        var_ = var_ .* rho_half
+        var_ = rho_half .* (resolved_flux .+ sgs_flux)
+
+        # Add sgs flux
+    elseif occursin("_flux_z", var_name)
+        resolved_flux = nc_fetch_interpolate(var_name, filename, z_scm)
+        sgs_flux_name = string(first(split(var_name, "flux_z")), "sgs_flux_z")
+        sgs_flux = nc_fetch_interpolate(sgs_flux_name, filename, z_scm)
+        var_ = resolved_flux .+ sgs_flux
+
+        # Combine horizontal velocities
     elseif var_name == "horizontal_vel"
         u_ = nc_fetch_interpolate("u_mean", filename, z_scm)
         v_ = nc_fetch_interpolate("v_mean", filename, z_scm)
         var_ = sqrt.(u_ .^ 2 + v_ .^ 2)
+
     else
         var_ = nc_fetch_interpolate(var_name, filename, z_scm)
     end
@@ -428,6 +462,7 @@ moments of w) are actually defined at cell centers (`z_half`).
 function is_face_variable(filename::String, var_name::String)
     # PyCLES cell face variables
     pycles_face_vars = ["w_mean", "w_mean2", "w_mean3"]
+
     NCDataset(filename) do ds
         for group_option in ["profiles", "reference"]
             haskey(ds.group, group_option) || continue
@@ -437,7 +472,7 @@ function is_face_variable(filename::String, var_name::String)
                     return false
                 elseif ("zf" in var_dims) | (var_name in pycles_face_vars)
                     return true
-                elseif ("z" in var_dims) # "Inconsistent" PyCLES variables
+                elseif ("z" in var_dims) # "Inconsistent" PyCLES variables, defined at cell centers.
                     return false
                 else
                     throw(ArgumentError("Variable $var_name does not contain a vertical coordinate."))
