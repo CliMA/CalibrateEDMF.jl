@@ -6,8 +6,9 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.TurbulenceConvectionUtils
 using TurbulenceConvection
 using CalibrateEDMF.HelperFuncs
+import CalibrateEDMF.TurbulenceConvectionUtils: eval_single_ref_model
 
-export run_SCM_parallel, eval_single_ref_model, versioned_model_eval_parallel
+export run_SCM_parallel, versioned_model_eval_parallel
 
 function run_SCM_parallel(ME::ModelEvaluator; error_check::Bool = false, failure_handler = "high_loss")
     return run_SCM_parallel(
@@ -51,33 +52,6 @@ function run_SCM_parallel(
     else
         return sim_dirs, g_scm, g_scm_pca
     end
-end
-
-function eval_single_ref_model(
-    m_index::IT,
-    m::ReferenceModel,
-    RS::ReferenceStatistics,
-    u::Vector{FT},
-    u_names::Vector{String},
-    param_map::ParameterMap,
-) where {FT <: Real, IT <: Int}
-    # create temporary directory to store SCM data in
-    tmpdir = mktempdir(joinpath(pwd(), "tmp"))
-    # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map)
-    filename = get_stats_path(sim_dir)
-    z_obs = get_z_obs(m)
-    if model_error
-        d_full, d = size(RS.pca_vec[m_index])
-        g_scm = fill(NaN, d_full)
-        g_scm_pca = fill(NaN, d)
-    else
-        g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
-        g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
-        # perform PCA reduction
-        g_scm_pca = RS.pca_vec[m_index]' * g_scm
-    end
-    return sim_dir, g_scm, g_scm_pca, model_error
 end
 
 function versioned_model_eval_parallel(

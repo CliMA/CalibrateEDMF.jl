@@ -86,6 +86,8 @@ end
     @test zf[1] ≈ 0
     @test zc[1] > zf[1]
     @test is_face_variable(data_filename, "total_flux_h")
+    @test is_face_variable(data_filename, "total_flux_s")
+    @test is_face_variable(data_filename, "total_flux_qt")
     @test !is_face_variable(data_filename, "u_mean")
 end
 
