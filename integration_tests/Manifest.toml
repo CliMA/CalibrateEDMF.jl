@@ -221,9 +221,9 @@ version = "0.3.10"
 
 [[deps.ChainRules]]
 deps = ["ChainRulesCore", "Compat", "Distributed", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics"]
-git-tree-sha1 = "6727845beeb8658b9f0d047712210683b6f6c270"
+git-tree-sha1 = "1f40017ce49bdfa0a77b8c5a2d92dbca050d60fa"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.38.0"
+version = "1.39.0"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -1096,9 +1096,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearSolve]]
 deps = ["ArrayInterfaceCore", "DocStringExtensions", "FastLapackInterface", "GPUArraysCore", "IterativeSolvers", "KLU", "Krylov", "KrylovKit", "LinearAlgebra", "RecursiveFactorization", "Reexport", "SciMLBase", "Setfield", "SparseArrays", "SuiteSparse", "UnPack"]
-git-tree-sha1 = "0232b09cf528df0df605880cbdde89d2af8cbf76"
+git-tree-sha1 = "92cc95b66f1459d230af9e67089eeeea6c6b2ee9"
 uuid = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
-version = "1.22.2"
+version = "1.23.0"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
@@ -1184,9 +1184,9 @@ version = "0.4.3"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
-git-tree-sha1 = "891d3b4e8f8415f53108b4918d0183e61e18015b"
+git-tree-sha1 = "9f4f5a42de3300439cb8300236925670f844a555"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.1.0"
+version = "1.1.1"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1368,9 +1368,9 @@ version = "1.4.1"
 
 [[deps.OrdinaryDiffEq]]
 deps = ["Adapt", "ArrayInterface", "ArrayInterfaceGPUArrays", "ArrayInterfaceStaticArrays", "DataStructures", "DiffEqBase", "DocStringExtensions", "ExponentialUtilities", "FastBroadcast", "FastClosures", "FiniteDiff", "ForwardDiff", "LinearAlgebra", "LinearSolve", "Logging", "LoopVectorization", "MacroTools", "MuladdMacro", "NLsolve", "NonlinearSolve", "Polyester", "PreallocationTools", "RecursiveArrayTools", "Reexport", "SciMLBase", "SparseArrays", "SparseDiffTools", "StaticArrays", "UnPack"]
-git-tree-sha1 = "062f233b13f04aa942bd3ca831791280f57874a3"
+git-tree-sha1 = "16015dd9a958aac9bd1260818b0572efd20844cf"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "6.18.1"
+version = "6.18.2"
 
 [[deps.PCRE_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1960,9 +1960,9 @@ version = "0.3.4"
 
 [[deps.TurbulenceConvection]]
 deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "KernelAbstractions", "LambertW", "LinearAlgebra", "OperatorFlux", "RootSolvers", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "fdecd0736b275194c0ab1ffa836210e5812b3736"
+git-tree-sha1 = "45dbea22383b7d0c96f7eba46546bf14024f140b"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.27.6"
+version = "0.27.7"
 
 [[deps.URIs]]
 git-tree-sha1 = "e59ecc5a41b000fa94423a578d29290c7266fc10"
