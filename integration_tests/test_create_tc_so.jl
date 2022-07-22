@@ -10,8 +10,20 @@ if isempty(Glob.glob("CEDMF.so"))
     pkgs = [:CalibrateEDMF]
     append!(pkgs, [Symbol(v.name) for v in values(Pkg.dependencies()) if v.is_direct_dep])
 
-    # do_not_compile_pkgs = [:CairoMakie]
-    # filter!(pkg -> pkg ∉ do_not_compile_pkgs, pkgs)
+    # Avoid unnecessary pkgs, and packages that are in julia's Base.loaded_modules
+    do_not_compile_pkgs = [
+        :CairoMakie,
+        :PackageCompiler,
+        :NPZ,
+        :Test,
+        :Dates,
+        :LinearAlgebra,
+        :Statistics,
+        :Random,
+        :Logging,
+        :SparseArrays,
+    ]
+    filter!(pkg -> pkg ∉ do_not_compile_pkgs, pkgs)
 
     create_sysimage(
         pkgs;
