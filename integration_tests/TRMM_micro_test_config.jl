@@ -1,0 +1,143 @@
+#= Custom calibration configuration file. =#
+
+using Distributions
+using StatsBase
+using LinearAlgebra
+using CalibrateEDMF
+using CalibrateEDMF.ModelTypes
+using CalibrateEDMF.LESUtils
+using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.KalmanProcessUtils
+# Import prior constraints
+using EnsembleKalmanProcesses.ParameterDistributions
+using JLD2
+
+# Cases defined as structs for quick access to default configs
+struct TRMM_LBA end
+struct ValidateTRMM_LBA end
+
+namelist_args = [
+    ("stats_io", "calibrate_io", true),
+    ("stats_io", "frequency", 60.0),
+    ("grid", "stretch", "flag", true),
+    ("microphysics", "precipitation_model", "clima_1m"),
+]
+
+function get_config()
+    config = Dict()
+    # Flags for saving output data
+    config["output"] = get_output_config()
+    # Define regularization of inverse problem
+    config["regularization"] = get_regularization_config()
+    # Define reference used in the inverse problem 
+    config["reference"] = get_reference_config(TRMM_LBA())
+    # Define reference models to use for validation
+    config["validation"] = get_reference_config(ValidateTRMM_LBA())
+    # Define the parameter priors
+    config["prior"] = get_prior_config()
+    # Define the kalman process
+    config["process"] = get_process_config()
+    # Define the SCM static configuration
+    config["scm"] = get_scm_config()
+    return config
+end
+
+function get_output_config()
+    config = Dict()
+    config["outdir_root"] = pwd()
+    config["save_tc_output"] = false  # save sims
+    return config
+end
+
+function get_regularization_config()
+    config = Dict()
+    # Regularization of observations: mean and covariance
+    config["perform_PCA"] = true # Performs PCA on data
+    config["variance_loss"] = 1.0e-1 # Variance truncation level in PCA
+    config["normalize"] = true  # whether to normalize data by pooled variance
+    config["tikhonov_mode"] = "relative" # Tikhonov regularization
+    config["tikhonov_noise"] = 1.0e-4 # Tikhonov regularization
+    config["dim_scaling"] = true # Dimensional scaling of the loss
+
+    # Parameter regularization: L2 regularization with respect to prior mean.
+    #  - Set to `nothing` to use prior covariance as regularizer,
+    #  - Set to a float for isotropic parameter regularization.
+    #  - Pass a dictionary of lists similar to config["prior_mean"] for
+    #       anisotropic regularization. The dictionary must be complete.
+    #       If you want to avoid regularizing a certain parameter, set the entry
+    #       to [0].
+    # To turn off regularization, set config["process"]["augmented"] to false.
+    config["l2_reg"] = nothing
+    return config
+end
+
+function get_process_config()
+    config = Dict()
+    config["N_iter"] = 10
+    config["N_ens"] = 10
+    config["algorithm"] = "Inversion" # "Sampler", "Unscented"
+    config["noisy_obs"] = false
+    # Whether to augment the outputs with the parameters for regularization
+    config["augmented"] = true
+    config["failure_handler"] = "sample_succ_gauss"
+    return config
+end
+
+function get_reference_config(::TRMM_LBA)
+    config = Dict()
+    config["case_name"] = ["TRMM_LBA"]
+    # Flag to indicate source of data (LES or SCM) for reference data and covariance
+    config["y_reference_type"] = LES()
+    config["Σ_reference_type"] = LES()
+    # Fields to learn from during training
+    config["y_names"] = [["thetal_mean", "ql_mean", "qt_mean"]]
+    # LES data can be stored as an Artifact and downloaded lazily
+    config["y_dir"] = [LESUtils.get_path_to_artifact("TRMM_LBA")]
+    # provide list of dirs if different from `y_dir`
+    # config["Σ_dir"] = [...]
+    config["t_start"] = [4.0 * 3600]
+    config["t_end"] = [6.0 * 3600]
+    # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
+    # config["Σ_t_start"] = [...]
+    # config["Σ_t_end"] = [...]
+    # If isnothing(config["batch_size"]), use all data per iteration
+    config["batch_size"] = nothing
+    config["namelist_args"] = [namelist_args]
+    return config
+end
+
+function get_reference_config(::ValidateTRMM_LBA)
+    config = Dict()
+    config["case_name"] = ["TRMM_LBA"]
+    # Flag to indicate source of data (LES or SCM) for reference data and covariance
+    config["y_reference_type"] = LES()
+    config["Σ_reference_type"] = LES()
+    # Validate on different variables for this example
+    config["y_names"] = [["total_flux_h", "total_flux_qt", "lwp_mean"]]
+    config["y_dir"] = [LESUtils.get_path_to_artifact("TRMM_LBA")]
+    # provide list of dirs if different from `y_dir`
+    # config["Σ_dir"] = [...]
+    config["t_start"] = [4.0 * 3600]
+    config["t_end"] = [6.0 * 3600]
+    # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
+    # config["Σ_t_start"] = [...]
+    # config["Σ_t_end"] = [...]
+    # If isnothing(config["batch_size"]), use all data per iteration
+    config["batch_size"] = nothing
+    config["namelist_args"] = [namelist_args]
+    return config
+end
+
+function get_prior_config()
+    config = Dict()
+    # Define prior bounds on the parameters.
+    config["constraints"] = Dict("τ_acnv_rai" => [bounded(500, 5000)], "τ_acnv_sno" => [bounded(10, 200)])
+    config["unconstrained_σ"] = 1.0
+    return config
+end
+
+function get_scm_config()
+    config = Dict()
+    config["namelist_args"] = namelist_args
+    return config
+end

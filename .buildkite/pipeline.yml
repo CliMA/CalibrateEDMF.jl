@@ -112,6 +112,17 @@ steps:
       queue: central
       slurm_cpus_per_task: 8
       
+  - label: "TRMM stretch + micro"
+    key: "cpu_trmm_stretch"
+    command:
+      - "julia --color=yes -p 10 --project=integration_tests integration_tests/julia_parallel_test.jl --config TRMM_micro_test_config.jl"
+    artifact_paths:
+      - "integration_tests/output/TRMM_micro_test_config_julia_parallel/*"
+    agents:
+      config: cpu
+      queue: central
+      slurm_cpus_per_task: 11
+
   - label: "grid search"
     key: "grid_search_p10"
     command:

@@ -233,9 +233,9 @@ version = "1.15.3"
 
 [[deps.ChainRulesTestUtils]]
 deps = ["ChainRulesCore", "Compat", "FiniteDifferences", "LinearAlgebra", "Random", "Test"]
-git-tree-sha1 = "cd1b02b3e1f95a0477fcae467611442d5fbb4e7e"
+git-tree-sha1 = "2dae140440c6fd2faf94ebcfd588a0c8de0bbc15"
 uuid = "cdddcdb0-9152-4a09-a978-84456f9df70a"
-version = "1.9.1"
+version = "1.9.2"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
@@ -1960,9 +1960,9 @@ version = "0.3.4"
 
 [[deps.TurbulenceConvection]]
 deps = ["ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "Random", "StaticArrays", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "1b947c2d3f9aec87238adea1997fa896c93e936f"
+git-tree-sha1 = "b055ef9315d017bbb43aa09f53a8723b7e2f562a"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.34.0"
+version = "0.34.1"
 
 [[deps.URIs]]
 git-tree-sha1 = "e59ecc5a41b000fa94423a578d29290c7266fc10"
