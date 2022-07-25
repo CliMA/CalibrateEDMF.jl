@@ -30,10 +30,11 @@ using DocStringExtensions
 
 import JSON
 import TurbulenceConvection
-tc = pkgdir(TurbulenceConvection)
-include(joinpath(tc, "driver", "main.jl"))
+TC = TurbulenceConvection
+tc = pkgdir(TC)
+include(joinpath(tc, "driver", "Cases.jl"))
+include(joinpath(tc, "driver", "common_spaces.jl"))
 include(joinpath(tc, "driver", "generate_namelist.jl"))
-export main1d
 
 import NCDatasets
 NC = NCDatasets
@@ -201,7 +202,8 @@ end
 Constructs the vector of observed locations given a TurbulenceConvection.jl namelist.
 """
 function construct_z_obs(namelist::Dict)
-    grid = construct_grid(namelist)
+    (; z_mesh) = construct_mesh(namelist)
+    grid = TC.Grid(z_mesh)
     return vec(grid.zc)
 end
 

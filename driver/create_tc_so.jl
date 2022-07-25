@@ -13,6 +13,7 @@ if isempty(Glob.glob("CEDMF.so"))
     # Avoid unnecessary pkgs, and packages that are in julia's Base.loaded_modules
     do_not_compile_pkgs = [
         :CairoMakie,
+        :ForwardDiff,
         :PackageCompiler,
         :NPZ,
         :Test,
@@ -22,6 +23,11 @@ if isempty(Glob.glob("CEDMF.so"))
         :Random,
         :Logging,
         :SparseArrays,
+        :TerminalLoggers,
+        :OrdinaryDiffEq,
+        :StochasticDiffEq,
+        :DiffEqBase,
+        :SciMLBase,
     ]
     filter!(pkg -> pkg ∉ do_not_compile_pkgs, pkgs)
 
