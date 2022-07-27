@@ -18,6 +18,9 @@ using JSON
 using Random
 using DocStringExtensions
 using TurbulenceConvection
+tc = pkgdir(TurbulenceConvection)
+include(joinpath(tc, "driver", "main.jl"))
+
 # EKP modules
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
@@ -245,7 +248,7 @@ function run_reference_SCM(
         end
         # run TurbulenceConvection.jl
         logger = Logging.ConsoleLogger(stderr, Logging.Warn)
-        _, ret_code = Logging.with_logger(logger) do
+        _, _, ret_code = Logging.with_logger(logger) do
             main1d(namelist; time_run = false)
         end
         if ret_code ≠ :success
@@ -380,7 +383,7 @@ function run_SCM_handler(
 
     # run TurbulenceConvection.jl with modified parameters
     logger = Logging.ConsoleLogger(stderr, Logging.Warn)
-    _, ret_code = Logging.with_logger(logger) do
+    _, _, ret_code = Logging.with_logger(logger) do
         main1d(namelist; time_run = false)
     end
     if ret_code ≠ :success

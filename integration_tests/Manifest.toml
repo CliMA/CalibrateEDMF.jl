@@ -167,16 +167,16 @@ uuid = "179af706-886a-5703-950a-314cd64e0468"
 version = "0.1.2"
 
 [[deps.CLIMAParameters]]
-deps = ["Test"]
-git-tree-sha1 = "17ece0add9940728f8120a1561fc3361be6a6f26"
+deps = ["DocStringExtensions", "TOML", "Test"]
+git-tree-sha1 = "5a8b3def6f3367c3972a7e0449e611c2efc7357d"
 uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
-version = "0.4.3"
+version = "0.6.4"
 
 [[deps.CPUSummary]]
 deps = ["CpuId", "IfElse", "Static"]
-git-tree-sha1 = "dcd9de22ce04859a825d69b3c9c181570efb82ce"
+git-tree-sha1 = "8a43595f7b3f7d6dd1e07ad9b94081e1975df4af"
 uuid = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"
-version = "0.1.24"
+version = "0.1.25"
 
 [[deps.CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CompilerSupportLibraries_jll", "ExprTools", "GPUArrays", "GPUCompiler", "LLVM", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "Printf", "Random", "Random123", "RandomNumbers", "Reexport", "Requires", "SparseArrays", "SpecialFunctions", "TimerOutputs"]
@@ -209,10 +209,10 @@ uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
 [[deps.CalibrateEDMF]]
-deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "CairoMakie", "ClimaCore", "CloudMicrophysics", "Combinatorics", "Dates", "Dierckx", "DiffEqBase", "DiffEqNoiseProcess", "Distributions", "DocStringExtensions", "EnsembleKalmanProcesses", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "PackageCompiler", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
+deps = ["ArgParse", "ArtifactWrappers", "AtmosphericProfilesLibrary", "CLIMAParameters", "CairoMakie", "ClimaCore", "CloudMicrophysics", "Combinatorics", "Dates", "Dierckx", "DiffEqBase", "DiffEqNoiseProcess", "Distributions", "DocStringExtensions", "EnsembleKalmanProcesses", "ForwardDiff", "Glob", "Interpolations", "JLD2", "JSON", "LinearAlgebra", "Logging", "NCDatasets", "NPZ", "OrdinaryDiffEq", "PackageCompiler", "Random", "SciMLBase", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "TerminalLoggers", "Test", "Thermodynamics", "TurbulenceConvection", "UnPack"]
 path = ".."
 uuid = "fbaf683a-b9b3-4040-be64-6c4c04986dd0"
-version = "0.6.0"
+version = "0.7.0"
 
 [[deps.Cassette]]
 git-tree-sha1 = "063b2e77c5537a548c5bf2f44161f1d3e1ab3227"
@@ -233,9 +233,9 @@ version = "1.15.3"
 
 [[deps.ChainRulesTestUtils]]
 deps = ["ChainRulesCore", "Compat", "FiniteDifferences", "LinearAlgebra", "Random", "Test"]
-git-tree-sha1 = "cd1b02b3e1f95a0477fcae467611442d5fbb4e7e"
+git-tree-sha1 = "2dae140440c6fd2faf94ebcfd588a0c8de0bbc15"
 uuid = "cdddcdb0-9152-4a09-a978-84456f9df70a"
-version = "1.9.1"
+version = "1.9.2"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
@@ -262,10 +262,10 @@ uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
 version = "0.1.10"
 
 [[deps.CloudMicrophysics]]
-deps = ["CLIMAParameters", "DocStringExtensions", "SpecialFunctions", "Thermodynamics"]
-git-tree-sha1 = "d021353409b220ee550840572916804a8a0b5b7a"
+deps = ["DocStringExtensions", "SpecialFunctions", "Thermodynamics"]
+git-tree-sha1 = "aee719ad25dfb7657e15c4bdfdb66bad1006a316"
 uuid = "6a9e3e04-43cd-43ba-94b9-e8782df3c71b"
-version = "0.5.1"
+version = "0.7.0"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -442,9 +442,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "429077fd74119f5ac495857fd51f4120baf36355"
+git-tree-sha1 = "aafa0665e3db0d3d0890cdc8191ea03dc279b042"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.65"
+version = "0.25.66"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -658,9 +658,9 @@ version = "0.1.0"
 
 [[deps.GPUCompiler]]
 deps = ["ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "TimerOutputs", "UUIDs"]
-git-tree-sha1 = "47f63159f7cb5d0e5e0cfd2f20454adea429bec9"
+git-tree-sha1 = "1067cd05184719ba86f19cf1d49d57f0bcbabbf6"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "0.16.1"
+version = "0.16.2"
 
 [[deps.GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
@@ -1251,10 +1251,10 @@ uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
 version = "0.8.9"
 
 [[deps.NNlibCUDA]]
-deps = ["CUDA", "LinearAlgebra", "NNlib", "Random", "Statistics"]
-git-tree-sha1 = "e161b835c6aa9e2339c1e72c3d4e39891eac7a4f"
+deps = ["Adapt", "CUDA", "LinearAlgebra", "NNlib", "Random", "Statistics"]
+git-tree-sha1 = "4429261364c5ea5b7308aecaa10e803ace101631"
 uuid = "a00861dc-f156-4864-bf3c-e6376f28a68d"
-version = "0.2.3"
+version = "0.2.4"
 
 [[deps.NPZ]]
 deps = ["Compat", "FileIO", "ZipFile"]
@@ -1456,9 +1456,9 @@ version = "1.3.0"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "5a1e85f3aed2e0d3d99a4068037c8582597b89cf"
+git-tree-sha1 = "0a0da27969e8b6b2ee67c112dcf7001a659049a0"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.31.3"
+version = "1.31.4"
 
 [[deps.PoissonRandom]]
 deps = ["Random"]
@@ -1858,10 +1858,10 @@ deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
 
 [[deps.SurfaceFluxes]]
-deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "RootSolvers", "StaticArrays", "Thermodynamics"]
-git-tree-sha1 = "94f62d36e6711845297f9dcb04d79e955b747532"
+deps = ["DocStringExtensions", "KernelAbstractions", "RootSolvers", "StaticArrays", "Thermodynamics"]
+git-tree-sha1 = "dd0ec993bf32e20ca385c8ac554dc8123ffe3b21"
 uuid = "49b00bb7-8bd4-4f2b-b78c-51cd0450215f"
-version = "0.3.2"
+version = "0.4.1"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1911,10 +1911,10 @@ uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.1"
 
 [[deps.Thermodynamics]]
-deps = ["CLIMAParameters", "DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
-git-tree-sha1 = "44f5a700a6b60b97663b2467f0c7b62dfe15e983"
+deps = ["DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
+git-tree-sha1 = "72c84f7322bf3f03ed648b2ca6b491e1d74b087f"
 uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
-version = "0.7.1"
+version = "0.9.1"
 
 [[deps.ThreadingUtilities]]
 deps = ["ManualMemory"]
@@ -1959,10 +1959,10 @@ uuid = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 version = "0.3.4"
 
 [[deps.TurbulenceConvection]]
-deps = ["CLIMAParameters", "ClimaCore", "CloudMicrophysics", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "KernelAbstractions", "LambertW", "LinearAlgebra", "OperatorFlux", "RootSolvers", "StaticArrays", "StatsBase", "StochasticDiffEq", "Thermodynamics", "UnPack"]
-git-tree-sha1 = "45dbea22383b7d0c96f7eba46546bf14024f140b"
+deps = ["ClimaCore", "CloudMicrophysics", "Dierckx", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "Flux", "LambertW", "LinearAlgebra", "OperatorFlux", "Random", "StaticArrays", "StatsBase", "StochasticDiffEq", "SurfaceFluxes", "Thermodynamics", "UnPack"]
+git-tree-sha1 = "b055ef9315d017bbb43aa09f53a8723b7e2f562a"
 uuid = "8e072fc4-01f8-44fb-b9dc-f9336c367e6b"
-version = "0.27.7"
+version = "0.34.1"
 
 [[deps.URIs]]
 git-tree-sha1 = "e59ecc5a41b000fa94423a578d29290c7266fc10"
