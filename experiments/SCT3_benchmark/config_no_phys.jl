@@ -13,9 +13,11 @@ using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.HelperFuncs
+import CalibrateEDMF.LESUtils: get_shallow_LES_library
 # Import EKP modules
 using JLD2
 using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.Localizers
 using EnsembleKalmanProcesses.ParameterDistributions
 
 # Cases defined as structs for quick access to default configs
@@ -31,10 +33,11 @@ namelist_args = [
     ("time_stepping", "dt_min", 0.5),
     ("time_stepping", "dt_max", 5.0),
     ("stats_io", "frequency", 60.0),
+    ("thermodynamics", "sgs", "quadrature"),
     # Add namelist_args defining entrainment closure, e.g.
-    ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
     ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
-    ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "inv_z"),
+    ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "none"),
+    ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
 ]
 
 function get_config()
@@ -87,23 +90,6 @@ function get_regularization_config()
     config["l2_reg"] = Dict(
         # entrainment parameters
         "nn_ent_params" => repeat([0.0], 58),
-
-        # "turbulent_entrainment_factor" => [1 / dt],
-
-        # # diffusion parameters
-        # "tke_ed_coeff" => [1 / dt],
-        # "tke_diss_coeff" => [1 / dt],
-        # "static_stab_coeff" => [1 / dt],
-        # "tke_surf_scale" => [1 / dt],
-        # "Prandtl_number_0" => [1 / dt],
-
-        # # momentum exchange parameters
-        # "pressure_normalmode_adv_coeff" => [1 / dt],
-        # "pressure_normalmode_buoy_coeff1" => [1 / dt],
-        # "pressure_normalmode_drag_coeff" => [1 / dt],
-
-        # # surface
-        # "surface_area" => [1 / dt],
     )
     return config
 end
@@ -196,48 +182,14 @@ end
 function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
-        # entrainment parameters
+        # data-driven entrainment parameters
         "nn_ent_params" => [repeat([no_constraint()], 58)...],
-
-        # "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
-
-        # # diffusion parameters
-        # "tke_ed_coeff" => [bounded(0.01, 1.0)],
-        # "tke_diss_coeff" => [bounded(0.01, 1.0)],
-        # "static_stab_coeff" => [bounded(0.01, 1.0)],
-        # "tke_surf_scale" => [bounded(1.0, 16.0)],
-        # "Prandtl_number_0" => [bounded(0.5, 1.5)],
-
-        # # momentum exchange parameters
-        # "pressure_normalmode_adv_coeff" => [bounded(0.0, 100.0)],
-        # "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 10.0)],
-        # "pressure_normalmode_drag_coeff" => [bounded(0.0, 50.0)],
-
-        # # surface
-        # "surface_area" => [bounded(0.01, 0.5)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
-        # entrainment parameters
+        # data-driven entrainment parameters
         "nn_ent_params" => 0.1 .* (rand(58) .- 0.5),
-
-        # "turbulent_entrainment_factor" => [0.075],
-
-        # # diffusion parameters
-        # "tke_ed_coeff" => [0.14],
-        # "tke_diss_coeff" => [0.22],
-        # "static_stab_coeff" => [0.4],
-        # "tke_surf_scale" => [3.75],
-        # "Prandtl_number_0" => [0.74],
-
-        # # momentum exchange parameters
-        # "pressure_normalmode_adv_coeff" => [0.001],
-        # "pressure_normalmode_buoy_coeff1" => [0.12],
-        # "pressure_normalmode_drag_coeff" => [10.0],
-
-        # # surface
-        # "surface_area" => [0.1],
     )
 
     config["unconstrained_σ"] = 1.0
