@@ -3,59 +3,12 @@ module LESUtils
 export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
 
 import NCDatasets
-import ..ReferenceModels: ReferenceModel
-import TurbulenceConvection
+using TurbulenceConvection
+import TurbulenceConvection: name_aliases, get_shallow_LES_library, get_LES_library, valid_lespath
 const TC = TurbulenceConvection
+
 using ..HelperFuncs
-
-
-"""
-    get_LES_library
-
-Hierarchical dictionary of available cfSite LES simulations, following similar
-forcing to that described in [Shen2022](@cite), but including additional sites.
-The following cfsites are available across listed models, months,
-and experiments.
-"""
-function get_LES_library()
-    LES_library = get_shallow_LES_library()
-    deep_sites = (collect(30:33)..., collect(66:70)..., 82, 92, 94, 96, 99, 100)
-
-    append!(LES_library["HadGEM2-A"]["07"]["cfsite_numbers"], deep_sites)
-    append!(LES_library["HadGEM2-A"]["01"]["cfsite_numbers"], deep_sites)
-    sites_04 = deepcopy(setdiff(deep_sites, [32, 92, 94]))
-    append!(LES_library["HadGEM2-A"]["04"]["cfsite_numbers"], sites_04)
-    sites_10 = deepcopy(setdiff(deep_sites, [94, 100]))
-    append!(LES_library["HadGEM2-A"]["10"]["cfsite_numbers"], sites_10)
-    return LES_library
-end
-
-"""
-    get_shallow_LES_library
-
-Hierarchical dictionary of available LES simulations described in [Shen2022](@cite).
-The following cfsites are available across listed models, months,
-and experiments.
-"""
-function get_shallow_LES_library()
-    LES_library = Dict("HadGEM2-A" => Dict(), "CNRM-CM5" => Dict(), "CNRM-CM6-1" => Dict())
-    Shen_et_al_sites = collect(2:15)
-    append!(Shen_et_al_sites, collect(17:23))
-
-    LES_library["HadGEM2-A"]["10"] = Dict()
-    LES_library["HadGEM2-A"]["10"]["cfsite_numbers"] = Shen_et_al_sites
-    LES_library["HadGEM2-A"]["07"] = Dict()
-    LES_library["HadGEM2-A"]["07"]["cfsite_numbers"] = deepcopy(Shen_et_al_sites)
-    LES_library["HadGEM2-A"]["04"] = Dict()
-    LES_library["HadGEM2-A"]["04"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18])
-    LES_library["HadGEM2-A"]["01"] = Dict()
-    LES_library["HadGEM2-A"]["01"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18, 19, 20])
-
-    for month in ["01", "04", "07", "10"]
-        LES_library["HadGEM2-A"][month]["experiments"] = ["amip", "amip4K"]
-    end
-    return LES_library
-end
+import ..ReferenceModels: ReferenceModel
 
 """
     get_les_names(y_names::Vector{String}, filename::String)
@@ -66,7 +19,7 @@ file (`filename`) corresponding to SCM variables `y_names`.
 """
 get_les_names(m::ReferenceModel, filename::String)::Vector{String} = get_les_names(m.y_names, filename)
 function get_les_names(y_names::Vector{String}, filename::String)::Vector{String}
-    dict = TC.name_aliases()
+    dict = name_aliases()
     y_alias_groups = [haskey(dict, var) ? (dict[var]..., var) : (var,) for var in y_names]
     return [find_alias(aliases, filename) for aliases in y_alias_groups]
 end
@@ -122,20 +75,13 @@ function get_cfsite_les_dir(
     experiment::String = "amip",
 )
     month = string(month, pad = 2)
-    try
-        LES_library = get_LES_library()
-        @assert forcing_model in keys(LES_library)
-        @assert String(month) in keys(LES_library[forcing_model])
-        @assert cfsite_number in LES_library[forcing_model][month]["cfsite_numbers"]
-        @assert experiment in LES_library[forcing_model][month]["experiments"]
-    catch e
-        @error "The requested cfsite LES does not exist."
-        throw(e)
-    end
     cfsite_number = string(cfsite_number)
     root_dir = "/central/groups/esm/zhaoyi/GCMForcedLES/cfsite/$month/$forcing_model/$experiment/"
     rel_dir = join(["Output.cfsite$cfsite_number", forcing_model, experiment, "2004-2008.$month.4x"], "_")
-    return joinpath(root_dir, rel_dir)
+    les_dir = joinpath(root_dir, rel_dir)
+    # Check lespath is valid
+    valid_lespath(les_dir)
+    return les_dir
 end
 
 include("artifact_funcs.jl")
