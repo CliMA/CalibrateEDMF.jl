@@ -448,21 +448,20 @@ end
         outdir_path::String,
     )
 
-Restarts a calibration process from an EnsembleKalmanProcess, the parameter priors and the
-calibration process config file. If batching, it requires access to the last ReferenceModelBatch,
-stored in the results directory of the previous calibration, `outdir_path`.
+Restart a calibration process from an EnsembleKalmanProcess, the parameter priors and the calibration process config file.
+If batching, it requires access to the last ReferenceModelBatch, stored in the results directory of the previous 
+calibration, `outdir_path`.
 
-Writes to file the ModelEvaluators necessary to continue the calibration process.
+Write to file the ModelEvaluators necessary to continue the calibration process.
 
-Inputs:
-
- - ekobj          :: EnsembleKalmanProcess to be updated.
- - priors         :: Priors over parameters, used for unconstrained-constrained mappings.
- - last_iteration :: Last iteration of the calibration process to be restarted.
- - config         :: Configuration dictionary.
- - outdir_path    :: Output path directory of the calibration process to be restarted.
- - mode :: Whether the calibration process is parallelized through HPC resources or using Julia's pmap.
- - job_id :: Unique job identifier for sbatch communication.
+# Arguments
+- `ekobj`           :: EnsembleKalmanProcess to be updated.
+- `priors`          :: Priors over parameters, used for unconstrained-constrained mappings.
+- `last_iteration`  :: Last iteration of the calibration process to be restarted.
+- `config`          :: Configuration dictionary.
+- `outdir_path`     :: Output path directory of the calibration process to be restarted.
+- `mode`            :: Whether the calibration process is parallelized through HPC resources or using Julia's pmap.
+- `job_id`          :: Unique job identifier for sbatch communication.
 """
 function restart_calibration(
     ekobj::EnsembleKalmanProcess,
@@ -538,18 +537,17 @@ end
         namelist_args = nothing,
     ) where {IT <: Integer}
 
-Restarts a validation process by writing to file the validation ModelEvaluators necessary to continue
-the validation process. If batching, it requires access to the last validation ReferenceModelBatch,
-stored in the results directory of the previous calibration process, `outdir_path`.
+Restart a validation process by writing to file the validation ModelEvaluators necessary to continue the validation
+process. If batching, it requires access to the last validation ReferenceModelBatch, stored in the results directory of
+the previous calibration process, `outdir_path`.
 
-Inputs:
-
- - val_config    :: Validation model configuration.
- - reg_config    :: Regularization configuration.
- - ekp_old       :: EnsembleKalmanProcess updated using the past forward model evaluations.
- - priors        :: The priors over parameter space.
- - param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - outdir_path   :: Output path directory.
+# Arguments
+- val_config    :: Validation model configuration.
+- reg_config    :: Regularization configuration.
+- ekp_old       :: EnsembleKalmanProcess updated using the past forward model evaluations.
+- priors        :: The priors over parameter space.
+- param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- outdir_path   :: Output path directory.
 """
 function restart_validation(
     val_config::Dict{Any, Any},
@@ -593,16 +591,16 @@ end
 """
     get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
 
-Recovers forward model evaluations from the particle ensemble stored in jld2 files,
-after which the files are deleted from disk.
+Recover forward model evaluations from the particle ensemble stored in jld2 files, after which the files are deleted from disk.
 
-Inputs:
- - `outdir_path`  :: Path to output directory.
- - `versions`     :: Version identifiers of the files containing forward model evaluations.
- - `validation`   :: Whether the function should return training or validation forward model evaluations.
-Outputs:
- - `g`            :: Forward model evaluations in the reduced space of the inverse problem.
- - `g_full`       :: Forward model evaluations in the original physical space.
+# Arguments
+- `outdir_path`  :: Path to output directory.
+- `versions`     :: Version identifiers of the files containing forward model evaluations.
+- `validation`   :: Whether the function should return training or validation forward model evaluations.
+
+# Returns
+- `g`            :: Forward model evaluations in the reduced space of the inverse problem.
+- `g_full`       :: Forward model evaluations in the original physical space.
 """
 function get_ensemble_g_eval(outdir_path::String, versions::Vector{String}; validation::Bool = false)
     # Find train/validation path
@@ -635,16 +633,18 @@ Recovers forward model evaluations from the particle ensemble stored in jld2 fil
 and augments the projected output state with the input parameters in unconstrained form
 to enable regularization.
 
-Inputs:
- - `outdir_path`  :: Path to output directory.
- - `versions`     :: Version identifiers of the files containing forward model evaluations.
- - `priors`       :: Parameter priors, used to transform between constrained and unconstrained spaces.
- - `l2_reg`      :: The config entry specifying l2 regularization.
- - `validation`   :: Whether the function should return training or validation forward model evaluations.
-Outputs:
- - `g_aug`        :: Forward model evaluations in the reduced space of the inverse problem, augmented with
-                    the unconstrained input parameters.
- - `g_full`       :: Forward model evaluations in the original physical space.
+# Arguments
+- `outdir_path` :: Path to output directory.
+- `versions`    :: Version identifiers of the files containing forward model evaluations.
+- `priors`      :: Parameter priors, used to transform between constrained and unconstrained spaces.
+- `l2_reg`      :: The config entry specifying l2 regularization.
+
+# Keywords
+- `validation`  :: Whether the function should return training or validation forward model evaluations.
+
+# Returns
+- `g_aug`   :: Forward model evaluations in the reduced space of the inverse problem, augmented with the unconstrained input parameters.
+- `g_full`  :: Forward model evaluations in the original physical space.
 """
 function get_ensemble_g_eval_aug(
     outdir_path::String,
@@ -682,14 +682,13 @@ end
 """
    versioned_model_eval(version, outdir_path, mode, config)
 
-Performs or omits a model evaluation given the parsed mode and provided config,
- and writes to file the model output.
+Perform or omit a model evaluation given the parsed mode and provided config, and write to file the model output.
 
-Inputs:
- - version       :: The version associated with the ModelEvaluator to be used.
- - outdir_path   :: The path to the results directory of the calibration process.
- - mode          :: Whether the ModelEvaluator is used for training or validation.
- - config        :: The general configuration dictionary.
+# Arguments
+- version       :: The version associated with the ModelEvaluator to be used.
+- outdir_path   :: The path to the results directory of the calibration process.
+- mode          :: Whether the ModelEvaluator is used for training or validation.
+- config        :: The general configuration dictionary.
 """
 function versioned_model_eval(version::String, outdir_path::String, mode::String, config::Dict)
     @assert mode in ["train", "validation"]
@@ -734,20 +733,21 @@ end
         config::Dict{Any, Any},
     )
 
-Returns the EnsembleKalmanProcess and ReferenceStatistics consistent with the
-new ReferenceModel minibatch, and updates the evaluation order of the ReferenceModelBatch.
+Return the [`EnsembleKalmanProcess`](@ref) and [`ReferenceStatistics`](@ref) consistent with the new [`ReferenceModel`](@ref)
+minibatch, and update the evaluation order of the [`ReferenceModelBatch`](@ref).
 
-Inputs:
- - rm_batch    :: The global ReferenceModelBatch with the current model evaluation order.
- - ekp_old     :: The EnsembleKalmanProcess from the previous minibatch evaluation.
- - batch_size  :: The batch size of the current minibatch.
- - outdir_path :: The output directory.
- - config      :: The configuration dictionary.
-Outputs:
- - ekp             :: The EnsembleKalmanProcess for the current minibatch.
- - ref_models      :: The current minibatch of ReferenceModels.
- - ref_stats       :: The ReferenceStatistics consistent with the current minibatch.
- - ref_model_batch :: The global ReferenceModelBatch with the updated model evaluation order.
+# Arguments
+- `rm_batch`    :: The global `ReferenceModelBatch` with the current model evaluation order.
+- `ekp_old`     :: The `EnsembleKalmanProcess` from the previous minibatch evaluation.
+- `batch_size`  :: The batch size of the current minibatch.
+- `outdir_path` :: The output directory.
+- `config`      :: The configuration dictionary.
+
+# Returns
+- `ekp`             :: The `EnsembleKalmanProcess` for the current minibatch.
+- `ref_models`      :: The current minibatch of `ReferenceModel`s.
+- `ref_stats`       :: The `ReferenceStatistics` consistent with the current minibatch.
+- `ref_model_batch` :: The global `ReferenceModelBatch` with the updated model evaluation order.
 """
 function update_minibatch_inverse_problem(
     rm_batch::ReferenceModelBatch,
@@ -811,16 +811,16 @@ end
         iteration::Int,
     )
 
-Creates and writes to file the ModelEvaluators for the current particle ensemble.
+Create and write to file the [`ModelEvaluator`](@ref)s for the current particle ensemble.
 
-Inputs:
- - `ekp`         :: The EnsembleKalmanProcess with the current ensemble of parameter values.
- - `priors`      :: The parameter priors.
- - `param_map`   :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `ref_models`  :: The ReferenceModels defining the new model evaluations.
- - `ref_stats`   :: The ReferenceStatistics corresponding to passed `ref_models`.
- - `outdir_path` :: The output directory.
- - `iteration`   :: The current process iteration.
+# Arguments
+- `ekp`         :: The `EnsembleKalmanProcess` with the current ensemble of parameter values.
+- `priors`      :: The parameter priors.
+- `param_map`   :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- `ref_models`  :: The `ReferenceModel`s defining the new model evaluations.
+- `ref_stats`   :: The `ReferenceStatistics` corresponding to passed `ref_models`.
+- `outdir_path` :: The output directory.
+- `iteration`   :: The current process iteration.
 """
 function write_model_evaluators(
     ekp::EnsembleKalmanProcess,
@@ -850,15 +850,14 @@ end
         priors::ParameterDistribution,
     )
 
-Creates a diagnostics netcdf file.
+Create a diagnostics netcdf file.
 
-Inputs:
-
- - config :: User-defined configuration dictionary.
- - outdir_path :: Path of results directory.
- - ref_stats :: ReferenceStatistics.
- - ekp :: Initial EnsembleKalmanProcess, containing parameter information, but no forward model evaluations.
- - priors:: Prior distributions of the parameters.
+# Arguments
+- `config`      :: User-defined configuration dictionary.
+- `outdir_path` :: Path of results directory.
+- `ref_stats`   :: `ReferenceStatistics`.
+- `ekp`         :: Initial `EnsembleKalmanProcess`, containing parameter information, but no forward model evaluations.
+- `priors`      :: Prior distributions of the parameters.
 """
 function init_diagnostics(
     config::Dict{Any, Any},
@@ -890,29 +889,28 @@ end
 """
     update_diagnostics(outdir_path::String, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
 
-Appends diagnostics of the current iteration evaluations (i.e., forward model output metrics)
-and the next iteration state (i.e., parameters and parameter metrics) to a diagnostics netcdf file.
+Append diagnostics of the current iteration evaluations (i.e., forward model output metrics) and the next iteration state 
+(i.e., parameters and parameter metrics) to a diagnostics netcdf file.
 
-Inputs:
-
- - outdir_path :: Path of results directory.
- - ekp :: Current EnsembleKalmanProcess.
- - priors:: Prior distributions of the parameters.
- - ref_stats :: ReferenceStatistics.
- - g_full :: The forward model evaluation in primitive space.
- - versions :: Version identifiers of the forward model evaluations at the current iteration.
- - val_config :: The validation configuration, if given.
- - batch_indices :: The indices of the ReferenceModels used in the current batch.
+# Arguments
+- `outdir_path`     :: Path of results directory.
+- `ekp`             :: Current `EnsembleKalmanProcess`.
+- `priors`          :: Prior distributions of the parameters.
+- `ref_stats`       :: `ReferenceStatistics`.
+- `g_full`          :: The forward model evaluation in primitive space.
+- `versions`        :: Version identifiers of the forward model evaluations at the current iteration.
+- `val_config`      :: The validation configuration, if given.
+- `batch_indices`   :: The indices of the `ReferenceModel`s used in the current batch.
 """
 function update_diagnostics(
     outdir_path::String,
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     ref_stats::ReferenceStatistics,
-    g_full::Array{FT, 2},
+    g_full::Array{<:Real, 2},
     versions::Union{Vector{Int}, Vector{String}},
     batch_indices::OptVec{Int} = nothing,
-) where {FT <: Real}
+)
 
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
@@ -927,7 +925,7 @@ function update_val_diagnostics(
     versions::Union{Vector{Int}, Vector{String}},
     augmented::Bool,
     l2_reg,
-) where {FT <: Real}
+)
     scm_args = load(scm_val_output_path(outdir_path, versions[1]))
     mod_evaluator = scm_args["model_evaluator"]
     val_batch_indices = scm_args["batch_indices"]

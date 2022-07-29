@@ -73,53 +73,38 @@ end
 
 
 """
-    run_SCM(
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-        RM::Vector{ReferenceModel},
-        RS::ReferenceStatistics;
-        error_check::Bool = false,
-        failure_handler = "high_loss",
-    ) where {FT <: Real}
-    run_SCM(
-        ME::ModelEvaluator;
-        error_check::Bool = false,
-        failure_handler = "high_loss",
-    ) where {FT <: Real}
+    run_SCM(u, u_names, param_map, RM::Vector{ReferenceModel}, RS::ReferenceStatistics; 
+            [error_check = false, failure_handler = "high_loss"])
+    run_SCM(ME::ModelEvaluator; [error_check = false, failure_handler = "high_loss"])
 
-Run the single-column model (SCM) using a set of parameters
-and return the value of outputs defined in y_names, possibly
-after normalization and projection onto lower dimensional
-space using PCA.
+Run the single-column model (SCM) using a set of parameters and return the value of outputs defined in y_names, possibly
+after normalization and projection onto lower dimensional space using PCA.
 
-The function also outputs a boolean diagnosing whether the
-requested SCM simulation failed.
+The function also outputs a boolean diagnosing whether the requested SCM simulation failed.
 
-Inputs:
+# Arguments
+- `u`           :: Values of parameters to be used in simulations.
+- `u_names`     :: SCM names for parameters `u`.
+- `param_map`   :: A mapping operator to define relations between parameters. See also [`ParameterMap`](@ref).
+- `RM`          :: Vector of `ReferenceModel`s
+- `RS`          :: Reference statistics for simulation
 
- - `u`               :: Values of parameters to be used in simulations.
- - `u_names`         :: SCM names for parameters `u`.
- - `param_map`       :: A mapping operator to define relations between parameters.
-                        See [`ParameterMap`](@ref) for details.
- - `RM`              :: Vector of `ReferenceModel`s
- - `RS`              :: reference statistics for simulation
- - `error_check`     :: Returns as an additional argument whether the SCM call errored.
- - `failure_handler` :: Method used to handle failed simulations.
+# Keywords
+- `error_check`     :: Returns as an additional argument whether the SCM call errored.
+- `failure_handler` :: Method used to handle failed simulations.
 
-Outputs:
-
- - `sim_dirs`    :: Vector of simulation output directories
- - `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
- - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - `model_error` :: Whether the simulation errored with the requested configuration.
+# Returns
+- `sim_dirs`    :: Vector of simulation output directories
+- `g_scm`       :: Vector of model evaluations concatenated for all flow configurations.
+- `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+- `model_error` :: Whether the simulation errored with the requested configuration.
 """
 function run_SCM(
     u::Vector{FT},
-    u_names::Vector{String},
+    u_names::Vector{<:AbstractString},
     param_map::ParameterMap,
     RM::Vector{ReferenceModel},
-    RS::ReferenceStatistics;
+    RS::ReferenceStatistics{FT};
     error_check::Bool = false,
     failure_handler = "high_loss",
 ) where {FT <: Real}
@@ -157,46 +142,34 @@ function run_SCM(ME::ModelEvaluator; error_check::Bool = false, failure_handler 
 end
 
 """
-    eval_single_ref_model(
-        m_index::IT,
-        m::ReferenceModel,
-        RS::ReferenceStatistics,
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-    ) where {FT <: Real, IT <: Int}
+    eval_single_ref_model(m_index, m::ReferenceModel, RS::ReferenceStatistics, u, u_names, param_map)
 
-Runs the single-column model (SCM) under a single configuration
-(i.e., ReferenceModel) using a set of parameters u, and returns
-the forward model evaluation in both the original and the latent
-PCA space.
+Run the single-column model (SCM) under a single configuration (i.e., [`ReferenceModel`](@ref)) 
+using a list of parameters `u` with names `u_names`, and return the forward model evaluation in both the original 
+and the latent PCA space.
 
-Inputs:
+# Arguments
+- `m_index`       :: Index of `m` in within the list of overarching `ReferenceModel`s vector used to construct `RS`.
+- `m`             :: A [`ReferenceModel`](@ref).
+- `RS`            :: The [`ReferenceStatistics`](@ref) for simulation.
+- `u`             :: Values of parameters to be used in simulations.
+- `u_names`       :: SCM names corresponding to parameter values `u`.
+- `param_map`     :: A mapping operator to define relations between parameters. See also [`ParameterMap`](@ref).
 
- - `m_index`       :: The index of the ReferenceModel within the overarching
-                    ref_models vector used to construct the ReferenceStatistics.
- - `m`             :: A ReferenceModel.
- - `RS`            :: reference statistics for simulation
- - `u`             :: Values of parameters to be used in simulations.
- - `u_names`       :: SCM names for parameters `u`.
- - `param_map`     :: A mapping operator to define relations between parameters.
-                        See [`ParameterMap`](@ref) for details.
-
-Outputs:
-
- - `sim_dir`     ::  Simulation output directory.
- - `g_scm`       :: Forward model evaluation in original output space.
- - `g_scm_pca`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
- - `model_error` :: Whether the simulation errored with the requested configuration.
+# Returns
+- `sim_dir::String`     :: Simulation output directory.
+- `g_scm::Vector`       :: Forward model evaluation in original output space.
+- `g_scm_pca::Vector`   :: Projection of `g_scm` onto principal subspace spanned by eigenvectors.
+- `model_error::Bool`   :: Whether the simulation errored with the requested configuration.
 """
 function eval_single_ref_model(
-    m_index::IT,
+    m_index::Integer,
     m::ReferenceModel,
     RS::ReferenceStatistics,
     u::Vector{FT},
-    u_names::Vector{String},
+    u_names::Vector{<:AbstractString},
     param_map::ParameterMap,
-) where {FT <: Real, IT <: Int}
+) where {FT <: Real}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
@@ -217,15 +190,18 @@ function eval_single_ref_model(
 end
 
 """
-    run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
+    run_reference_SCM(m::ReferenceModel; [overwrite = false, run_single_timestep = true])
 
-Run the single-column model (SCM) for a reference model object
-using default parameters, and write the output to file.
+Run the single-column model (SCM) for a reference model object using default parameters, and write the output to file.
 
-Inputs:
- - `m`                    :: A `ReferenceModel`.
- - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
- - `run_single_timestep`  :: if true, run only one time step.
+# Arguments:
+- `m`                    :: A [`ReferenceModel`](@ref).
+ 
+# Keywords
+- `output_root`         :: Directory within which the simulation results folder is saved to.
+- `uuid`                :: Simulation identifier. Appended to the simulation results folder.
+- `overwrite`           :: If `true`, run TC.jl and overwrite existing simulation files.
+- `run_single_timestep` :: If `true`, run only one time step.
 """
 function run_reference_SCM(
     m::ReferenceModel;
@@ -257,99 +233,61 @@ function run_reference_SCM(
     end
 end
 
-
 """
-    run_SCM_handler(
-        m::ReferenceModel,
-        tmpdir::String,
-        u::Array{FT, 1},
-        u_names::Array{String, 1},
-        param_map::ParameterMap,
-    ) where {FT<:AbstractFloat}
+    run_SCM_handler(case_name::String, out_dir, u, u_names, param_map; [namelist, namelist_args, uuid, les])
+    run_SCM_handler(m::ReferenceModel, out_dir, u, u_names, param_map)
 
-Run a case using a set of parameters `u_names` with values `u`,
-and return directory pointing to where data is stored for simulation run.
+Run a TurbulenceConvection.jl case. Return directory path where simulation data is stored and a flag for whether the simulation failed.
 
-Inputs:
+The case is specified with the first function argument, either by providing the case name as a `String`,
+or by passing a [`ReferenceModel`](@ref) `m`. The `out_dir` is the path where the output directory is 
+to be stored. The returned path is therefore of the form `out_dir/Output.case_name.uuid` where `uuid`
+is a simulation run identifier (defaults to "01"). 
 
- - m             :: Reference model
- - tmpdir        :: Temporary directory to store simulation results in
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - `param_map`   :: A mapping operator to define relations between parameters.
-                    See [`ParameterMap`](@ref) for details.
+The keywords `u` and `u_names` are vectors of parameter values and names that will be modified in the TC.jl run. 
 
-Outputs:
+If a `case_name` is provided, a `namelist` can optionally be provided that defines all case-specific 
+parameters and run-options needed to run TC.jl. If this not provided, the default case-specific 
+namelist from TC.jl is used. Additional arguments to modify the TC.jl namelist can 
+also be provided to `namelist_args`; see also [`change_entry!`](@ref).
 
- - output_dir   :: directory containing output data from the SCM run.
- - model_error   :: Boolean specifying whether the simulation failed.
-"""
-function run_SCM_handler(
-    m::ReferenceModel,
-    tmpdir::String,
-    u::Vector{FT},
-    u_names::Vector{String},
-    param_map::ParameterMap,
-) where {FT <: AbstractFloat}
+The [`ParameterMap`](@ref) `param_map` sets the values of specific parameters provided pre-defined mapping operators. 
+See also [`ParameterMap`](@ref).
 
-    # fetch namelist
-    namelist = get_scm_namelist(m)
-    # output subset of variables needed for calibration
-    namelist["stats_io"]["calibrate_io"] = true
+If the case is `LES_driven_SCM`, a path to an LES stats file must be provided to `les`. 
+See also [`get_cfsite_les_dir`](@ref).
 
-    # run TurbulenceConvection.jl with modified parameters
-    return run_SCM_handler(
-        m.case_name,
-        tmpdir;
-        u = u,
-        u_names = u_names,
-        param_map = param_map,
-        namelist = namelist,
-        uuid = basename(tmpdir), # set random uuid
-        les = get(namelist["meta"], "lesfile", nothing),
-    )
-end
+Note that if a [`ReferenceModel`](@ref) `m` is passed, `namelist`, `uuid` and `les` are not valid keywords.
+In this case, `namelist` and `les` are fetched from the `ReferenceModel`, and `uuid` is a random string.
 
+# Arguments
+- `m`               :: A [`ReferenceModel`](@ref)
+- `case_name`       :: Name of case to run. For example: `Bomex`, `TRMM_LBA`, `LES_driven_SCM`.
+- `out_dir`         :: Path to where folder with simulation results are to be saved.
+- `u`               :: Values of parameters to be used in simulations.
+- `u_names`         :: SCM names for parameters `u`.
+- `param_map`       :: A mapping operator to define relations between parameters. See [`ParameterMap`](@ref) for details.
 
-"""
-    run_SCM_handler(
-        case_name::String,
-        out_dir::String;
-        u::Vector{FT},
-        u_names::Vector{String},
-        param_map::ParameterMap,
-        namelist::Dict,
-        uuid::String = "01",
-        les::Union{NamedTuple, String} = nothing,
-    )
+# Keywords
+- `namelist`        :: namelist to use for simulation.
+- `uuid`            :: uuid of SCM run
+- `les`             :: path to LES stats file, or NamedTuple with keywords 
+                        {forcing_model, month, experiment, cfsite_number} needed to specify path. 
 
-Run a TurbulenceConvection.jl case and return directory pointing to where data is stored for simulation run.
-
-Inputs:
- - case_name     :: case name
- - out_dir       :: Directory to store simulation results in.
- Optional Inputs:
- - u             :: Values of parameters to be used in simulations.
- - u_names       :: SCM names for parameters `u`.
- - `param_map`   :: A mapping operator to define relations between parameters.
-                    See [`ParameterMap`](@ref) for details.
- - namelist      :: namelist to use for simulation.
- - uuid          :: uuid of SCM run
- - les           :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
- Outputs:
- - output_dir   :: directory containing output data from the SCM run.
- - model_error   :: Boolean specifying whether the simulation failed.
+# Returns
+- `String`          :: Directory path where output data from the TC.jl run is stored.
+- `Bool`            :: `true` if the simulation failed/crashed, `false` otherwise.
 """
 function run_SCM_handler(
-    case_name::String,
-    out_dir::String;
-    u::Vector{FT},
-    u_names::Vector{String},
-    param_map::ParameterMap,
+    case_name::AbstractString,
+    out_dir::AbstractString,
+    u::Vector{<:Real},
+    u_names::Vector{<:AbstractString},
+    param_map::ParameterMap;
     namelist::Dict,
-    uuid::String = "01",
-    les::Union{NamedTuple, String, Nothing} = nothing,
-) where {FT <: AbstractFloat}
+    uuid::AbstractString = "01",
+    les::Union{NamedTuple, AbstractString, Nothing} = nothing,
+)
     model_error = false
 
     namelist["meta"]["uuid"] = uuid
@@ -396,30 +334,56 @@ function run_SCM_handler(
     return data_directory(out_dir, case_name, uuid), model_error
 end
 
+function run_SCM_handler(
+    m::ReferenceModel,
+    out_dir::AbstractString,
+    u::Vector{<:Real},
+    u_names::Vector{<:AbstractString},
+    param_map::ParameterMap,
+)
+
+    # fetch namelist
+    namelist = get_scm_namelist(m)
+    # output subset of variables needed for calibration
+    namelist["stats_io"]["calibrate_io"] = true
+    # set random uuid
+    uuid = randstring(RandomDevice(), 5)
+
+    # run TurbulenceConvection.jl with modified parameters
+    return run_SCM_handler(
+        m.case_name,
+        out_dir,
+        u,
+        u_names,
+        param_map;
+        namelist = namelist,
+        namelist_args = namelist_args,
+        uuid = uuid,
+        les = get(namelist["meta"], "lesfile", nothing),
+    )
+end
+
 """
     create_parameter_vectors(u_names, u, param_map, namelist)
 
-Given vector of parameter names and corresponding values, combine any vector components
-into single parameter vectors for input into SCM.
+Given vector of parameter names and corresponding values, combine any vector components into single parameter vectors for input into SCM.
 
-Inputs:
+Arguments:
+- `u_names`    :: SCM names for parameters `u`, which may contain vector components.
+- `u`          :: Values of parameters to be used in simulations, which may contain vector components.
+- `param_map`  :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- `namelist`   :: The parameter namelist for TurbulenceConvection.jl
 
- - `u_names` :: SCM names for parameters `u`, which may contain vector components.
- - `u` :: Values of parameters to be used in simulations, which may contain vector components.
- - `param_map` :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `namelist` :: The parameter namelist for TurbulenceConvection.jl
-
-Outputs:
-
- -  `u_names_out` :: SCM names for parameters `u`.
- -  `u_out` :: Values of parameters to be used in simulations.
+Returns:
+-  `Vector{String}`         :: SCM names for parameters `u`.
+-  `Vector{Vector{Real}}`   :: Values of parameters to be used in simulations.
 """
 function create_parameter_vectors(
-    u_names::Vector{String},
-    u::Vector{FT},
+    u_names::Vector{<:AbstractString},
+    u::Vector{<:Real},
     param_map::ParameterMap,
     namelist::Dict,
-) where {FT <: AbstractFloat}
+)
     # Apply the `param_map` from the calibrated parameters to all parameters.
     u_names, u = expand_params(u_names, u, param_map, namelist)
 
@@ -450,11 +414,10 @@ function create_parameter_vectors(
 end
 
 """
-    generate_scm_input(model_evaluators, iteration, outdir_path = pwd(), batch_indices = nothing)
+    generate_scm_input(model_evaluators, iteration, [outdir_path = pwd(), batch_indices = nothing])
 
-Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM
-evaluations at different parameter vectors, as well as their
-assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
+Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM evaluations at different parameter vectors, 
+as well as their assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
 """
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
@@ -498,14 +461,12 @@ end
 
 Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.
 
-Behavior of this function is specified in the output config, i.e. `config["output"]`. If the flag `save_tc_output`
-is set to true, TC.jl output is saved, and if additionally a list of iterations is specified in `save_tc_iterations`,
-only these EKP iterations are saved.
+If the flag `save_tc_output` is set to true in the output config, i.e. `config["output"]`, TC.jl output is saved, 
+and if additionally a list of iterations is specified in `save_tc_iterations` (also in the output config),
+only those EKP iterations are saved.
 
-Arguments:
+# Arguments
 - `config`      :: The calibration config dictionary.
-    To save TC.jl output, set `save_tc_output` to `true` in the output config.
-    To only save specific EKP iterations, specify these in a vector in `save_tc_iterations` in the output config.
 - `outdir_path` :: The results `results_folder` path
 - `sim_dirs`    :: List of (temporary) directories where raw simulation output is initially saved to
 - `version`     :: An identifier for the current iteration and ensemble index
@@ -538,40 +499,28 @@ end
 
 
 """
-    precondition(
-        param::Vector{FT},
-        priors,
-        param_map::ParameterMap,
-        ref_models::Vector{ReferenceModel},
-        ref_stats::ReferenceStatistics;
-        counter::Integer = 0,
-        max_counter::Integer = 10,
-    ) where {FT <: Real}
+    precondition(param::Vector{<:Real}, priors, param_map, ref_models, ref_stats; [counter, max_counter = 10])
 
-Substitute parameter vector `param` by a parameter vector drawn
-from the same prior, conditioned on the forward model being stable.
+Substitute parameter vector `param` by a parameter vector drawn from the same prior, conditioned on the forward model being stable.
 
-Inputs:
+# Arguments
+- `param`       :: A parameter vector that may possibly result in unstable forward model evaluations (in unconstrained space).
+- `priors`      :: Priors from which the parameters were drawn.
+- `param_map`   :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
+- `ref_models`  :: Vector of ReferenceModels to check stability for.
+- `ref_stats`   :: ReferenceStatistics of the ReferenceModels.
+- `counter`     :: Accumulator tracking number of recursive calls to preconditioner.
+- `max_counter` :: Maximum number of recursive calls to the preconditioner.
 
- - `param`          :: A parameter vector that may possibly result in unstable
-                        forward model evaluations (in unconstrained space).
- - `priors`         :: Priors from which the parameters were drawn.
- - `param_map`      :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
- - `ref_models`     :: Vector of ReferenceModels to check stability for.
- - `ref_stats`      :: ReferenceStatistics of the ReferenceModels.
- - `counter`        :: Accumulator tracking number of recursive calls to preconditioner.
- - `max_counter`    :: Maximum number of recursive calls to the preconditioner.
-
-Outputs:
-
- - `new_param` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
+# Returns
+- `Vector{<:Real}` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
 """
 function precondition(
     param::Vector{FT},
     priors::ParameterDistribution,
     param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
-    ref_stats::ReferenceStatistics;
+    ref_stats::ReferenceStatistics{FT};
     counter::Integer = 0,
     max_counter::Integer = 10,
 ) where {FT <: Real}
@@ -607,15 +556,15 @@ end
 """
     precondition(ME::ModelEvaluator, priors)
 
-Substitute the parameter vector of a ModelEvaluator by another
-one drawn from the given `priors`, conditioned on the forward
-model being stable.
+Substitute the parameter vector of a [`ModelEvaluator`](@ref) by another one drawn from the given `priors`, 
+conditioned on the forward model being stable.
 
-Inputs:
- - ME          :: A ModelEvaluator.
- - priors      :: Priors from which the parameters were drawn.
-Outputs:
- - A preconditioned ModelEvaluator.
+# Arguments
+- `ME`      :: A ModelEvaluator.
+- `priors`  :: Priors from which the parameters were drawn.
+
+# Returns
+- `ModelEvaluator`  ::  A preconditioned [`ModelEvaluator`](@ref).
 """
 function precondition(ME::ModelEvaluator, priors)
     # Precondition in unconstrained space

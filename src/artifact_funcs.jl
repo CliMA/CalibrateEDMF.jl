@@ -2,21 +2,17 @@ import ArtifactWrappers
 const AW = ArtifactWrappers
 
 """
-    get_path_to_artifact(
-        casename = "Bomex",
-        artifact_type = "PyCLES_output",
-        artifact_dir = @__DIR__
-    )
+    get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
 
 Downloads an artifact and returns its path.
 
-Inputs:
-  - casename  :: Casename of the output to be downloaded, must be defined in `local_to_box` dict.
-  - artifact_type :: Overarching type of artifact to be downloaded.
-  - artifact_dir :: Location of the Artifact.toml.
+# Arguments
+- `casename`        :: Casename of the output to be downloaded, must be defined in `local_to_box` dict.
+- `artifact_type`   :: Overarching type of artifact to be downloaded.
+- `artifact_dir`    :: Location of the `Artifact.toml`.
 
-Outputs:
-  - The artifact path
+# Returns
+- The artifact path
 """
 function get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
     local_to_box = Dict(
