@@ -16,29 +16,6 @@ using ArgParse
     tc = pkgdir(TurbulenceConvection)
     include(joinpath(tc, "driver", "generate_namelist.jl"))
 
-    """
-        get_parameter_pairs(namelist, p1, p2, v1, v2)
-
-    Get dictionary of parameter name-value pairs given parameters `p1` and `p2` with values
-    `v1` and `v2`, respectively. If either p1 or p2 are components of a vector parameter,
-    the returned dictionary also contains name-value pairs for all components of that
-    vector parameter. The other components are defined in the `namelist`.
-    """
-    function get_parameter_pairs(namelist::Dict, p1::S, p2::S, v1::Number, v2::Number) where {S <: AbstractString}
-        turbconv_params = namelist["turbulence"]["EDMF_PrognosticTKE"]  # TODO: Generalize for vector parameters from other parts of the namelist
-
-        # If any parameters are vectors, fetch relevant defaults from namelist
-        vec_param_names = getfield.(filter(!isnothing, match.(r".*(?=_{\d+})", [p1, p2])), :match)
-        namelist_vec_params = filter(p -> p.first ∈ vec_param_names, turbconv_params)
-        # expand vector parameters to index form
-        flatten_vector_parameter(p) = "$(p.first)_{" .* string.(1:length(p.second)) .* "}" .=> p.second
-        params = Dict((map(flatten_vector_parameter, collect(namelist_vec_params))...)...)
-        # update params with custom parameters
-        params[p1] = v1
-        params[p2] = v2
-        return params
-    end
-
     struct SimConfig
         "Name of first parameter"
         parameter1::String
@@ -118,14 +95,12 @@ using ArgParse
         # Set optional namelist args
         update_namelist!(namelist, namelist_args)
 
-        params = get_parameter_pairs(namelist, param1, param2, value1, value2)
-
         # Run forward model
         run_SCM_handler(
             case,
             case_dir;
-            u = collect(Float64, values(params)),
-            u_names = collect(String, keys(params)),
+            u = [value1, value2],
+            u_names = [param1, param2],
             param_map = param_map,
             namelist = namelist,
             uuid = "$ens_i",
