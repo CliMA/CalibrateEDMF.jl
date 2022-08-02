@@ -5,7 +5,8 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "sct_call"   # job name
 
-config=${1?Error: no config file given}
+config_rel=${1?Error: no config file given}
+config=$(realpath $config_rel)
 
 # Job identifier
 job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
@@ -18,7 +19,7 @@ n_proc_scm=10
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
-module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.7.3 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system

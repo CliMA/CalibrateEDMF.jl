@@ -1,28 +1,37 @@
 module TurbulenceConvectionUtils
 
+export ModelEvaluator,
+    run_SCM,
+    run_SCM_handler,
+    run_reference_SCM,
+    generate_scm_input,
+    parse_version_inds,
+    eval_single_ref_model,
+    save_full_ensemble_data,
+    precondition,
+    get_gcm_les_uuid,
+    save_tc_data
+
 import Logging
 using JLD2
 using JSON
 using Random
 using DocStringExtensions
+using TurbulenceConvection
+tc = pkgdir(TurbulenceConvection)
+include(joinpath(tc, "driver", "main.jl"))
+
+# EKP modules
+using EnsembleKalmanProcesses.ParameterDistributions
+import EnsembleKalmanProcesses: construct_initial_ensemble
 
 using ..ReferenceModels
 import ..ReferenceModels: NameList
 
 using ..ReferenceStats
 using ..HelperFuncs
-# EKP modules
-using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: construct_initial_ensemble
-using TurbulenceConvection
-
-using ..HelperFuncs
-
-export ModelEvaluator
-export run_SCM, run_SCM_handler, run_reference_SCM
-export generate_scm_input, get_gcm_les_uuid, eval_single_ref_model
-export save_full_ensemble_data
-export precondition
+using ..AbstractTypes
+import ..AbstractTypes: OptVec
 
 """
     ModelEvaluator
@@ -71,13 +80,11 @@ end
         RM::Vector{ReferenceModel},
         RS::ReferenceStatistics;
         error_check::Bool = false,
-        namelist_args = nothing,
         failure_handler = "high_loss",
     ) where {FT <: Real}
     run_SCM(
         ME::ModelEvaluator;
         error_check::Bool = false,
-        namelist_args = nothing,
         failure_handler = "high_loss",
     ) where {FT <: Real}
 
@@ -98,7 +105,6 @@ Inputs:
  - `RM`              :: Vector of `ReferenceModel`s
  - `RS`              :: reference statistics for simulation
  - `error_check`     :: Returns as an additional argument whether the SCM call errored.
- - `namelist_args`   :: Additional arguments passed to the TurbulenceConvection namelist.
  - `failure_handler` :: Method used to handle failed simulations.
 
 Outputs:
@@ -115,12 +121,11 @@ function run_SCM(
     RM::Vector{ReferenceModel},
     RS::ReferenceStatistics;
     error_check::Bool = false,
-    namelist_args = nothing,
     failure_handler = "high_loss",
 ) where {FT <: Real}
 
     mkpath(joinpath(pwd(), "tmp"))
-    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, param_map, namelist_args), enumerate(RM))
+    result_arr = map(x -> eval_single_ref_model(x..., RS, u, u_names, param_map), enumerate(RM))
     # Unpack
     sim_dirs, g_scm, g_scm_pca, sim_errors = (getindex.(result_arr, i) for i in 1:4)
     g_scm = vcat(g_scm...)
@@ -139,12 +144,7 @@ function run_SCM(
         return sim_dirs, g_scm, g_scm_pca
     end
 end
-function run_SCM(
-    ME::ModelEvaluator;
-    error_check::Bool = false,
-    namelist_args = nothing,
-    failure_handler = "high_loss",
-) where {FT <: Real}
+function run_SCM(ME::ModelEvaluator; error_check::Bool = false, failure_handler = "high_loss")
     return run_SCM(
         ME.param_cons,
         ME.param_names,
@@ -152,7 +152,6 @@ function run_SCM(
         ME.ref_models,
         ME.ref_stats,
         error_check = error_check,
-        namelist_args = namelist_args,
         failure_handler = failure_handler,
     )
 end
@@ -165,7 +164,6 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         param_map::ParameterMap,
-        namelist_args = nothing,
     ) where {FT <: Real, IT <: Int}
 
 Runs the single-column model (SCM) under a single configuration
@@ -183,7 +181,6 @@ Inputs:
  - `u_names`       :: SCM names for parameters `u`.
  - `param_map`     :: A mapping operator to define relations between parameters.
                         See [`ParameterMap`](@ref) for details.
- - `namelist_args` :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
 
@@ -199,23 +196,23 @@ function eval_single_ref_model(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist_args = nothing,
 ) where {FT <: Real, IT <: Int}
     # create temporary directory to store SCM data in
     tmpdir = mktempdir(joinpath(pwd(), "tmp"))
     # run TurbulenceConvection.jl. Get output directory for simulation data
-    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map, namelist_args)
+    sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map)
     filename = get_stats_path(sim_dir)
     z_obs = get_z_obs(m)
     if model_error
-        g_scm = get_profile(m, filename, z_scm = z_obs) # Get shape
-        g_scm = fill(NaN, length(g_scm))
+        d_full, d = size(RS.pca_vec[m_index])
+        g_scm = fill(NaN, d_full)
+        g_scm_pca = fill(NaN, d)
     else
         g_scm, prof_indices = get_profile(m, filename, z_scm = z_obs, prof_ind = true)
         g_scm = normalize_profile(g_scm, RS.norm_vec[m_index], length(z_obs), prof_indices)
+        # perform PCA reduction
+        g_scm_pca = RS.pca_vec[m_index]' * g_scm
     end
-    # perform PCA reduction
-    g_scm_pca = RS.pca_vec[m_index]' * g_scm
     return sim_dir, g_scm, g_scm_pca, model_error
 end
 
@@ -230,13 +227,20 @@ Inputs:
  - `overwrite`            :: if true, run TC.jl and overwrite existing simulation files.
  - `run_single_timestep`  :: if true, run only one time step.
 """
-function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_single_timestep = true)
-    output_dir = scm_dir(m)
+function run_reference_SCM(
+    m::ReferenceModel;
+    output_root::AbstractString = pwd(),
+    uuid::AbstractString = "01",
+    overwrite::Bool = false,
+    run_single_timestep::Bool = true,
+)
+    output_dir = data_directory(output_root, m.case_name, uuid)
     if ~isdir(joinpath(output_dir, "stats")) | overwrite
         namelist = get_scm_namelist(m)
 
-        default_t_max = namelist["time_stepping"]["t_max"]
-        default_adapt_dt = namelist["time_stepping"]["adapt_dt"]
+        namelist["output"]["output_root"] = output_root
+        namelist["meta"]["uuid"] = uuid
+
         if run_single_timestep
             # Run only 1 timestep -- since we don't need output data, only simulation config
             namelist["time_stepping"]["adapt_dt"] = false
@@ -244,19 +248,11 @@ function run_reference_SCM(m::ReferenceModel; overwrite::Bool = false, run_singl
         end
         # run TurbulenceConvection.jl
         logger = Logging.ConsoleLogger(stderr, Logging.Warn)
-        _, ret_code = Logging.with_logger(logger) do
+        _, _, ret_code = Logging.with_logger(logger) do
             main1d(namelist; time_run = false)
         end
         if ret_code ≠ :success
             @warn "Default TurbulenceConvection.jl simulation $(basename(m.y_dir)) failed."
-        end
-        if run_single_timestep
-            # reset t_max to default and overwrite stored namelist file
-            namelist["time_stepping"]["t_max"] = default_t_max
-            namelist["time_stepping"]["adapt_dt"] = default_adapt_dt
-            open(namelist_directory(output_dir, m), "w") do io
-                JSON.print(io, namelist, 4)
-            end
         end
     end
 end
@@ -269,7 +265,6 @@ end
         u::Array{FT, 1},
         u_names::Array{String, 1},
         param_map::ParameterMap,
-        namelist_args = nothing,
     ) where {FT<:AbstractFloat}
 
 Run a case using a set of parameters `u_names` with values `u`,
@@ -283,7 +278,6 @@ Inputs:
  - u_names       :: SCM names for parameters `u`.
  - `param_map`   :: A mapping operator to define relations between parameters.
                     See [`ParameterMap`](@ref) for details.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
 
 Outputs:
 
@@ -296,7 +290,6 @@ function run_SCM_handler(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist_args = nothing,
 ) where {FT <: AbstractFloat}
 
     # fetch namelist
@@ -312,7 +305,6 @@ function run_SCM_handler(
         u_names = u_names,
         param_map = param_map,
         namelist = namelist,
-        namelist_args = namelist_args,
         uuid = basename(tmpdir), # set random uuid
         les = get(namelist["meta"], "lesfile", nothing),
     )
@@ -326,8 +318,7 @@ end
         u::Vector{FT},
         u_names::Vector{String},
         param_map::ParameterMap,
-        namelist::Union{Dict, Nothing} = nothing,
-        namelist_args::Union{Tuple, Nothing} = nothing,
+        namelist::Dict,
         uuid::String = "01",
         les::Union{NamedTuple, String} = nothing,
     )
@@ -343,7 +334,6 @@ Inputs:
  - `param_map`   :: A mapping operator to define relations between parameters.
                     See [`ParameterMap`](@ref) for details.
  - namelist      :: namelist to use for simulation.
- - namelist_args :: Additional arguments passed to the TurbulenceConvection namelist.
  - uuid          :: uuid of SCM run
  - les           :: path to LES stats file, or NamedTuple with keywords {forcing_model, month, experiment, cfsite_number} needed to specify path. 
  Outputs:
@@ -356,29 +346,17 @@ function run_SCM_handler(
     u::Vector{FT},
     u_names::Vector{String},
     param_map::ParameterMap,
-    namelist::Union{Dict, Nothing} = nothing,
-    namelist_args::Union{Vector, Nothing} = nothing,
+    namelist::Dict,
     uuid::String = "01",
     les::Union{NamedTuple, String, Nothing} = nothing,
 ) where {FT <: AbstractFloat}
     model_error = false
-
-    # fetch default namelist if not provided
-    if isnothing(namelist)
-        namelist = NameList.default_namelist(case_name)
-    end
 
     namelist["meta"]["uuid"] = uuid
     # set output dir to `out_dir`
     namelist["output"]["output_root"] = out_dir
 
     u_names, u = create_parameter_vectors(u_names, u, param_map, namelist)
-    # Set optional namelist args
-    if !isnothing(namelist_args)
-        for namelist_arg in namelist_args
-            change_entry!(namelist, namelist_arg)
-        end
-    end
 
     # update learnable parameter values
     @assert length(u_names) == length(u)
@@ -405,7 +383,7 @@ function run_SCM_handler(
 
     # run TurbulenceConvection.jl with modified parameters
     logger = Logging.ConsoleLogger(stderr, Logging.Warn)
-    _, ret_code = Logging.with_logger(logger) do
+    _, _, ret_code = Logging.with_logger(logger) do
         main1d(namelist; time_run = false)
     end
     if ret_code ≠ :success
@@ -472,76 +450,92 @@ function create_parameter_vectors(
 end
 
 """
-    generate_scm_input(
-        model_evaluators::Vector{ModelEvaluator{FT}},
-        outdir_path::String = pwd(),
-    ) where {FT <: AbstractFloat}
+    generate_scm_input(model_evaluators, iteration, outdir_path = pwd(), batch_indices = nothing)
 
-Writes to file a set of ModelEvaluator used to initialize SCM
+Writes to file a set of [`ModelEvaluator`](@ref) used to initialize SCM
 evaluations at different parameter vectors, as well as their
-assigned numerical version.
+assigned version, which is on the form `i<iteration>_e<ensemble_index>`.
 """
 function generate_scm_input(
     model_evaluators::Vector{ModelEvaluator{FT}},
+    iteration::Int,
     outdir_path::String = pwd(),
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 ) where {FT <: AbstractFloat}
-    # Generate versions conditioned on being unique within the batch.
-    used_versions = Vector{Int}()
-    for model_evaluator in model_evaluators
-        version = rand(11111:99999)
-        while version in used_versions
-            version = rand(11111:99999)
-        end
+    versions = String[]
+    for (ens_i, model_evaluator) in enumerate(model_evaluators)
+        version = "i$(iteration)_e$ens_i"
         jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
-        push!(used_versions, version)
+        push!(versions, version)
     end
-    return used_versions
+    return versions
+end
+
+""" 
+    parse_version_inds(version)
+
+Given `version = "ix_ey"`, return the iteration index `x` and ensemble index `y` as integers.
+"""
+parse_version_inds(version::String) = parse.(Int, SubString.(split(version, "_"), 2, lastindex.(split(version, "_"))))
+
+"""
+    get_gcm_les_uuid(cfsite_number; [forcing_model::String, month, experiment])
+
+Generate unique and self-describing uuid given information about a GCM-driven LES simulation from [Shen2022](@cite).
+
+# Examples
+```
+julia> get_gcm_les_uuid(1; forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
+"1_HadGEM2-A_07_amip"
+```
+"""
+function get_gcm_les_uuid(cfsite_number; forcing_model, month::Integer, experiment)
+    return "$(cfsite_number)_$(forcing_model)_$(string(month, pad = 2))_$(experiment)"
 end
 
 """
-    get_gcm_les_uuid(
-        cfsite_number::Integer;
-        forcing_model::String,
-        month::Integer,
-        experiment::String,)
+    save_tc_data(cases, outdir_path, sim_dirs, version, suffix)
 
-Generate unique and self-describing uuid given information about a GCM-driven LES
-simulation from [Shen2022](@cite).
+Save full TC.jl output in `<results_folder>/timeseries.<suffix>/iter_<iteration>/Output.<case>.<case_id>_<ens_i>`.
+
+Behavior of this function is specified in the output config, i.e. `config["output"]`. If the flag `save_tc_output`
+is set to true, TC.jl output is saved, and if additionally a list of iterations is specified in `save_tc_iterations`,
+only these EKP iterations are saved.
+
+Arguments:
+- `config`      :: The calibration config dictionary.
+    To save TC.jl output, set `save_tc_output` to `true` in the output config.
+    To only save specific EKP iterations, specify these in a vector in `save_tc_iterations` in the output config.
+- `outdir_path` :: The results `results_folder` path
+- `sim_dirs`    :: List of (temporary) directories where raw simulation output is initially saved to
+- `version`     :: An identifier for the current iteration and ensemble index
+- `suffix`      :: Case set identifier; is either "train" or "validation".
 """
-function get_gcm_les_uuid(
-    cfsite_number::Integer;
-    forcing_model::String = "HadGEM2-A",
-    month::Integer = 7,
-    experiment::String = "amip",
-)
-    cfsite_number = string(cfsite_number)
-    month = string(month, pad = 2)
-    return join([cfsite_number, forcing_model, month, experiment], '_')
-end
+function save_tc_data(config, outdir_path, sim_dirs, version, suffix)
+    cases = config["reference"]["case_name"]
+    @assert length(cases) == length(sim_dirs) "The number of cases $(length(cases)) should equal the number of TC output directories $(length(sim_dirs))."
+    N_iter = config["process"]["N_iter"]
+    save_tc_iterations = get(config["output"], "save_tc_iterations", 1:N_iter)
+    iter_ind, ens_ind = parse_version_inds(version)
 
-""" Save full EDMF data from every ensemble"""
-function save_full_ensemble_data(save_path, sim_dirs_arr, ref_models)
-    # get a simulation directory `.../Output.SimName.UUID`, and corresponding parameter name
-    for (ens_i, sim_dirs) in enumerate(sim_dirs_arr)  # each ensemble returns a list of simulation directories
-        ens_i_path = joinpath(save_path, "ens_$ens_i")
-        mkpath(ens_i_path)
-        for (ref_model, sim_dir) in zip(ref_models, sim_dirs)
-            scm_name = ref_model.case_name
-            # Copy simulation data to output directory
-            dirname = splitpath(sim_dir)[end]
-            @assert dirname[1:7] == "Output."  # sanity check
-            # Stats file
-            tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
-            save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
-            cp(tmp_data_path, save_data_path)
-            # namefile
-            tmp_namefile_path = namelist_directory(sim_dir, scm_name)
-            save_namefile_path = namelist_directory(ens_i_path, scm_name)
-            cp(tmp_namefile_path, save_namefile_path)
+    # Only save specified iterations
+    if !(iter_ind ∈ save_tc_iterations)
+        return
+    end
+
+    for (i, (case, sim_dir)) in enumerate(zip(cases, sim_dirs))
+        version_dst_dir = joinpath(outdir_path, "timeseries.$suffix/iter_$iter_ind")
+        mkpath(version_dst_dir)
+        # ensure that simulation directory is unique given possibly identical case names
+        case_id = length(cases[1:i][(cases .== case)[1:i]])
+        if isdir(sim_dir)
+            mv(sim_dir, joinpath(version_dst_dir, "Output.$case.$(case_id)_$ens_ind"))
+        else
+            @warn("sim directory not found: $sim_dir")
         end
-    end
+    end  # end cases, sim_dirs
 end
+
 
 """
     precondition(
@@ -549,8 +543,7 @@ end
         priors,
         param_map::ParameterMap,
         ref_models::Vector{ReferenceModel},
-        ref_stats::ReferenceStatistics,
-        namelist_args = nothing;
+        ref_stats::ReferenceStatistics;
         counter::Integer = 0,
         max_counter::Integer = 10,
     ) where {FT <: Real}
@@ -566,7 +559,6 @@ Inputs:
  - `param_map`      :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - `ref_models`     :: Vector of ReferenceModels to check stability for.
  - `ref_stats`      :: ReferenceStatistics of the ReferenceModels.
- - `namelist_args`  :: Arguments passed to the TC.jl namelist.
  - `counter`        :: Accumulator tracking number of recursive calls to preconditioner.
  - `max_counter`    :: Maximum number of recursive calls to the preconditioner.
 
@@ -579,15 +571,13 @@ function precondition(
     priors::ParameterDistribution,
     param_map::ParameterMap,
     ref_models::Vector{ReferenceModel},
-    ref_stats::ReferenceStatistics,
-    namelist_args = nothing;
+    ref_stats::ReferenceStatistics;
     counter::Integer = 0,
     max_counter::Integer = 10,
 ) where {FT <: Real}
     param_names = priors.name
     # Wrapper around SCM
-    g_(u::Array{Float64, 1}) =
-        run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true, namelist_args = namelist_args)
+    g_(u::Array{Float64, 1}) = run_SCM(u, param_names, param_map, ref_models, ref_stats, error_check = true)
 
     param_cons = deepcopy(transform_unconstrained_to_constrained(priors, param))
     _, _, _, model_error = g_(param_cons)
@@ -601,8 +591,7 @@ function precondition(
             priors,
             param_map,
             ref_models,
-            ref_stats,
-            namelist_args,
+            ref_stats;
             counter = counter + 1,
             max_counter = max_counter,
         )
@@ -628,10 +617,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(ME::ModelEvaluator, priors; namelist_args = nothing)
+function precondition(ME::ModelEvaluator, priors)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats, namelist_args)
+    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats)

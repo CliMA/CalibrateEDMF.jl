@@ -49,7 +49,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = mktempdir()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -81,11 +80,9 @@ function get_reference_config(::Bomex)
     config["y_names"] = [["thetal_mean", "qt_mean"]]
     ref_root_dir = mktempdir()
     config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.ref")]
-    config["scm_suffix"] = ["scm"]
-    config["scm_parent_dir"] = [ref_root_dir]
     config["t_start"] = [0.0]
     config["t_end"] = [2.0 * 3600]
-    config["namelist_args"] = repeat([namelist_args], 2)
+    config["namelist_args"] = [namelist_args]
     return config
 end
 

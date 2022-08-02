@@ -40,7 +40,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -87,7 +86,6 @@ function get_reference_config(::SCT1Train)
     cfsite_numbers = (17, 18, 20, 22, 23)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -97,8 +95,6 @@ function get_reference_config(::SCT1Train)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -115,7 +111,6 @@ function get_reference_config(::SCT1Val)
     cfsite_numbers = (3, 5, 8, 11, 14)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -125,8 +120,6 @@ function get_reference_config(::SCT1Val)
     config["y_names"] =
         repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -140,14 +133,14 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "general_ent_params" => [repeat([no_constraint()], 69)...],
+        "nn_ent_params" => [repeat([no_constraint()], 69)...],
         "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
-        "general_ent_params" => 0.1 .* (rand(69) .- 0.5),
+        "nn_ent_params" => 0.1 .* (rand(69) .- 0.5),
         "turbulent_entrainment_factor" => [0.075],
     )
 
@@ -161,11 +154,11 @@ function get_scm_config()
         ("time_stepping", "dt_min", 1.0),
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
-        ("grid", "dz", 50.0),
         ("grid", "nz", 80),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
         ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
         ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "buoy_vel"),
+        ("turbulence", "EDMF_PrognosticTKE", "nn_ent_biases", true),
     ]
     return config
 end

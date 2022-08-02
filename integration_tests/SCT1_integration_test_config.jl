@@ -21,10 +21,12 @@ struct SCT1Val end
 
 namelist_args = [
     ("time_stepping", "dt_min", 1.0),
-    ("time_stepping", "dt_max", 2.0),
+    ("time_stepping", "dt_max", 3.0),
     ("stats_io", "frequency", 60.0),
     ("stats_io", "calibrate_io", true),
-    ("grid", "nz", 50),
+    ("thermodynamics", "sgs", "mean"),
+    ("grid", "stretch", "flag", true),
+    ("grid", "stretch", "dz_surf", 50.0),
 ]
 
 function get_config()
@@ -49,7 +51,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -77,7 +78,7 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 2
+    config["N_iter"] = 3
     config["N_ens"] = 5 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
@@ -96,18 +97,14 @@ function get_reference_config(::SCT1Train)
     cfsite_numbers = (17, 18, 20, 22, 23)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_names"] = repeat([["s_mean", "ql_mean", "total_flux_qt", "total_flux_s", "u_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -125,18 +122,14 @@ function get_reference_config(::SCT1Val)
     cfsite_numbers = (3, 5, 8, 11, 14)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    suffixes = [get_gcm_les_uuid(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+    config["y_names"] = repeat([["s_mean", "ql_mean", "total_flux_qt", "total_flux_s", "u_mean"]], n_repeat)
     config["y_dir"] = ref_dirs
-    config["scm_suffix"] = suffixes
-    config["scm_parent_dir"] = repeat(["scm_init"], n_repeat)
     config["t_start"] = repeat([3.0 * 3600], n_repeat)
     config["t_end"] = repeat([6.0 * 3600], n_repeat)
     # Use full LES timeseries for covariance
@@ -151,18 +144,18 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "entrainment_factor" => [bounded(0.0, 1.0)],
-        "detrainment_factor" => [bounded(0.0, 1.0)],
+        "entrainment_factor" => [bounded(0.0, 0.4)],
+        "entrainment_smin_tke_coeff" => [bounded(0.0, 1.0)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
         "entrainment_factor" => [0.13],
-        "detrainment_factor" => [0.51],
+        "entrainment_smin_tke_coeff" => [0.3],
     )
 
-    config["unconstrained_σ"] = 0.25
+    config["unconstrained_σ"] = 0.5
     return config
 end
 

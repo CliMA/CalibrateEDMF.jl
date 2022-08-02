@@ -1,9 +1,17 @@
 module Pipeline
 
+export init_calibration, ek_update, versioned_model_eval, restart_calibration
+
 using Statistics
 using Random
 using JLD2
 import Dates
+
+# Import EKP modules
+using EnsembleKalmanProcesses
+using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses.Localizers
+import EnsembleKalmanProcesses: update_ensemble!
 
 using ..DistributionUtils
 using ..ReferenceModels
@@ -12,13 +20,8 @@ using ..TurbulenceConvectionUtils
 using ..NetCDFIO
 using ..HelperFuncs
 using ..KalmanProcessUtils
-
-# Import EKP modules
-using EnsembleKalmanProcesses
-using EnsembleKalmanProcesses.ParameterDistributions
-import EnsembleKalmanProcesses: update_ensemble!
-
-export init_calibration, ek_update, versioned_model_eval, restart_calibration
+using ..AbstractTypes
+import ..AbstractTypes: Opt, OptVec, OptString
 
 """
     init_calibration(job_id::String, config::Dict{Any, Any})
@@ -38,14 +41,14 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     ref_config = config["reference"]
     y_ref_type = ref_config["y_reference_type"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
-    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
-    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
     outdir_root = get_entry(out_config, "outdir_root", pwd())
 
     proc_config = config["process"]
@@ -58,13 +61,12 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+    localizer = get_entry(proc_config, "localizer", NoLocalization())
 
     params = config["prior"]["constraints"]
     unc_σ = get_entry(config["prior"], "unconstrained_σ", 1.0)
     prior_μ = get_entry(config["prior"], "prior_mean", nothing)
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
-
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
 
     val_config = get(config, "validation", nothing)
 
@@ -112,6 +114,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
     # parameters are sampled in unconstrained space
     if algo_name in ["Inversion", "Sampler", "SparseInversion"]
         if algo_name == "Inversion"
@@ -128,44 +131,23 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         end
         initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
         if augmented
-            ekobj = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                initial_params,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_tekp(ref_stats, priors, algo, initial_params; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekobj = generate_ekp(
-                ref_stats,
-                algo,
-                initial_params,
-                outdir_path = outdir_path,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_ekp(ref_stats, algo, initial_params; ekp_kwargs...)
         end
     elseif algo_name == "Unscented"
         algo = Unscented(vcat(mean(priors)...), cov(priors), α_reg = 1.0, update_freq = 1)
         if augmented
-            ekobj = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekobj = generate_tekp(ref_stats, priors, algo; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekobj = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
+            ekobj = generate_ekp(ref_stats, algo; ekp_kwargs...)
         end
     end
 
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
+    versions = generate_scm_input(mod_evaluators, 1, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, 1, outdir_path = outdir_path)
     # Store ReferenceModelBatch
@@ -176,68 +158,23 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     # Initialize validation
     val_ref_models, val_ref_stats =
         isnothing(val_config) ? repeat([nothing], 2) :
-        init_validation(
-            val_config,
-            reg_config,
-            ekobj,
-            priors,
-            param_map,
-            versions,
-            outdir_path,
-            overwrite = overwrite_scm_file,
-            namelist_args = namelist_args,
-        )
+        init_validation(val_config, reg_config, namelist_args, ekobj, priors, param_map, versions, outdir_path)
 
     # Diagnostics IO
     init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
 
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
-            write(io, "$(outdir_path)\n")
+            println(io, outdir_path)
         end
     end
     return outdir_path
 end
 
-function get_ref_model_kwargs(ref_config::Dict{Any, Any})
-    n_cases = length(ref_config["case_name"])
-    Σ_dir = expand_dict_entry(ref_config, "Σ_dir", n_cases)
-    Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
-    Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
-    n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
-    scm_path_kwargs = if haskey(ref_config, "scm_dir")
-        Dict(:scm_dir => ref_config["scm_dir"])
-    elseif all(haskey.(Ref(ref_config), ["scm_parent_dir", "scm_suffix"]))
-        Dict(:scm_parent_dir => ref_config["scm_parent_dir"], :scm_suffix => ref_config["scm_suffix"])
-    else
-        throw(ArgumentError("config must either contain `scm_dir` or both `scm_parent_dir` and `scm_suffix`."))
-    end
-
-    rm_kwargs = Dict(
-        :y_names => ref_config["y_names"],
-        # Reference path specification
-        :y_dir => ref_config["y_dir"],
-        :Σ_dir => Σ_dir,
-        # Case name
-        :case_name => ref_config["case_name"],
-        # Define observation window (s)
-        :t_start => ref_config["t_start"],
-        :t_end => ref_config["t_end"],
-        :Σ_t_start => Σ_t_start,
-        :Σ_t_end => Σ_t_end,
-        :n_obs => n_obs,
-    )
-    merge!(rm_kwargs, scm_path_kwargs)
-    n_RM = length(rm_kwargs[:case_name])
-    for (k, v) in pairs(rm_kwargs)
-        @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
-    end
-    return rm_kwargs
-end
-
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
     y_ref_type = ref_config["y_reference_type"]
     Σ_ref_type = get_entry(ref_config, "Σ_reference_type", y_ref_type)
+    model_errors = get_entry(ref_config, "model_errors", nothing)
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
     normalize = get_entry(reg_config, "normalize", true)
@@ -253,6 +190,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :dim_scaling => dim_scaling,
         :y_type => y_ref_type,
         :Σ_type => Σ_ref_type,
+        :model_errors => model_errors,
     )
 end
 
@@ -265,8 +203,8 @@ function create_output_dir(
     n_param::IT,
     N_ens::IT,
     N_iter::IT,
-    batch_size::Union{IT, Nothing},
-    config_path::Union{String, Nothing},
+    batch_size::Opt{IT},
+    config_path::OptString,
     y_ref_type,
 ) where {FT <: Real, IT <: Integer}
     # Output path
@@ -289,16 +227,15 @@ end
 function init_validation(
     val_config::Dict{Any, Any},
     reg_config::Dict{Any, Any},
+    namelist_args::OptVec{<:Tuple},
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
     param_map::ParameterMap,
-    versions::Vector{IT},
+    versions::Vector{String},
     outdir_path::String;
-    overwrite::Bool = false,
-    namelist_args = nothing,
-) where {FT <: Real, IT <: Integer}
+)
 
-    kwargs_ref_model = get_ref_model_kwargs(val_config)
+    kwargs_ref_model = get_ref_model_kwargs(val_config; global_namelist_args = namelist_args)
     kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -332,7 +269,7 @@ end
         param_map::ParameterMap,
         versions::Vector{String},
         outdir_path::String,
-        iteration::IT
+        iteration::Integer
     )
 
 Updates the validation diagnostics and writes to file the validation ModelEvaluators
@@ -347,6 +284,7 @@ Inputs:
  - param_map     :: A mapping to a reduced parameter set. See [`ParameterMap`](@ref) for details.
  - versions      :: String versions identifying the forward model evaluations.
  - outdir_path   :: Output path directory.
+ - iteration     :: EKP iteration
 """
 function update_validation(
     val_config::Dict{Any, Any},
@@ -356,8 +294,8 @@ function update_validation(
     param_map::ParameterMap,
     versions::Vector{String},
     outdir_path::String,
-    iteration::IT,
-) where {IT <: Integer}
+    iteration::Integer,
+)
 
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -491,6 +429,8 @@ function ek_update(
             update_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path, iteration)
         end
     end
+
+
     # Clean up
     for version in versions
         rm(scm_output_path(outdir_path, version))
@@ -537,24 +477,19 @@ function restart_calibration(
     # Get config
     ref_config = config["reference"]
     batch_size = get_entry(ref_config, "batch_size", nothing)
-    kwargs_ref_model = get_ref_model_kwargs(ref_config)
+    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    kwargs_ref_model = get_ref_model_kwargs(ref_config; global_namelist_args = namelist_args)
 
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
 
-    out_config = config["output"]
-    overwrite_scm_file = get_entry(out_config, "overwrite_scm_file", false)
-
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
-
     val_config = get(config, "validation", nothing)
 
     # Prepare updated EKP and ReferenceModelBatch if minibatching.
     if !isnothing(batch_size)
         ref_model_batch = load(joinpath(outdir_path, "ref_model_batch.jld2"))["ref_model_batch"]
-        global_ref_models = deepcopy(ref_model_batch.ref_models)
         ekp, ref_models, ref_stats, ref_model_batch, batch_indices =
             update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
         rm(joinpath(outdir_path, "ref_model_batch.jld2"))
@@ -580,13 +515,12 @@ function restart_calibration(
             param_map,
             outdir_path,
             last_iteration,
-            overwrite = overwrite_scm_file,
             namelist_args = namelist_args,
         )
     end
     if mode == "hpc"
         open("$(job_id).txt", "w") do io
-            write(io, "$(outdir_path)\n")
+            println(io, outdir_path)
         end
     end
     return outdir_path
@@ -601,7 +535,6 @@ end
         param_map::ParameterMap,
         outdir_path::String,
         last_iteration::IT;
-        overwrite::Bool = false,
         namelist_args = nothing,
     ) where {IT <: Integer}
 
@@ -626,11 +559,10 @@ function restart_validation(
     param_map::ParameterMap,
     outdir_path::String,
     last_iteration::IT;
-    overwrite::Bool = false,
-    namelist_args = nothing,
+    namelist_args::OptVec{<:Tuple} = nothing,
 ) where {IT <: Integer}
 
-    kwargs_ref_model = get_ref_model_kwargs(val_config)
+    kwargs_ref_model = get_ref_model_kwargs(val_config; global_namelist_args = namelist_args)
     kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
     batch_size = get_entry(val_config, "batch_size", nothing)
 
@@ -748,7 +680,7 @@ function get_ensemble_g_eval_aug(
 end
 
 """
-   versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
+   versioned_model_eval(version, outdir_path, mode, config)
 
 Performs or omits a model evaluation given the parsed mode and provided config,
  and writes to file the model output.
@@ -759,7 +691,7 @@ Inputs:
  - mode          :: Whether the ModelEvaluator is used for training or validation.
  - config        :: The general configuration dictionary.
 """
-function versioned_model_eval(version::Union{String, Int}, outdir_path::String, mode::String, config::Dict{Any, Any})
+function versioned_model_eval(version::String, outdir_path::String, mode::String, config::Dict)
     @assert mode in ["train", "validation"]
     # Omits validation if unsolicited
     if mode == "validation" && isnothing(get(config, "validation", nothing))
@@ -773,17 +705,22 @@ function versioned_model_eval(version::Union{String, Int}, outdir_path::String, 
     end
     # Load inputs
     scm_args = load(input_path)
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
     failure_handler = get_entry(config["process"], "failure_handler", "high_loss")
     # Check consistent failure method for given algorithm
     @assert failure_handler == "sample_succ_gauss" ? config["process"]["algorithm"] != "Sampler" : true
     model_evaluator = scm_args["model_evaluator"]
     batch_indices = scm_args["batch_indices"]
     # Eval
-    sim_dirs, g_scm, g_scm_pca =
-        run_SCM(model_evaluator, namelist_args = namelist_args, failure_handler = failure_handler)
+    sim_dirs, g_scm, g_scm_pca = run_SCM(model_evaluator, failure_handler = failure_handler)
     # Store output and delete input
     jldsave(output_path; sim_dirs, g_scm, g_scm_pca, model_evaluator, version, batch_indices)
+
+    # Save full output timeseries to `<results_folder>/timeseries/<version>/Output.<case>.<case_id>`
+    save_tc_output = get(config["output"], "save_tc_output", false)
+    if save_tc_output
+        save_tc_data(config, outdir_path, sim_dirs, version, mode)
+    end
+
     rm(input_path)
 end
 
@@ -831,10 +768,13 @@ function update_minibatch_inverse_problem(
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+    localizer = get_entry(proc_config, "localizer", NoLocalization())
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
+
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
 
     if isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
@@ -846,36 +786,15 @@ function update_minibatch_inverse_problem(
             prior_mean = vcat(mean(priors)...),
         )
         if augmented
-            ekp = generate_tekp(
-                ref_stats,
-                priors,
-                algo,
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekp = generate_tekp(ref_stats, priors, algo; l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekp = generate_ekp(ref_stats, algo, outdir_path = outdir_path, failure_handler = failure_handler)
+            ekp = generate_ekp(ref_stats, algo; ekp_kwargs...)
         end
     else
         if augmented
-            ekp = generate_tekp(
-                ref_stats,
-                priors,
-                process,
-                get_u_final(ekp_old),
-                outdir_path = outdir_path,
-                l2_reg = l2_reg,
-                failure_handler = failure_handler,
-            )
+            ekp = generate_tekp(ref_stats, priors, process, get_u_final(ekp_old); l2_reg = l2_reg, ekp_kwargs...)
         else
-            ekp = generate_ekp(
-                ref_stats,
-                process,
-                get_u_final(ekp_old),
-                failure_handler = failure_handler,
-                outdir_path = outdir_path,
-            )
+            ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old); ekp_kwargs...)
         end
     end
     return ekp, ref_models, ref_stats, ref_model_batch, batch_indices
@@ -911,12 +830,12 @@ function write_model_evaluators(
     ref_stats::ReferenceStatistics,
     outdir_path::String,
     iteration::Int,
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 )
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
-    versions = generate_scm_input(mod_evaluators, outdir_path, batch_indices)
+    versions = generate_scm_input(mod_evaluators, iteration + 1, outdir_path, batch_indices)
     # Store version identifiers for this ensemble in a common file
     write_versions(versions, iteration + 1, outdir_path = outdir_path)
     return
@@ -948,8 +867,8 @@ function init_diagnostics(
     ref_stats::ReferenceStatistics,
     ekp::EnsembleKalmanProcess,
     priors::ParameterDistribution,
-    val_ref_models::Union{Vector{ReferenceModel}, Nothing} = nothing,
-    val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
+    val_ref_models::OptVec{ReferenceModel} = nothing,
+    val_ref_stats::Opt{ReferenceStatistics} = nothing,
 )
     write_full_stats = get_entry(config["reference"], "write_full_stats", true)
     N_ens = size(get_u_final(ekp), 2)
@@ -992,7 +911,7 @@ function update_diagnostics(
     ref_stats::ReferenceStatistics,
     g_full::Array{FT, 2},
     versions::Union{Vector{Int}, Vector{String}},
-    batch_indices::Union{Vector{Int}, Nothing} = nothing,
+    batch_indices::OptVec{Int} = nothing,
 ) where {FT <: Real}
 
     mse_full = compute_mse(g_full, ref_stats.y_full)

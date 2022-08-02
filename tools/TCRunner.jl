@@ -1,29 +1,36 @@
 using Distributed
-@everywhere using Pkg
-@everywhere Pkg.activate(dirname(@__DIR__))
-@everywhere using CalibrateEDMF.TurbulenceConvectionUtils
-@everywhere using CalibrateEDMF.HelperFuncs
-@everywhere import CalibrateEDMF.ReferenceModels: NameList
-@everywhere include("DiagnosticsTools.jl")
-@everywhere using Random
+@everywhere begin
+    using Pkg
+    Pkg.activate(dirname(@__DIR__))
+end
+@everywhere begin
+    using CalibrateEDMF.TurbulenceConvectionUtils
+    using CalibrateEDMF.HelperFuncs
+    import CalibrateEDMF.ReferenceModels: NameList
+    include("DiagnosticsTools.jl")
+    using Random
+end
 using ArgParse
 using Dates
 
 """
-    run_TC_optimal(results_dir, tc_output_dir, config, run_cases; method, metric, n_ens)
+    run_TC_optimal(results_dir, tc_output_dir, config, run_cases; 
+                  [method = "best_nn_particle_mean", metric = "mse_full", n_ens = 1])
 
 Given path to the results directory of completed calibration run and associated config, run TC
 using optimal parameters on a case set and save the resulting TC stats files.
 
-Arguments: 
- - results_dir      :: directory containing CEDMF `Diagnostics.nc` file.
- - tc_output_dir    :: directory to store TC output
- - config           :: config dictionary
- - method           :: method for computing optimal parameters. Use parameters of:
+# Arguments
+- results_dir      :: directory containing CEDMF `Diagnostics.nc` file.
+- tc_output_dir    :: directory to store TC output
+- config           :: config dictionary
+
+# Keyword arguments
+- method           :: method for computing optimal parameters. Use parameters of:
     "best_particle" - particle with lowest mse in training (`metric` = "mse_full") or validation (`metric` = "mse_full_val") set.
     "best_nn_particle_mean" - particle nearest to ensemble mean for the iteration with lowest mse.
- - metric           :: mse metric to find the minimum of {"mse_full", "val_mse_full"}.
- - n_ens            :: Number of ensemble to run per case
+- metric           :: mse metric to find the minimum of {"mse_full", "val_mse_full"}.
+- n_ens            :: Number of ensemble to run per case
 """
 
 function run_TC_optimal(
@@ -35,10 +42,14 @@ function run_TC_optimal(
     metric::String = "mse_full",
     n_ens::Int = 1,
 )
-    namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    cases = run_cases["case_name"]
+    # get global namelist_args
+    global_namelist_args = get_entry(config["scm"], "namelist_args", nothing)
+    case_namelist_args = expand_dict_entry(run_cases, "namelist_args", length(cases))
+    # Assemble namelist_args per case
+    namelist_args = merge_namelist_args.(Ref(global_namelist_args), case_namelist_args)
+
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
-
-
     u_names, u = optimal_parameters(joinpath(results_dir, "Diagnostics.nc"); method = method, metric = metric)
 
     @everywhere run_single_SCM(t::Tuple) = run_single_SCM(t...)
@@ -47,6 +58,18 @@ function run_TC_optimal(
         @info "Running $(case) ($(case_nt.case_id)). Ensemble member $ens_ind."
         # Get namelist for case
         namelist = NameList.default_namelist(case, write = false, set_seed = false)
+        # Set optional namelist args
+        update_namelist!(namelist, case_nt.namelist_arg)
+
+        uuid = "$(case_nt.case_id)_$(ens_ind)"
+        # Add cfSite identifier in case of `LES_driven_SCM`
+        if case == "LES_driven_SCM"
+            stats_filename = split(case_nt.les_path, "/")[end]
+            filename_strips = split(stats_filename, ".")[2:(end - 1)]
+            push!(filename_strips, uuid)
+            uuid = join(filename_strips, ".")
+        end
+        # Run TC.jl
         run_SCM_handler(
             case,
             $tc_output_dir;
@@ -54,18 +77,17 @@ function run_TC_optimal(
             u_names = $u_names,
             param_map = $param_map,
             namelist = namelist,
-            namelist_args = $namelist_args,
-            uuid = "$(case_nt.case_id)_$(ens_ind)",
+            uuid = uuid,
             les = case_nt.les_path,
         )
     end
 
-    cases = run_cases["case_name"]
     case_nt = NamedTuple[]
     for (i, case) in enumerate(cases)
         case_id = length(cases[1:i][(cases .== case)[1:i]])
         les_path = (case == "LES_driven_SCM") ? get_stats_path(run_cases["y_dir"][i]) : nothing
-        push!(case_nt, (; case, case_id, les_path))
+        namelist_arg = !isnothing(namelist_args) ? namelist_args[i] : nothing
+        push!(case_nt, (; case, case_id, les_path, namelist_arg))
     end
 
     case_ens = Iterators.product(case_nt, 1:n_ens)

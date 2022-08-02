@@ -1,34 +1,53 @@
 module LESUtils
 
+export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
+
 import NCDatasets
 import ..ReferenceModels: ReferenceModel
 import TurbulenceConvection
 const TC = TurbulenceConvection
 using ..HelperFuncs
 
-export get_les_names, get_cfsite_les_dir, find_alias, get_path_to_artifact
-
 
 """
     get_LES_library
+
+Hierarchical dictionary of available cfSite LES simulations, following similar
+forcing to that described in [Shen2022](@cite), but including additional sites.
+The following cfsites are available across listed models, months,
+and experiments.
+"""
+function get_LES_library()
+    LES_library = get_shallow_LES_library()
+    deep_sites = (collect(30:33)..., collect(66:70)..., 82, 92, 94, 96, 99, 100)
+
+    append!(LES_library["HadGEM2-A"]["07"]["cfsite_numbers"], deep_sites)
+    append!(LES_library["HadGEM2-A"]["01"]["cfsite_numbers"], deep_sites)
+    sites_04 = deepcopy(setdiff(deep_sites, [32, 92, 94]))
+    append!(LES_library["HadGEM2-A"]["04"]["cfsite_numbers"], sites_04)
+    sites_10 = deepcopy(setdiff(deep_sites, [94, 100]))
+    append!(LES_library["HadGEM2-A"]["10"]["cfsite_numbers"], sites_10)
+    return LES_library
+end
+
+"""
+    get_shallow_LES_library
 
 Hierarchical dictionary of available LES simulations described in [Shen2022](@cite).
 The following cfsites are available across listed models, months,
 and experiments.
 """
-function get_LES_library()
+function get_shallow_LES_library()
     LES_library = Dict("HadGEM2-A" => Dict(), "CNRM-CM5" => Dict(), "CNRM-CM6-1" => Dict())
     Shen_et_al_sites = collect(2:15)
     append!(Shen_et_al_sites, collect(17:23))
-    Shen_et_al_deep_convection_sites = (collect(30:33)..., collect(66:70)..., 82, 92, 94, 96, 99, 100)
-    append!(Shen_et_al_sites, Shen_et_al_deep_convection_sites)
 
     LES_library["HadGEM2-A"]["10"] = Dict()
-    LES_library["HadGEM2-A"]["10"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [94, 100])
+    LES_library["HadGEM2-A"]["10"]["cfsite_numbers"] = Shen_et_al_sites
     LES_library["HadGEM2-A"]["07"] = Dict()
-    LES_library["HadGEM2-A"]["07"]["cfsite_numbers"] = Shen_et_al_sites
+    LES_library["HadGEM2-A"]["07"]["cfsite_numbers"] = deepcopy(Shen_et_al_sites)
     LES_library["HadGEM2-A"]["04"] = Dict()
-    LES_library["HadGEM2-A"]["04"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18, 32, 92, 94])
+    LES_library["HadGEM2-A"]["04"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18])
     LES_library["HadGEM2-A"]["01"] = Dict()
     LES_library["HadGEM2-A"]["01"]["cfsite_numbers"] = setdiff(Shen_et_al_sites, [15, 17, 18, 19, 20])
 

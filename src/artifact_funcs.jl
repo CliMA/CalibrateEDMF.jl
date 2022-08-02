@@ -19,7 +19,10 @@ Outputs:
   - The artifact path
 """
 function get_path_to_artifact(casename = "Bomex", artifact_type = "PyCLES_output", artifact_dir = @__DIR__)
-    local_to_box = Dict("Bomex" => "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc")
+    local_to_box = Dict(
+        "Bomex" => "https://caltech.box.com/shared/static/d6oo7th33839qmp4z99n8z4ryk3iepoq.nc",
+        "TRMM_LBA" => "https://caltech.box.com/shared/static/wevi0rqiwo6sgkqdhcddr72u5ylt0tqp.nc",
+    )
     lazy_download = true
     if haskey(local_to_box, casename)
         output_artifact = AW.ArtifactWrapper(

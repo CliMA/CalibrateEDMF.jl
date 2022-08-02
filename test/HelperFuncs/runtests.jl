@@ -57,16 +57,23 @@ end
     using CalibrateEDMF.TurbulenceConvectionUtils
 
     pwdir = mktempdir()
-    scm_dir_test = joinpath(pwdir, "foo/bar/scm/Output.DYCOMS_RF02.12345")
-    # Use SCM sim as data
-    y_dir_test = scm_dir_test
+    output_root = joinpath(pwdir, "foo/bar/scm")
     case_name_test = "DYCOMS_RF02"
+    scm_test_uuid = "12345"
+    # Use SCM sim as data
+    y_dir_test = joinpath(output_root, "Output.$case_name_test.$scm_test_uuid")
     y_names = ["thetal_mean", "ql_mean", "qt_mean"]
     ti = 0.0
     tf = 10.0
 
-    ref_model = ReferenceModel(y_names, y_dir_test, scm_dir_test, case_name_test, ti, tf)
-    run_reference_SCM(ref_model, overwrite = true, run_single_timestep = true)
+    ref_model = ReferenceModel(y_names, y_dir_test, case_name_test, ti, tf)
+    run_reference_SCM(
+        ref_model;
+        output_root = output_root,
+        uuid = scm_test_uuid,
+        overwrite = true,
+        run_single_timestep = true,
+    )
     data_filename = y_nc_file(ref_model)
 
     # Error handling
@@ -79,6 +86,8 @@ end
     @test zf[1] ≈ 0
     @test zc[1] > zf[1]
     @test is_face_variable(data_filename, "total_flux_h")
+    @test is_face_variable(data_filename, "total_flux_s")
+    @test is_face_variable(data_filename, "total_flux_qt")
     @test !is_face_variable(data_filename, "u_mean")
 end
 
@@ -90,11 +99,50 @@ end
         ),
         "microphysics" => Dict(),
         "time_stepping" => Dict("t_max" => 12.0),
+        "grid" => Dict("stretch" => Dict("dz_toa" => 20.0)),
     )
 
     @test namelist_subdict_by_key(namelist, "sorting_power")["sorting_power"] == 1.0
     @test namelist_subdict_by_key(namelist, "t_max") == Dict("t_max" => 12.0)
     @test_throws ArgumentError namelist_subdict_by_key(namelist, "fake_param")
+
+    # test `namelist_args` merging and namelist overwriting
+    namelist = Dict("a" => 0, "b" => -1, "d" => -2)
+    # 1. Simple merge and overwrite
+    nl = deepcopy(namelist)
+    args = [("a", 1), ("b", 2)]
+    overwrite_args = [("b", 3), ("c", 4)]
+    merged_args = merge_namelist_args(args, overwrite_args)
+    update_namelist!(nl, merged_args)
+    @test nl == Dict("a" => 1, "b" => 3, "c" => 4, "d" => -2)
+    # 1-a. test merging with `nothing`
+    nl = deepcopy(namelist)
+    merged_args = merge_namelist_args(args, nothing)
+    update_namelist!(nl, merged_args)
+    @test nl == Dict("a" => 1, "b" => 2, "d" => -2)
+    # 1-b. test merging with `nothing`
+    nl = deepcopy(namelist)
+    merged_args = merge_namelist_args(nothing, overwrite_args)
+    update_namelist!(nl, merged_args)
+    @test nl == Dict("a" => 0, "b" => 3, "c" => 4, "d" => -2)
+    # 1-c. test merging with `nothing`
+    nl = deepcopy(namelist)
+    merged_args = merge_namelist_args(nothing, nothing)
+    update_namelist!(nl, merged_args)
+    @test nl == Dict("a" => 0, "b" => -1, "d" => -2)
+
+    # 2. Test merging multiple, mixed-type namelists
+    # note: in practice, `args` refer to `global_args` and `overwrite_args` to `case_args`.
+    #   we can have sets of `case_args` for each case, but only one set of `global_args`.
+    nl_vec = [deepcopy(namelist), deepcopy(namelist), deepcopy(namelist)]
+    case_args = [[("b", 3), ("c", 4)], nothing, [("b", 30), ("c", 40)]]  # 3 cases
+    global_args = [("a", 1), ("b", 2)]
+    merged_args = merge_namelist_args.(Ref(global_args), case_args)
+    update_namelist!.(nl_vec, merged_args)
+    @test nl_vec[1] == Dict("a" => 1, "b" => 3, "c" => 4, "d" => -2)
+    @test nl_vec[2] == Dict("a" => 1, "b" => 2, "d" => -2)
+    @test nl_vec[3] == Dict("a" => 1, "b" => 30, "c" => 40, "d" => -2)
+
 end
 
 @testset "parameter mapping" begin

@@ -38,7 +38,6 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
     return config
 end
 
@@ -88,8 +87,6 @@ function get_reference_config(::ObsCampaigns)
     config["y_dir"] = ["/groups/esm/ilopezgo/Output.GABLS.iles128wCov", "/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = repeat(["000123"], length(config["case_name"]))
-    config["scm_parent_dir"] = repeat(["scm_init"], length(config["case_name"]))
     config["t_start"] = [7, 2] * 3600.0
     config["t_end"] = [9, 4] * 3600.0
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
@@ -109,8 +106,6 @@ function get_reference_config(::ObsCampaignsVal)
     config["y_dir"] = ["/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = repeat(["000123"], length(config["case_name"]))
-    config["scm_parent_dir"] = repeat(["scm_init"], length(config["case_name"]))
     config["t_start"] = [2] * 3600.0
     config["t_end"] = [4] * 3600.0
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)

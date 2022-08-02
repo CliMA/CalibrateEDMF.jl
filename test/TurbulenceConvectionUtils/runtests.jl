@@ -13,7 +13,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
 import CalibrateEDMF.TurbulenceConvectionUtils: create_parameter_vectors
-import CalibrateEDMF.HelperFuncs: do_nothing_param_map
+import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_namelist!
 
 @testset "TurbulenceConvectionUtils" begin
     @testset "test create_parameter_vectors" begin
@@ -48,7 +48,9 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
     @testset "TC.jl error handling" begin
         # Choose same SCM to speed computation
         data_dir = mktempdir()
-        scm_dirs = [joinpath(data_dir, "Output.Rico.000000")]
+        case = "Rico"
+        uuid = "01"
+        y_dirs = [joinpath(data_dir, "Output.$case.$uuid")]
         # Violate CFL condition for TC.jl simulation to fail
         t_max = 2 * 3600.0
         namelist_args = [
@@ -58,21 +60,26 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             ("grid", "dz", 150.0),
             ("grid", "nz", 20),
             ("stats_io", "frequency", 720.0),
+            ("logging", "truncate_stack_trace", true),
         ]
 
         kwargs_ref_model = Dict(
             :y_names => [["u_mean", "v_mean"]],
-            :y_dir => scm_dirs,
-            :scm_dir => scm_dirs,
-            :case_name => ["Rico"],
+            :y_dir => y_dirs,
+            :case_name => [case],
             :t_start => [t_max - 3600],
             :t_end => [t_max],
             :Σ_t_start => [t_max - 2.0 * 3600],
             :Σ_t_end => [t_max],
-            :namelist_args => repeat([namelist_args], 2),
+            :namelist_args => [namelist_args],
         )
         ref_models = construct_reference_models(kwargs_ref_model)
-        @test_logs (:warn,) match_mode = :any run_reference_SCM.(ref_models, run_single_timestep = false)
+        @test_logs (:warn,) match_mode = :any run_reference_SCM.(
+            ref_models;
+            output_root = data_dir,
+            uuid = uuid,
+            run_single_timestep = false,
+        )
 
         u_names = ["entrainment_factor", "dt_max", "τ_acnv_rai"]
         u = [0.15, 210.0, 2500.0]
@@ -82,10 +89,10 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             "τ_acnv_rai" => [no_constraint()],
         )
         param_map = do_nothing_param_map()
-        prior = construct_priors(constraints)
+        prior = construct_priors(constraints; to_file = false)
         ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map)
         @test model_error
 
         @test_logs (:warn,) (:error,) match_mode = :any precondition(
@@ -94,36 +101,37 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             param_map,
             ref_models,
             ref_stats,
-            namelist_args,
             max_counter = 1,
         )
     end
 
     @testset "Namelist modification" begin
-
+        seed = 1234
         # Choose same SCM to speed computation
         data_dir = mktempdir()
-        scm_dirs = [joinpath(data_dir, "Output.Bomex.000000")]
         case_name = "Bomex"
+        uuid = "01"
+        y_dirs = [joinpath(data_dir, "Output.$case_name.$uuid")]
         t_max = 2 * 3600.0
 
         kwargs_ref_model = Dict(
             :y_names => [["u_mean", "v_mean"]],
-            :y_dir => scm_dirs,
-            :scm_dir => scm_dirs,
+            :y_dir => y_dirs,
             :case_name => [case_name],
             :t_start => [t_max - 3600],
             :t_end => [t_max],
             :Σ_t_start => [t_max - 2.0 * 3600],
             :Σ_t_end => [t_max],
         )
-        ref_models = construct_reference_models(kwargs_ref_model)
-        run_reference_SCM.(ref_models, run_single_timestep = true)
+        ref_models = construct_reference_models(kwargs_ref_model; seed = seed)
+        run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, run_single_timestep = true)
 
+        ref_model1 = ref_models[1]
         # ensure namelist generated with `run_reference_SCM` matches default namelist
-        init_namelist_path = namelist_directory(scm_dir(ref_models[1]), ref_models[1])
-        default_namelist = NameList.default_namelist(case_name, root = scm_dir(ref_models[1]))
-        reference_namelist = JSON.parsefile(init_namelist_path)
+        default_namelist = NameList.default_namelist(case_name; write = false, set_seed = true, seed = seed)
+        reference_namelist = get_scm_namelist(ref_model1)
+
+        default_namelist["stats_io"]["calibrate_io"] = true  # `get_scm_namelist` (in `construct_reference_models`) sets this entry to true
 
         namelist_compare_entries = ["microphysics", "time_stepping", "stats_io", "grid", "thermodynamics"]
         for entry in namelist_compare_entries
@@ -146,10 +154,12 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
             ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.0),
             ("turbulence", "EDMF_PrognosticTKE", "general_stochastic_ent_params", SA.SVector(0.2, 0.2, 0.01, 0.02)),
         ]
+        # Set optional namelist args
+        update_namelist!(ref_model1.namelist, namelist_args)
 
-        res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map, namelist_args)
+        res_dir, model_error = run_SCM_handler(ref_model1, data_dir, u, u_names, param_map)
 
-        run_scm_namelist_path = namelist_directory(res_dir, ref_models[1])
+        run_scm_namelist_path = namelist_directory(res_dir, ref_model1)
         run_scm_namelist = JSON.parsefile(run_scm_namelist_path)
         expected_run_scm_namelist = deepcopy(default_namelist)
         expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]["entrainment_factor"] = 0.15
@@ -169,5 +179,5 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map
         for (key, value) in expected_run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"]
             @test Tuple(run_scm_namelist["turbulence"]["EDMF_PrognosticTKE"][key]) == Tuple(value)
         end
-    end
-end
+    end  # end @testset "Namelist modification"
+end  # end @testset "TurbulenceConvectionUtils"

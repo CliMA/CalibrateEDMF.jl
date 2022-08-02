@@ -26,12 +26,14 @@ using EnsembleKalmanProcesses.ParameterDistributions
         ("grid", "dz", 150.0),
         ("grid", "nz", 20),
         ("stats_io", "frequency", 120.0),
+        ("logging", "truncate_stack_trace", true),
     ]
-    scm_dirs = repeat([joinpath(data_dir, "Output.Bomex.000000")], 2)
+    case = "Bomex"
+    uuid = "0123"
+    y_dirs = repeat([joinpath(data_dir, "Output.$case.$uuid")], 2)
     kwargs_ref_model = Dict(
         :y_names => [["u_mean"], ["v_mean"]],
-        :y_dir => scm_dirs,
-        :scm_dir => scm_dirs,
+        :y_dir => y_dirs,
         :case_name => repeat(["Bomex"], 2),
         :t_start => repeat([t_max - 2.0 * 3600], 2),
         :t_end => repeat([t_max], 2),
@@ -39,7 +41,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     )
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
-    run_reference_SCM.(ref_models, overwrite = false, run_single_timestep = false)
+    run_reference_SCM.(ref_models, output_root = data_dir, uuid = uuid, overwrite = false, run_single_timestep = false)
     ref_stats = ReferenceStatistics(ref_models, y_type = SCM(), Σ_type = SCM())
     # Generate config
     config = Dict()
@@ -49,7 +51,7 @@ using EnsembleKalmanProcesses.ParameterDistributions
     config["prior"] = Dict()
     config["prior"]["constraints"] = Dict("foo" => [bounded(0.0, 0.5)], "bar" => [bounded(0.0, 0.5)])
     config["reference"] = Dict()
-    priors = construct_priors(config["prior"]["constraints"])
+    priors = construct_priors(config["prior"]["constraints"]; to_file = false)
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
     N_ens = size(get_u_final(ekp), 2)
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)

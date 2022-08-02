@@ -10,6 +10,7 @@ using Distributed
     include(joinpath(gs, "quick_plots.jl"))
 end
 using Test
+import JSON
 
 config_path = joinpath(@__DIR__, "grid_search_integration_test_config.jl")
 include(config_path)
@@ -38,3 +39,18 @@ config["reference"]["y_dir"] = y_dirs
 end
 
 quick_plots(joinpath(out_dir, "loss.nc"), out_dir)
+
+# Additional testing:
+namelist_files = joinpath.(y_dirs, ["namelist_TRMM_LBA.in", "namelist_Rico.in", "namelist_TRMM_LBA.in"])
+nl1 = open(namelist_files[1], "r") do io
+    JSON.parse(io; dicttype = Dict, inttype = Int64)
+end
+@test nl1["time_stepping"]["t_max"] == 199.0
+nl2 = open(namelist_files[2], "r") do io
+    JSON.parse(io; dicttype = Dict, inttype = Int64)
+end
+@test nl2["time_stepping"]["t_max"] == 200.0
+nl3 = open(namelist_files[3], "r") do io
+    JSON.parse(io; dicttype = Dict, inttype = Int64)
+end
+@test nl3["time_stepping"]["t_max"] == 201.0

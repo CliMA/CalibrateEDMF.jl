@@ -5,7 +5,8 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "restart_call"   # job name
 
-output_dir=${1?Error: no output directory given}
+output_dir_rel=${1?Error: no output directory given}
+output_dir=$(realpath $output_dir_rel)
 config=${output_dir}/"config.jl"
 
 # Job identifier
@@ -25,7 +26,7 @@ n_proc_scm=10
 echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (grand total)."
 
 module purge
-module load julia/1.7.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.7.3 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system

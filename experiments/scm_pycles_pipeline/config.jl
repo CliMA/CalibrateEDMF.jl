@@ -41,7 +41,7 @@ end
 function get_output_config()
     config = Dict()
     config["outdir_root"] = pwd()
-    config["overwrite_scm_file"] = false # Flag for overwritting SCM input file
+    config["save_tc_output"] = false  # flag for saving full TC.jl data from the EKP iterations.
     return config
 end
 
@@ -93,8 +93,6 @@ function get_reference_config(::Bomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
@@ -116,8 +114,6 @@ function get_reference_config(::ValidateBomex)
     config["y_dir"] = [LESUtils.get_path_to_artifact()]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["scm_suffix"] = ["000000"]
-    config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [4.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
@@ -139,8 +135,6 @@ function get_reference_config(::LesDrivenScm)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
     # LES data can be retrieved from the filesystem. Here we fetch from the Central cluster.
     config["y_dir"] = [get_cfsite_les_dir(cfsite_number; les_kwargs...)]
-    config["scm_suffix"] = [get_gcm_les_uuid(cfsite_number; les_kwargs...)]
-    config["scm_parent_dir"] = ["scm_init"]
     config["t_start"] = [3.0 * 3600]
     config["t_end"] = [6.0 * 3600]
     # Use full LES timeseries for covariance
