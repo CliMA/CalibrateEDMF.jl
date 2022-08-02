@@ -171,9 +171,9 @@ function get_scm_config()
         ("turbulence", "EDMF_PrognosticTKE", "updraft_number", 1),
         ("turbulence", "EDMF_PrognosticTKE", "Prandtl_number_0", 0.74),
         ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.001),
-        ("thermodynamics", "sgs", "mean"), # "quadrature"),
-        ("thermodynamics", "quadrature_order", 3),
-        ("thermodynamics", "quadrature_type", "gaussian"), #"gaussian" "log-normal"
+        ("thermodynamics", "sgs", "quadrature"),
+        ("thermodynamics", "quadrature_order", 7),
+        ("thermodynamics", "quadrature_type", "log-normal"), #"gaussian" "log-normal"
         ("microphysics", "precipitation_model", "clima_1m"),
         ("microphysics", "precip_fraction_model", "cloud_cover"),
         ("microphysics", "precip_fraction_limiter", 0.3),
