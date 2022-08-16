@@ -16,6 +16,13 @@ struct ObsCampaigns end
 struct ObsCampaignsVal end
 # struct MyAwesomeSetup end
 
+namelist_args = [
+    ("time_stepping", "dt_min", 1.0),
+    ("time_stepping", "dt_max", 10.0),
+    ("stats_io", "frequency", 60.0),
+    ("thermodynamics", "sgs", "mean"),
+]
+
 function get_config()
     config = Dict()
     # Flags for saving output data
@@ -83,7 +90,7 @@ function get_reference_config(::ObsCampaigns)
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = [["thetal_mean", "u_mean", "v_mean", "tke_mean"], ["thetal_mean", "ql_mean", "qt_mean"]]
+    config["y_names"] = [["thetal_mean", "v_mean", "tke_mean"], ["thetal_mean", "ql_mean", "qt_mean"]]
     config["y_dir"] = ["/groups/esm/ilopezgo/Output.GABLS.iles128wCov", "/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
@@ -93,24 +100,29 @@ function get_reference_config(::ObsCampaigns)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
     config["batch_size"] = 1
+    config["namelist_args"] = [namelist_args, namelist_args]
     return config
 end
 
 function get_reference_config(::ObsCampaignsVal)
     config = Dict()
-    config["case_name"] = ["DYCOMS_RF01"]
+    config["case_name"] = ["GABLS", "DYCOMS_RF01"]
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
-    config["y_names"] = [["total_flux_h", "total_flux_qt"]]
-    config["y_dir"] = ["/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20"]
+    config["y_names"] = [
+        ["thetal_mean", "u_mean", "v_mean", "tke_mean"],
+        ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+    ]
+    config["y_dir"] = ["/groups/esm/ilopezgo/Output.GABLS.iles128wCov", "/groups/esm/ilopezgo/Output.DYCOMS_RF01.may20"]
     # provide list of dirs if different from `y_dir`
     # config["Σ_dir"] = [...]
-    config["t_start"] = [2] * 3600.0
-    config["t_end"] = [4] * 3600.0
+    config["t_start"] = [7, 2] * 3600.0
+    config["t_end"] = [9, 4] * 3600.0
     # Specify averaging intervals for covariance, if different from mean vector (`t_start` & `t_end`)
     # config["Σ_t_start"] = [...]
     # config["Σ_t_end"] = [...]
+    config["namelist_args"] = [namelist_args, namelist_args]
     return config
 end
 
@@ -118,29 +130,24 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # diffusion parameters
-        "tke_ed_coeff" => [bounded(0.01, 1.0)],
-        "tke_diss_coeff" => [bounded(0.01, 1.0)],
-        "static_stab_coeff" => [bounded(0.1, 1.0)],
+        "tke_ed_coeff" => [bounded(0.1, 1.0)],
+        "tke_diss_coeff" => [bounded(0.4, 1.0)],
+        "static_stab_coeff" => [bounded(0.5, 1.0)],
     )
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # diffusion parameters
-        "tke_ed_coeff" => [0.05],
-        "tke_diss_coeff" => [0.5],
-        "static_stab_coeff" => [0.9],
+        "tke_ed_coeff" => [0.6],
+        "tke_diss_coeff" => [0.75],
+        "static_stab_coeff" => [0.7],
     )
 
-    config["unconstrained_σ"] = 0.5
+    config["unconstrained_σ"] = 1.0
     return config
 end
 
 function get_scm_config()
     config = Dict()
-    config["namelist_args"] = [
-        ("time_stepping", "dt_min", 1.0),
-        ("time_stepping", "dt_max", 10.0),
-        ("stats_io", "frequency", 60.0),
-        ("thermodynamics", "sgs", "mean"),
-    ]
+    config["namelist_args"] = namelist_args
     return config
 end
