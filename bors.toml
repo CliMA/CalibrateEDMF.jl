@@ -1,7 +1,10 @@
 status = [
-  "buildkite/calibrateedmf-ci",
+  # "buildkite/calibrateedmf-ci", # random errors within Distributed 
   "format",
   "docbuild",
+  "ci 1.7.3 - ubuntu-latest",
+  # "ci 1.7.3 - windows-latest", # not passing
+  "ci 1.7.3 - macOS-latest",
 ]
 delete_merged_branches = true
 timeout_sec = 10800
