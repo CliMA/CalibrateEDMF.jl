@@ -221,9 +221,9 @@ version = "0.3.10"
 
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "b97807637619f6ef2b519b46bde368f758734bc3"
+git-tree-sha1 = "c27b119c1f313b38028a9a979d8b68a93fb6586b"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.44.4"
+version = "1.44.5"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -1114,9 +1114,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearSolve]]
 deps = ["ArrayInterfaceCore", "DocStringExtensions", "FastLapackInterface", "GPUArraysCore", "IterativeSolvers", "KLU", "Krylov", "KrylovKit", "LinearAlgebra", "RecursiveFactorization", "Reexport", "SciMLBase", "Setfield", "SparseArrays", "SuiteSparse", "UnPack"]
-git-tree-sha1 = "c48c190442b22c94499a446b8b452f16d04a258c"
+git-tree-sha1 = "f5e87a367eabdbfc77dc9878d4575f8584cea405"
 uuid = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
-version = "1.23.3"
+version = "1.23.4"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
@@ -1889,9 +1889,9 @@ uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
 
 [[deps.SurfaceFluxes]]
 deps = ["DocStringExtensions", "KernelAbstractions", "RootSolvers", "StaticArrays", "Thermodynamics"]
-git-tree-sha1 = "a2271e67a53379a1547ddb4846a47e5e3248ab65"
+git-tree-sha1 = "7262d17b0baaa0356aa556ae3a132f0d2ee4fba0"
 uuid = "49b00bb7-8bd4-4f2b-b78c-51cd0450215f"
-version = "0.4.3"
+version = "0.4.4"
 
 [[deps.TOML]]
 deps = ["Dates"]
