@@ -32,7 +32,7 @@ include(joinpath(outdir_path, "config.jl"))
 config = get_config()
 
 scm_args = load(scm_init_path(outdir_path, version))
-priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
 ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
 # Preconditioning ensemble methods in unconstrained space

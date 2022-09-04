@@ -13,18 +13,6 @@ using EnsembleKalmanProcesses.ParameterDistributions
     # Construction from Dict does not retain ordering
     @test priors1.name == ["bar", "foo"]
 
-    # Construction from lists (deserializer) is ordered
-    prior_dict = Dict(
-        "u_names" => ["foo", "bar"],
-        "constraints" => [[bounded(0.1, 1.0)], [bounded(0.2, 2.0)]],
-        "distributions" => repeat([Parameterized(Normal(0.0, 1.0))], 2),
-    )
-    priors2 = deserialize_prior(prior_dict)
-
-    @test priors2.name == ["foo", "bar"]
-    @test priors2.name != priors1.name
-    @test priors2.constraint != priors1.constraint
-
     μ_correct = Dict("foo" => [0.4], "bar" => [0.5])
     μ_incorrect1 = Dict("foo" => [0.0], "bar" => [2.5]) # Out of bounds
     μ_incorrect2 = Dict("foo" => [0.1]) # Incorrect shape

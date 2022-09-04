@@ -47,7 +47,7 @@ algorithm = config["process"]["algorithm"]
 
 # Initialize calibration process
 outdir_path = init_calibration(config; config_path = config_filename, mode = "pmap")
-priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
 
 # Dispatch SCM eval functions to workers
 @everywhere begin

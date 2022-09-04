@@ -9,9 +9,10 @@ using Distributions
 using JLD2
 using EnsembleKalmanProcesses.ParameterDistributions
 
+import ..AbstractTypes: OptVec
 import ..HelperFuncs: ParameterMap, do_nothing_param_map
 
-export construct_priors, deserialize_prior
+export construct_priors
 export logmean_and_logstd, mean_and_std_from_ln
 export flatten_config_dict
 export flat_dict_keys_where, identity, above_eps
@@ -31,10 +32,10 @@ Outputs:
  - u_names :: Vector{String} :: vector of parameter names
  - values :: Vector{Vector{T}} :: vector of single-valued vectors encapsulating parameter values.
 """
-function flatten_config_dict(param_dict::Dict{String, Vector{T}}) where {T}
+function flatten_config_dict(param_dict::Dict{String, T}) where {T}
 
     u_names = Vector{String}()
-    values = Vector{Vector{T}}()
+    values = Vector{T}()
     for (param, value) in param_dict
         if length(value) > 1
             for j in 1:length(value)
@@ -81,12 +82,12 @@ end
 
 """
     construct_priors(
-        params::Dict{String, Vector{Constraint}};
-        unconstrained_σ::Float64 = 1.0,
+        const_dict::Dict{String, T};
+        unconstrained_σ::FT = 1.0,
         prior_mean::Union{Dict{String, Vector{Float64}}, Nothing} = nothing,
         outdir_path::String = pwd(),
         to_file::Bool = true,
-    )
+    ) where {T, FT}
 
 Define a prior Gaussian ParameterDistribution in unconstrained space
 from a dictionary of constraints.
@@ -100,10 +101,10 @@ The constructor also allows passing a prior mean for each parameter in
 constrained space.
 
 Inputs:
- - params :: Dictionary of parameter names to constraints.
+ - const_dict :: Dictionary of parameter names to constraints.
  - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space).
  - prior_mean :: The mean value of the prior in constrained space. If not given,
-    the prior is selected to be 0 in unconstrained space.
+    the prior is selected to be 0 in the centered unconstrained space.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
 
@@ -111,52 +112,72 @@ Output:
  - The prior ParameterDistribution.
 """
 function construct_priors(
-    params::Dict{String, Vector{Constraint}};
-    unconstrained_σ::Float64 = 1.0,
+    const_dict::Dict{String, T};
+    unconstrained_σ::FT = 1.0,
     prior_mean::Union{Dict{String, Vector{Float64}}, Nothing} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
-)
+) where {T, FT}
     # if parameter vectors found => flatten
-    if any(1 .< [length(val) for val in collect(values(params))])
-        u_names, constraints = flatten_config_dict(params)
-    else
-        u_names = collect(keys(params))
-        constraints = collect(values(params))
-    end
-
-    n_param = length(u_names)
-
-    # All vars are approximated as Gaussian in unconstrained space.
-    if isnothing(prior_mean)
-        distributions = repeat([Parameterized(Normal(0.0, unconstrained_σ))], n_param)
-    else
-        if any(1 .< [length(val) for val in collect(values(prior_mean))])
-            u_names_mean, prior_mean = flatten_config_dict(prior_mean)
+    if any(1 .< [length(val) for val in collect(values(const_dict))])
+        u_names, constraints = flatten_config_dict(const_dict)
+        if !isnothing(prior_mean)
+            u_names_mean, prior_μ = flatten_config_dict(prior_mean)
             @assert u_names_mean == u_names
         else
-            prior_mean = collect(values(prior_mean))
+            prior_μ = nothing
         end
-        @assert length(prior_mean) == n_param
-        uncons_prior_mean =
-            [c[1].constrained_to_unconstrained(μ_cons[1]) for (μ_cons, c) in zip(prior_mean, constraints)]
-        distributions = [Parameterized(Normal(uncons_μ[1], unconstrained_σ)) for uncons_μ in uncons_prior_mean]
+    else
+        u_names = collect(keys(const_dict))
+        constraints = collect(values(const_dict))
+        prior_μ = !isnothing(prior_mean) ? collect(values(prior_mean)) : nothing
     end
-    to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); distributions, constraints, u_names) : nothing
-    marginal_priors = ParameterDistribution.(distributions, constraints, u_names)
-    return combine_distributions(marginal_priors)
+    n_param = length(u_names)
+    @assert isnothing(prior_μ) || length(prior_μ) == n_param
+
+    marginal_priors = construct_prior.(u_names, constraints, prior_μ, unconstrained_σ)
+    prior = combine_distributions(marginal_priors)
+    to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); prior) : nothing
+    return prior
 end
 
 """
-    deserialize_prior(prior_dict::Dict{String, Any})
+    construct_prior(
+        param_name::String,
+        constraint::Vector{CT},
+        prior_μ::OptVec{FT},
+        unconstrained_σ,
+    ) where {CT, FT <: Real}
 
-Generates a prior ParameterDistribution from arguments stored
-in a dictionary.
+Define a prior Gaussian ParameterDistribution in unconstrained space
+from a constraint, a prior in constrained space, and the standard deviation
+in unconstrained space.
+
+The standard deviation in unconstrained space is normalized with respect to
+the constrained interval width, so it automatically takes into account parameter scales.
+
+Inputs:
+ - param_name :: A parameter name.
+ - constraint :: A 1-element vector containing the constraints.
+ - prior_μ :: A 1-element vector containing the constrained prior mean.
+ - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space).
+
+Output:
+ - The prior ParameterDistribution.
 """
-function deserialize_prior(prior_dict::Dict{String, T}) where {T}
-    marginal_priors =
-        ParameterDistribution.(prior_dict["distributions"], prior_dict["constraints"], prior_dict["u_names"])
-    return combine_distributions(marginal_priors)
+function construct_prior(
+    param_name::String,
+    constraint::Vector{CT},
+    prior_μ::OptVec{FT},
+    unconstrained_σ::ST,
+) where {CT, FT <: Real, ST <: Real}
+    if isnothing(prior_μ)
+        distribution = Parameterized(Normal(0.0, unconstrained_σ))
+    else
+        uncons_μ = constraint[1].constrained_to_unconstrained(prior_μ[1])
+        distribution = Parameterized(Normal(uncons_μ, unconstrained_σ))
+    end
+    return ParameterDistribution(distribution, constraint, param_name)
 end
 
 """

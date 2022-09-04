@@ -30,7 +30,7 @@ outdir_path = parsed_args["job_dir"]
 include(joinpath(outdir_path, "config.jl"))
 
 versions = readlines(joinpath(outdir_path, "versions_$(iteration).txt"))
-priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
 ekobj = load(ekobj_path(outdir_path, iteration))["ekp"]
 config = get_config()
 ek_update(ekobj, priors, iteration, config, versions, outdir_path)
