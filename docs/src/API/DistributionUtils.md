@@ -6,7 +6,7 @@ CurrentModule = CalibrateEDMF.DistributionUtils
 
 ```@docs
 construct_priors
-deserialize_prior
+construct_prior
 flatten_config_dict
 flat_dict_keys_where
 logmean_and_logstd

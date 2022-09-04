@@ -41,7 +41,7 @@ ekobjs = glob(joinpath(relpath(outdir_path), "ekobj_iter_*.jld2"))
 iters = @. parse(Int64, getfield(match(r"(?<=ekobj_iter_)(\d+)", basename(ekobjs)), :match))
 last_iteration = maximum(iters)
 
-priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
 ekobj = load(ekobj_path(outdir_path, last_iteration))["ekp"]
 config = get_config()
 # continue calibration process for 5 iterations

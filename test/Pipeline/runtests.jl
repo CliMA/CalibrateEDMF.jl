@@ -109,7 +109,7 @@ end
     # Run one simulation and perturb results to emulate ensemble
     scm_args = load(scm_init_path(outdir_path, versions[1]))
     batch_indices = scm_args["batch_indices"]
-    priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+    priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
     model_evaluator = scm_args["model_evaluator"]
     model_evaluator = precondition(model_evaluator, priors)
     sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator)
@@ -205,7 +205,7 @@ end
     @test isa(val_ref_model_batch.ref_models, Vector{ReferenceModel})
     @test isa(val_ref_model_batch.eval_order, Vector{Int64})
 
-    priors = deserialize_prior(load(joinpath(outdir_path, "prior.jld2")))
+    priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
     ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
     ek_update(ekobj, priors, 1, config, versions, outdir_path)
 
