@@ -66,7 +66,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 45 #15 (for no batching)
-    config["N_ens"] = 29 #29 #50 # Must be 2p+1 when algorithm is "Unscented"
+    config["N_ens"] = 27 #29 #50 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Unscented" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
@@ -84,9 +84,9 @@ function get_reference_config(::ObsCampaigns)
     config["y_reference_type"] = LES()
     config["Σ_reference_type"] = LES()
     config["y_names"] = [
-        ["thetal_mean", "ql_mean", "qt_mean", "qr_mean"],
-        ["thetal_mean", "ql_mean", "qt_mean", "qr_mean"],
-        ["thetal_mean", "ql_mean", "qi_mean", "qt_mean", "qr_mean", "qs_mean"],
+        ["ql_mean", "qt_mean", "qr_mean"],
+        ["ql_mean", "qt_mean", "qr_mean"],
+        ["ql_mean", "qi_mean", "qt_mean", "qr_mean", "qs_mean"],
     ]
     config["y_dir"] = [
         "/groups/esm/ajaruga/calibration_data/DYCOMS_RF02/",
@@ -108,52 +108,38 @@ end
 function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
-        # entrainment parameters
-        "entrainment_factor" => [bounded(0.0, 1.0)],
-        "detrainment_factor" => [bounded(0.0, 1.0)],
-        "entrainment_smin_tke_coeff" => [bounded(0.0, 10.0)],
-        "updraft_mixing_frac" => [bounded(0.0, 1.0)],
-        "entrainment_scale" => [bounded(1.0e-6, 1.0e-2)],
-        "sorting_power" => [bounded(0.0, 4.0)],
-        "turbulent_entrainment_factor" =>[bounded(0.0, 10.0)],
-
-        # diffusion parameters
-        "tke_ed_coeff" => [bounded(0.01, 1.0)],
-        "tke_diss_coeff" => [bounded(0.01, 1.0)],
-        "static_stab_coeff" => [bounded(0.01, 1.0)],
-        "tke_surf_scale" => [bounded(1.0, 16.0)],
-
-        # momentum exchange parameters
-        "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 10.0)],
-        "pressure_normalmode_drag_coeff" => [bounded(0.0, 50.0)],
-
-        # surface
-        "surface_area" => [bounded(0.01, 0.5)],
+        # microphysics paramaters
+        "precip_fraction_limiter" => [bounded(0.1, 1.0)],
+        "τ_acnv_rai" => [bounded(100.0, 10000.0)],
+        "τ_acnv_sno" => [bounded(10.0, 1000.0)],
+        "q_liq_threshold" => [bounded(1.0e-5, 1.0e-3)],
+        "q_ice_threshold" => [bounded(1.0e-7, 1.0e-5)],
+        "microph_scaling" => [bounded(0.1, 2.0)],
+        "microph_scaling_dep_sub" => [bounded(0.1, 2.0)],
+        "microph_scaling_melt" => [bounded(0.1, 2.0)],
+        "E_liq_rai" => [bounded(0.1, 1.5)],
+        "E_liq_sno" => [bounded(0.01, 1.5)],
+        "E_ice_rai" => [bounded(0.1, 1.5)],
+        "E_ice_sno" => [bounded(0.01, 1.5)],
+        "E_rai_sno" => [bounded(0.1, 1.5)],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
-        # entrainment parameters
-        "entrainment_factor" => [0.13],
-        "detrainment_factor" => [0.51],
-        "entrainment_smin_tke_coeff" => [0.3],
-        "updraft_mixing_frac" => [0.25],
-        "entrainment_scale" => [4.0e-4],
-        "sorting_power" => [2.0],
-        "turbulent_entrainment_factor" => [0.075],
-
-        # diffusion parameters
-        "tke_ed_coeff" => [0.14],
-        "tke_diss_coeff" => [0.22],
-        "static_stab_coeff" => [0.4],
-        "tke_surf_scale" => [3.75],
-
-        # momentum exchange parameters
-        "pressure_normalmode_buoy_coeff1" => [0.12],
-        "pressure_normalmode_drag_coeff" => [10.0],
-
-        # surface
-        "surface_area" => [0.1],
+        # microphysics paramaters
+        "precip_fraction_limiter" => [0.3],
+        "τ_acnv_rai" => [2500.0],
+        "τ_acnv_sno" => [100.0],
+        "q_liq_threshold" => [0.5e-3],
+        "q_ice_threshold" => [1.0e-6],
+        "microph_scaling" => [1.0],
+        "microph_scaling_dep_sub" => [1.0],
+        "microph_scaling_melt" => [1.0],
+        "E_liq_rai" => [0.8],
+        "E_liq_sno" => [0.1],
+        "E_ice_rai" => [1.0],
+        "E_ice_sno" => [0.1],
+        "E_rai_sno" => [1.0],
     )
 
     # For Inversion should be 1, for Unscented 0.25 (tight prior)
@@ -171,24 +157,25 @@ function get_scm_config()
         ("turbulence", "EDMF_PrognosticTKE", "updraft_number", 1),
         ("turbulence", "EDMF_PrognosticTKE", "Prandtl_number_0", 0.74),
         ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", 0.001),
-        ("thermodynamics", "sgs", "mean"), #"quadrature"),
+        ("turbulence", "EDMF_PrognosticTKE", "entrainment_factor", 0.07192039664271288),
+        ("turbulence", "EDMF_PrognosticTKE", "detrainment_factor", 0.5114515031700144),
+        ("turbulence", "EDMF_PrognosticTKE", "entrainment_smin_tke_coeff", 1.9474559384234436),
+        ("turbulence", "EDMF_PrognosticTKE", "updraft_mixing_frac", 0.236988484425543),
+        ("turbulence", "EDMF_PrognosticTKE", "entrainment_scale", 0.00044688034848545943),
+        ("turbulence", "EDMF_PrognosticTKE", "sorting_power", 2.067823207953502),
+        ("turbulence", "EDMF_PrognosticTKE", "turbulent_entrainment_factor", 0.08632264601039275),
+        ("turbulence", "EDMF_PrognosticTKE", "tke_ed_coeff", 0.15437461498783545),
+        ("turbulence", "EDMF_PrognosticTKE", "tke_diss_coeff", 0.20671900372373286),
+        ("turbulence", "EDMF_PrognosticTKE", "static_stab_coeff", 0.4417631677027951),
+        ("turbulence", "EDMF_PrognosticTKE", "tke_surf_scale", 3.561324314409573),
+        ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_buoy_coeff1", 0.14471432666244155),
+        ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_drag_coeff", 14.589760562837093),
+        ("turbulence", "EDMF_PrognosticTKE", "surface_area", 0.10646887538555988),
+        ("thermodynamics", "sgs", "quadrature"),
         ("thermodynamics", "quadrature_order", 7),
-        ("thermodynamics", "quadrature_type", "gaussian"), #"gaussian" "log-normal"
+        ("thermodynamics", "quadrature_type", "log-normal"), #"gaussian" "log-normal"
         ("microphysics", "precipitation_model", "clima_1m"),
         ("microphysics", "precip_fraction_model", "cloud_cover"),
-        ("microphysics", "precip_fraction_limiter", 0.3),
-        ("microphysics", "τ_acnv_rai", 2500.0),
-        ("microphysics", "τ_acnv_sno", 100.0),
-        ("microphysics", "q_liq_threshold", 0.5e-3),
-        ("microphysics", "q_ice_threshold", 1.0e-6),
-        ("microphysics", "microph_scaling", 1.0),
-        ("microphysics", "microph_scaling_dep_sub", 1.0),
-        ("microphysics", "microph_scaling_melt", 1.0),
-        ("microphysics", "E_liq_rai", 0.8),
-        ("microphysics", "E_liq_sno", 0.1),
-        ("microphysics", "E_ice_rai", 1.0),
-        ("microphysics", "E_ice_sno", 0.1),
-        ("microphysics", "E_rai_sno", 1.0),
     ]
     return config
 end
