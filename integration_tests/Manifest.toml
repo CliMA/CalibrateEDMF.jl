@@ -676,9 +676,9 @@ version = "0.66.2"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "2d908286d120c584abbe7621756c341707096ba4"
+git-tree-sha1 = "3697c23d09d5ec6f2088faa68f0d926b6889b5be"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.66.2+0"
+version = "0.67.0+0"
 
 [[deps.GaussQuadrature]]
 deps = ["SpecialFunctions"]
@@ -1302,10 +1302,10 @@ version = "1.0.2"
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 
 [[deps.NonlinearSolve]]
-deps = ["ArrayInterfaceCore", "FiniteDiff", "ForwardDiff", "IterativeSolvers", "LinearAlgebra", "RecursiveArrayTools", "RecursiveFactorization", "Reexport", "SciMLBase", "Setfield", "StaticArrays", "UnPack"]
-git-tree-sha1 = "a754a21521c0ab48d37f44bbac1eefd1387bdcfc"
+deps = ["ArrayInterfaceCore", "FiniteDiff", "ForwardDiff", "LinearAlgebra", "RecursiveArrayTools", "Reexport", "SciMLBase", "Setfield", "StaticArrays", "UnPack"]
+git-tree-sha1 = "12ea26dc2d8d8f6773bccfe7e616b129b9705380"
 uuid = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
-version = "0.3.22"
+version = "0.3.23"
 
 [[deps.Observables]]
 git-tree-sha1 = "dfd8d34871bc3ad08cd16026c1828e271d554db9"
