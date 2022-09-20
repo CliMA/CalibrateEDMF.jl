@@ -155,9 +155,11 @@ function get_scm_config()
         ("time_stepping", "dt_max", 2.0),
         ("stats_io", "frequency", 60.0),
         ("grid", "nz", 80),
-        ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
+        ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
+        ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "NN"),
         ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
         ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "buoy_vel"),
+        ("turbulence", "EDMF_PrognosticTKE", "detr_dim_scale", "buoy_vel"),
         ("turbulence", "EDMF_PrognosticTKE", "nn_ent_biases", true),
     ]
     return config
