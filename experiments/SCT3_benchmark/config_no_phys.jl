@@ -37,7 +37,9 @@ namelist_args = [
     # Add namelist_args defining entrainment closure, e.g.
     ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
     ("turbulence", "EDMF_PrognosticTKE", "entr_dim_scale", "none"),
-    ("turbulence", "EDMF_PrognosticTKE", "entrainment", "NN"),
+    ("turbulence", "EDMF_PrognosticTKE", "detr_dim_scale", "none"),
+    ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
+    ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "NN"),
 ]
 
 function get_config()

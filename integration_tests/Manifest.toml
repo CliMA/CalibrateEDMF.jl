@@ -90,10 +90,10 @@ uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 version = "0.8.11"
 
 [[deps.ArtifactWrappers]]
-deps = ["DocStringExtensions", "Downloads", "Pkg"]
-git-tree-sha1 = "e9b52e63e3ea81a504412807c9426566e26c232d"
+deps = ["Downloads", "Pkg"]
+git-tree-sha1 = "a441cb9044080134a141a67370f01c2baba8a24a"
 uuid = "a14bc488-3040-4b00-9dc1-f6467924858a"
-version = "0.1.1"
+version = "0.1.2"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -670,9 +670,9 @@ version = "0.66.2"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "3697c23d09d5ec6f2088faa68f0d926b6889b5be"
+git-tree-sha1 = "0eb5ef6f270fb70c2d83ee3593f56d02ed6fc7ff"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.67.0+0"
+version = "0.68.0+0"
 
 [[deps.GaussQuadrature]]
 deps = ["SpecialFunctions"]
@@ -1184,9 +1184,9 @@ version = "1.2.0"
 
 [[deps.MathOptInterface]]
 deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "DataStructures", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "Printf", "SparseArrays", "SpecialFunctions", "Test", "Unicode"]
-git-tree-sha1 = "81a98bed15dc1d49ed6afa2dc65272e402a1704b"
+git-tree-sha1 = "2284cb18c8670fd5c57ad010ce9bd4e2901692d2"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-version = "1.8.1"
+version = "1.8.2"
 
 [[deps.MathTeXEngine]]
 deps = ["AbstractTrees", "Automa", "DataStructures", "FreeTypeAbstraction", "GeometryBasics", "LaTeXStrings", "REPL", "RelocatableFolders", "Test"]
@@ -1566,9 +1566,9 @@ version = "2.5.0"
 
 [[deps.Quaternions]]
 deps = ["DualNumbers", "LinearAlgebra", "Random"]
-git-tree-sha1 = "b327e4db3f2202a4efafe7569fcbe409106a1f75"
+git-tree-sha1 = "4ab19353944c46d65a10a75289d426ef57b0a40c"
 uuid = "94ee1d12-ae83-5a48-8b1c-48b8ff168ae0"
-version = "0.5.6"
+version = "0.5.7"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1942,9 +1942,9 @@ version = "1.0.1"
 
 [[deps.Thermodynamics]]
 deps = ["DocStringExtensions", "KernelAbstractions", "Random", "RootSolvers"]
-git-tree-sha1 = "0151b1a971fdd9438a6341ffde927efecfe275c1"
+git-tree-sha1 = "aecfcab9230dbefa08d669a5414bba53fd952113"
 uuid = "b60c26fb-14c3-4610-9d3e-2d17fe7ff00c"
-version = "0.9.5"
+version = "0.9.6"
 
 [[deps.ThreadingUtilities]]
 deps = ["ManualMemory"]
