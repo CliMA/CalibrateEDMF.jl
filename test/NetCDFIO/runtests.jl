@@ -58,8 +58,8 @@ using EnsembleKalmanProcesses: DataContainer
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)
     # Write fabricated loss data to ekp
     d_full, d = full_length(ref_stats), pca_length(ref_stats)
-    g = collect(Float64, reshape(1:d*N_ens, d, N_ens))
-    g_full = collect(Float64, reshape(1:d_full*N_ens, d_full, N_ens))
+    g = collect(Float64, reshape(1:(d * N_ens), d, N_ens))
+    g_full = collect(Float64, reshape(1:(d_full * N_ens), d_full, N_ens))
     push!(ekp.g, DataContainer(g))
     compute_error!(ekp)
     mse_full = collect(Float64, 1:N_ens)
@@ -83,7 +83,7 @@ using EnsembleKalmanProcesses: DataContainer
     CN.init_metrics(diags)
     CN.init_particle_diags(diags, ekp, priors)
     CN.open_files(diags)
-    
+
     CN.io_metrics(diags, ekp, mse_full)  # test writing of Floats
     CN.io_particle_diags_eval(diags, ekp, mse_full, g_full, nothing)  # test writing of vectors and matrices
     CN.write_iteration(diags)
