@@ -14,6 +14,7 @@ using CalibrateEDMF.NetCDFIO
 const CN = CalibrateEDMF.NetCDFIO
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
+using EnsembleKalmanProcesses: DataContainer
 
 @testset "NetCDFIO_Diags" begin
     # Choose same SCM to speed computation
@@ -57,6 +58,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion())
     N_ens = size(get_u_final(ekp), 2)
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)
+    # Write fabricated loss data to ekp
+    d_full, d = full_length(ref_stats), pca_length(ref_stats)
+    g = collect(Float64, reshape(1:d*N_ens, d, N_ens))
+    g_full = collect(Float64, reshape(1:d_full*N_ens, d_full, N_ens))
+    push!(ekp.g, DataContainer(g))
+    compute_error!(ekp)
+    mse_full = collect(Float64, 1:N_ens)
 
     # Test constructor
     @test isa(diags, NetCDFIO_Diags)
@@ -74,11 +82,23 @@ using EnsembleKalmanProcesses.ParameterDistributions
 
     # Test iteration-dependent diagnostics
     CN.init_iteration_io(diags)
+    CN.init_metrics(diags)
+    CN.init_particle_diags(diags, ekp, priors)
     CN.open_files(diags)
+    
+    CN.io_metrics(diags, ekp, mse_full)  # test writing of Floats
+    CN.io_particle_diags_eval(diags, ekp, mse_full, g_full, nothing)  # test writing of vectors and matrices
     CN.write_iteration(diags)
     CN.close_files(diags)
     NC.Dataset(diags.filepath, "r") do root_grp
         ensemble_grp = root_grp.group["ensemble_diags"]
         @test length(ensemble_grp["iteration"]) == 2
+        metric_grp = root_grp.group["metrics"]
+        @test metric_grp["loss_mean"][1] < 1e5  # check not inf
+        @test metric_grp["mse_full_mean"][1] ≈ 5.5
+        particle_grp = root_grp.group["particle_diags"]
+        @test particle_grp["g"][:, :, 1] == g'  # check correct writing of matrix
+        @test particle_grp["g_full"][:, :, 1] == g_full'  # check correct writing of matrix
+        @test particle_grp["mse_full"][:, 1] == mse_full  # check correct writing of vector
     end
 end
