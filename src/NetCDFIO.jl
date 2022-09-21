@@ -4,6 +4,7 @@ using NCDatasets
 const NC = NCDatasets
 
 using Statistics
+using DocStringExtensions
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
@@ -18,23 +19,42 @@ export init_iteration_io, init_particle_diags, init_metrics, init_ensemble_diags
 export init_val_diagnostics
 export io_prior, io_reference, io_diagnostics, io_val_diagnostics
 
+"""
+    NetCDFIO_Diags
 
+Struct to work with NetCDFIO diagnostics data. Stores direct references to ensemble, particle and metric data.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
+"""
 mutable struct NetCDFIO_Diags
+    "Reference to full NetCDF file"
     root_grp::NC.NCDataset{Nothing}
+    "Reference to the `ensmeble_diags` group in the NetCDF file"
     ensemble_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Reference to the `particle_diags` group in the NetCDF file"
     particle_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Reference to the `metrics` group in the NetCDF file"
     metric_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Path to directory where the NetCDF file is located"
     outdir_path::String
+    "Path to the NetCDF file"
     filepath::String
-    vars::Dict{String, Any} # Hack to avoid https://github.com/Alexander-Barth/NCDatasets.jl/issues/135
+    "Nested dictionary with references to stored variables within each of the ensemble, particle and metrics groups"
+    vars::Dict{String, Any} # TODO: Refactor `vars`. See https://github.com/CliMA/TurbulenceConvection.jl/pull/1214
     function NetCDFIO_Diags(
         config::Dict{Any, Any},
         outdir_path::String,
         ref_stats::ReferenceStatistics,
-        N_ens::IT,
+        N_ens::Integer,
         priors::ParameterDistribution,
         val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
-    ) where {IT <: Integer}
+    )
 
         # Initialize properties with valid type:
         tmp = tempname()
@@ -198,6 +218,13 @@ mutable struct NetCDFIO_Diags
     end
 end
 
+"""
+    open_files(diags::NetCDFIO_Diags)
+
+Open the NetCDF file associated with `diags` and store its ensemble, particle and metric data in the struct.
+
+See also [close_files](@ref).
+"""
 function open_files(diags::NetCDFIO_Diags)
     diags.root_grp = NC.Dataset(diags.filepath, "a")
     diags.ensemble_grp = diags.root_grp.group["ensemble_diags"]
@@ -205,7 +232,6 @@ function open_files(diags::NetCDFIO_Diags)
     diags.metric_grp = diags.root_grp.group["metrics"]
     vars = diags.vars
 
-    # Hack to avoid https://github.com/Alexander-Barth/NCDatasets.jl/issues/135
     vars["ensemble_diags"] = Dict{String, Any}()
     for k in keys(diags.ensemble_grp)
         vars["ensemble_diags"][k] = diags.ensemble_grp[k]
@@ -220,6 +246,13 @@ function open_files(diags::NetCDFIO_Diags)
     end
 end
 
+"""
+    close_files(diags::NetCDFIO_Diags)
+
+Close the NetCDF file associated with `diags`.
+
+See also [open_files](@ref).
+"""
 function close_files(diags::NetCDFIO_Diags)
     close(diags.root_grp)
 end
@@ -227,7 +260,7 @@ end
 """
     add_field(diags::NetCDFIO_Diags, var_name; dims, group, type)
 
-Add a field with some `var_name` and `type` to some `group` in an existing NetCDF Dataset. The dataset is assume closed.
+Add a field with some `var_name` and `type` to some `group` in an existing NetCDF Dataset. The dataset is assumed closed.
 """
 function add_field(diags::NetCDFIO_Diags, var_name::String; dims, group, type)
     NC.Dataset(diags.filepath, "a") do root_grp
@@ -452,11 +485,7 @@ function io_particle_diags_eval(
     write_current_dict(diags, io_dict)
 end
 
-function io_particle_diags_state(
-    diags::NetCDFIO_Diags,
-    ekp::EnsembleKalmanProcess,
-    priors::ParameterDistribution,
-)
+function io_particle_diags_state(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_particle_state(ekp, priors)
     write_current_dict(diags, io_dict)
 end
