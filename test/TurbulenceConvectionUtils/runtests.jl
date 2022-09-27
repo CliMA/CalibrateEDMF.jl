@@ -72,6 +72,8 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
             :Σ_t_start => [t_max - 2.0 * 3600],
             :Σ_t_end => [t_max],
             :namelist_args => [namelist_args],
+            :y_type => SCM(),
+            :Σ_type => SCM(),
         )
         ref_models = construct_reference_models(kwargs_ref_model)
         @test_logs (:warn,) match_mode = :any run_reference_SCM.(
@@ -90,7 +92,7 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
         )
         param_map = do_nothing_param_map()
         prior = construct_priors(constraints; to_file = false)
-        ref_stats = ReferenceStatistics(ref_models; y_type = SCM(), Σ_type = SCM())
+        ref_stats = ReferenceStatistics(ref_models)
 
         res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map)
         @test model_error
@@ -122,6 +124,8 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
             :t_end => [t_max],
             :Σ_t_start => [t_max - 2.0 * 3600],
             :Σ_t_end => [t_max],
+            :y_type => SCM(),
+            :Σ_type => SCM(),
         )
         ref_models = construct_reference_models(kwargs_ref_model; seed = seed)
         run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, run_single_timestep = true)
