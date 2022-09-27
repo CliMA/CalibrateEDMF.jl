@@ -38,6 +38,8 @@ using CalibrateEDMF.DistributionUtils
         :t_start => repeat([t_max - 2.0 * 3600], 2),
         :t_end => repeat([t_max], 2),
         :namelist_args => repeat([namelist_args], 2),
+        :y_type => SCM(),
+        :Σ_type => SCM(),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, output_root = data_dir, uuid = uuid, overwrite = false, run_single_timestep = false)
@@ -98,8 +100,6 @@ using CalibrateEDMF.DistributionUtils
             tikhonov_noise = 0.1,
             tikhonov_mode = tikhonov_mode,
             dim_scaling = dim_scaling,
-            y_type = SCM(),
-            Σ_type = SCM(),
             model_errors = model_err,
         )
 
@@ -107,7 +107,7 @@ using CalibrateEDMF.DistributionUtils
         @test full_length(ref_stats) == size(ref_stats.Γ_full, 1)
         @test (pca_length(ref_stats) < full_length(ref_stats)) == perform_PCA
         for (ci, m) in enumerate(ref_models)
-            y_case, _, _ = get_obs(m, SCM(), SCM(), norm, z_scm = get_z_obs(m))
+            y_case, _, _ = get_obs(m, norm, z_scm = get_z_obs(m))
             @test full_length(ref_stats, ci) == length(y_case)
             y_case_pca = ref_stats.pca_vec[ci]' * y_case
             @test pca_length(ref_stats, ci) == length(y_case_pca)
