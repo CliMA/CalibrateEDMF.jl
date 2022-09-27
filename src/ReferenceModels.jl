@@ -40,6 +40,7 @@ import NCDatasets
 NC = NCDatasets
 
 using ..AbstractTypes
+using ..ModelTypes
 using ..HelperFuncs
 
 import ..AbstractTypes: OptVec, OptInt, OptString, OptReal
@@ -57,7 +58,7 @@ $(TYPEDFIELDS)
 
 # Constructors
 
-    ReferenceModel(y_names, y_dir, case_name, t_start, t_end; [Σ_dir, Σ_t_start, Σ_t_end, n_obs, namelist_args, seed])
+    ReferenceModel(y_names, y_dir, case_name, t_start, t_end; [Σ_dir, Σ_t_start, Σ_t_end, y_type, Σ_type, n_obs, namelist_args, seed])
 
 A [`ReferenceModel`](@ref) can be defined for a case `case_name`, provided the location of the data, `y_dir`, the 
 reference variable names `y_names`, and the averaging interval (`t_start`, `t_end`) is provided.
@@ -95,6 +96,10 @@ Base.@kwdef struct ReferenceModel{FT <: Real}
     z_obs::Vector{FT}
     "TurbulenceConvection namelist"
     namelist::Dict
+    "Type of model used to generate mean observations"
+    y_type::ModelType
+    "Type of model used to generate observational noise"
+    Σ_type::ModelType
 end  # ReferenceModel struct
 
 function ReferenceModel(
@@ -106,12 +111,19 @@ function ReferenceModel(
     Σ_dir::OptString = nothing,
     Σ_t_start::OptReal = nothing,
     Σ_t_end::OptReal = nothing,
+    y_type::ModelType = LES(),
+    Σ_type::ModelType = LES(),
     n_obs::OptInt = nothing,
     namelist_args::OptVec{<:Tuple} = nothing,
     seed::OptInt = nothing,
 )
+    if case_name == "LES_driven_SCM"
+        @assert isa(y_type, LES) or isa (Σ_type, LES) "LES data must be used in the construction of LES_driven_SCM ReferenceModels."
+    end
+    les_dir = isa(y_type, LES) ? y_dir : Σ_dir
+
     # Always create new namelist
-    namelist = get_scm_namelist(case_name, y_dir = y_dir, namelist_args = namelist_args, seed = seed)
+    namelist = get_scm_namelist(case_name, les_dir = les_dir, namelist_args = namelist_args, seed = seed)
     z_obs = construct_z_obs(namelist)
     z_obs = !isnothing(n_obs) ? Array(range(z_obs[1], z_obs[end], n_obs)) : z_obs
     FT = eltype(z_obs)
@@ -131,6 +143,8 @@ function ReferenceModel(
         FT(Σ_t_end),
         z_obs,
         namelist,
+        y_type,
+        Σ_type,
     )
 end
 
@@ -159,13 +173,13 @@ namelist_directory(root::AbstractString, casename::AbstractString) = joinpath(ro
 num_vars(m::ReferenceModel) = length(m.y_names)
 
 """
-    get_scm_namelist(case_name; [y_dir, overwrite, namelist_args, seed])
+    get_scm_namelist(case_name; [les_dir, overwrite, namelist_args, seed])
 
 Returns a TurbulenceConvection.jl namelist, given a case and a list of namelist arguments.
 
 Inputs:
  - `case_name`      :: Name of the TurbulenceConvection.jl case considered.
- - `y_dir`          :: Directory with LES data to drive the SCM with, if `case_name` is `LES_driven_SCM`.
+ - `les_dir`          :: Directory with LES data to drive the SCM with, if `case_name` is `LES_driven_SCM`.
  - `namelist_args`  :: Vector of non-default arguments to be used in the namelist, defined as a vector of tuples.
  - `seed`           :: If set, seed is an integer, and is the seed value to generate a TC namelist.
 Outputs:
@@ -173,7 +187,7 @@ Outputs:
 """
 function get_scm_namelist(
     case_name::String;
-    y_dir::OptString = nothing,
+    les_dir::OptString = nothing,
     namelist_args::OptVec{<:Tuple} = nothing,
     seed::OptInt = nothing,
 )::Dict
@@ -189,8 +203,8 @@ function get_scm_namelist(
 
     # if `LES_driven_SCM` case, provide input LES stats file
     if case_name == "LES_driven_SCM"
-        @assert !isnothing(y_dir) "lesfile must be specified in the construction of LES_driven_SCM namelist."
-        namelist["meta"]["lesfile"] = get_stats_path(y_dir)
+        @assert !isnothing(les_dir) "lesfile must be specified in the construction of LES_driven_SCM namelist."
+        namelist["meta"]["lesfile"] = get_stats_path(les_dir)
     end
 
     return namelist
@@ -227,6 +241,8 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:T
     Σ_t_start = expand_dict_entry(ref_config, "Σ_t_start", n_cases)
     Σ_t_end = expand_dict_entry(ref_config, "Σ_t_end", n_cases)
     n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
+    y_type = ref_config["y_reference_type"]
+    Σ_type = ref_config["Σ_reference_type"]
     # Construct namelist_args from case-specific args merged with global args
     # Note: Case-specific args takes precedence over global args
     case_namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
@@ -246,16 +262,20 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:T
         :Σ_t_end => Σ_t_end,
         :n_obs => n_obs,
         :namelist_args => namelist_args,
+        :y_type => y_type,
+        :Σ_type => Σ_type,
     )
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)
-        @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
+        if !(k in [:y_type, :Σ_type])
+            @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
+        end
     end
     return rm_kwargs
 end
 
 """
-    construct_reference_models(kwarg_ld::Dict{Symbol, Vector; [seed])::Vector{ReferenceModel}
+    construct_reference_models(kwarg_ld::Dict; [seed])::Vector{ReferenceModel}
 
 Returns a vector of `ReferenceModel`s given a dictionary of keyword argument lists.
 
@@ -270,14 +290,11 @@ Outputs:
 
  - `ref_models` :: Vector where the i-th ReferenceModel is constructed from the i-th element of every keyword argument list of the dictionary.
 """
-function construct_reference_models(
-    kwarg_ld::Dict{Symbol, Vector{T} where T};
-    seed::OptInt = nothing,
-)::Vector{ReferenceModel}
+function construct_reference_models(kwarg_ld::Dict; seed::OptInt = nothing)::Vector{ReferenceModel}
     n_RM = length(kwarg_ld[:case_name])
     ref_models = Vector{ReferenceModel}()
     for RM_i in 1:n_RM
-        kw = Dict(k => v[RM_i] for (k, v) in pairs(kwarg_ld))  # unpack dict
+        kw = Dict(k => v[RM_i] for (k, v) in pairs(kwarg_ld) if !(k in [:y_type, :Σ_type]))  # unpack dict
         args = (kw[j] for j in (:y_names, :y_dir, :case_name, :t_start, :t_end))
 
         push!(
@@ -287,6 +304,8 @@ function construct_reference_models(
                 Σ_dir = get(kw, :Σ_dir, nothing),
                 Σ_t_start = get(kw, :Σ_t_start, nothing),
                 Σ_t_end = get(kw, :Σ_t_end, nothing),
+                y_type = kwarg_ld[:y_type],
+                Σ_type = kwarg_ld[:Σ_type],
                 n_obs = get(kw, :n_obs, nothing),
                 namelist_args = get(kw, :namelist_args, nothing),
                 seed = seed,
@@ -336,6 +355,8 @@ function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Rea
         Σ_t_end,
         m.z_obs,
         m.namelist,
+        m.y_type,
+        m.Σ_type,
     )
 end
 
@@ -356,7 +377,7 @@ $(TYPEDFIELDS)
 `ReferenceModelBatch` constructor given a vector of `ReferenceModel`s.
 
 
-    ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
+    ReferenceModelBatch(kwarg_ld::Dict, shuffling::Bool = true)
 
 `ReferenceModelBatch` constructor given a dictionary of keyword argument lists.
 
@@ -372,7 +393,7 @@ Base.@kwdef struct ReferenceModelBatch
     eval_order::Vector{Int}
 end
 
-function ReferenceModelBatch(kwarg_ld::Dict{Symbol, Vector{T} where T}, shuffling::Bool = true)
+function ReferenceModelBatch(kwarg_ld::Dict, shuffling::Bool = true)
     ref_models = construct_reference_models(kwarg_ld)
     eval_order = shuffling ? shuffle(1:length(ref_models)) : 1:length(ref_models)
     return ReferenceModelBatch(ref_models, eval_order)

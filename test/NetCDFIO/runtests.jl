@@ -38,11 +38,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
         :t_start => repeat([t_max - 2.0 * 3600], 2),
         :t_end => repeat([t_max], 2),
         :namelist_args => repeat([namelist_args], 2),
+        :y_type => SCM(),
+        :Σ_type => SCM(),
     )
     # Generate ref_stats
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models, output_root = data_dir, uuid = uuid, overwrite = false, run_single_timestep = false)
-    ref_stats = ReferenceStatistics(ref_models, y_type = SCM(), Σ_type = SCM())
+    ref_stats = ReferenceStatistics(ref_models)
     # Generate config
     config = Dict()
     config["process"] = Dict()

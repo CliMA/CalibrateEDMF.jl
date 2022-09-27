@@ -55,6 +55,8 @@ end
         :case_name => ["DYCOMS_RF01", "GABLS"],
         :t_start => repeat([0.0], 2),
         :t_end => repeat([10.0], 2),
+        :y_type => SCM(),
+        :Σ_type => SCM(),
     )
     ref_model_batch = ReferenceModelBatch(kwargs_ref_model)
     @test length(ref_model_batch.ref_models) == 2
@@ -96,6 +98,8 @@ end
         :Σ_t_end => repeat([t_max - 0.5 * 3600], 2),
         :n_obs => [nothing, 15],
         :namelist_args => repeat([namelist_args], 2),
+        :y_type => SCM(),
+        :Σ_type => SCM(),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, overwrite = true, run_single_timestep = false)
@@ -134,6 +138,8 @@ end
             "y_names" => repeat([["thetal_mean"]], 3),
             "t_start" => [0.0, 1.0, 1.0],
             "t_end" => [1.0, 2.0, 2.0],
+            "y_reference_type" => SCM(),
+            "Σ_reference_type" => SCM(),
             "namelist_args" => [
                 [("time_stepping", "dt_max", 21.1), ("stats_io", "frequency", 121.0)],
                 [("time_stepping", "dt_max", 29.1), ("stats_io", "frequency", 122.0)],
