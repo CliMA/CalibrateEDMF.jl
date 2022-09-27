@@ -1,4 +1,5 @@
 using Test
+using CalibrateEDMF.ModelTypes
 using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.TurbulenceConvectionUtils
 import CalibrateEDMF.HelperFuncs: get_entry
