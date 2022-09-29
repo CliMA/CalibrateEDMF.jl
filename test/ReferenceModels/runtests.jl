@@ -89,9 +89,12 @@ end
         ("grid", "nz", 20),
     ]
 
+    # Test that only LES data are time-shifted
     kwargs_ref_model = Dict(
-        :y_names => [["u_mean", "v_mean"], ["thetal_mean"]],
+        # Use variables with same LES alias since we are using SCM as LES
+        :y_names => [["u_mean", "v_mean"], ["v_mean"]],
         :y_dir => y_dirs,
+        :Σ_dir => y_dirs,
         :case_name => repeat([case], 2),
         :t_start => repeat([t_max - 3600], 2),
         :t_end => [t_max, t_max],
@@ -100,24 +103,27 @@ end
         :n_obs => [nothing, 15],
         :namelist_args => repeat([namelist_args], 2),
         :y_type => SCM(),
-        :Σ_type => SCM(),
+        :Σ_type => LES(),
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, overwrite = true, run_single_timestep = false)
+
+    # Test model 1 -- shifted
     Δt = 3.0 * 3600
     ref_model = time_shift_reference_model(ref_models[1], Δt)
     z = get_z_obs(ref_model)
 
-    @test get_t_start(ref_model) == t_max - Δt + (t_max - 3600)
-    @test get_t_end(ref_model) == t_max - Δt + t_max
+    @test get_t_start(ref_model) == t_max - 3600 # No shift
+    @test get_t_end(ref_model) == t_max # No shift
     @test get_t_start_Σ(ref_model) == t_max - Δt + (t_max - 2.0 * 3600)
     @test get_t_end_Σ(ref_model) == t_max - Δt + (t_max - 0.5 * 3600)
     @test length(z) == 20
     @test z[2] - z[1] ≈ 150
 
-    Δt = 2 * t_max
-    @test_throws AssertionError time_shift_reference_model(ref_models[1], Δt)
+    Δt_error = 2 * t_max
+    @test_throws AssertionError time_shift_reference_model(ref_models[1], Δt_error)
 
+    # Test model 2 -- not shifted
     ref_model = ref_models[2]
     z = get_z_obs(ref_model)
 
@@ -128,6 +134,53 @@ end
     @test length(z) == 15
     @test z[2] - z[1] ≈ 150.0 * (20 - 1) / (15 - 1)
 
+    # Test that SCM are not shifted
+    kwargs_ref_model = Dict(
+        # Use variables with same LES alias since we are using SCM as LES
+        :y_names => [["v_mean"], ["v_mean"]],
+        :y_dir => y_dirs,
+        :Σ_dir => y_dirs,
+        :case_name => repeat([case], 2),
+        :t_start => repeat([t_max - 3600], 2),
+        :t_end => [t_max, t_max],
+        :Σ_t_start => repeat([t_max - 2.0 * 3600], 2),
+        :Σ_t_end => repeat([t_max - 0.5 * 3600], 2),
+        :namelist_args => repeat([namelist_args], 2),
+        :y_type => SCM(),
+        :Σ_type => SCM(),
+    )
+    ref_models = construct_reference_models(kwargs_ref_model)
+    # Check that no shift happens when all ModelTypes are SCM
+    ref_model_shifted = time_shift_reference_model(ref_models[1], Δt)
+    ref_model_not_shifted = ref_models[2]
+    @test get_t_start(ref_model_shifted) == get_t_start(ref_model_not_shifted)
+    @test get_t_end(ref_model_shifted) == get_t_end(ref_model_not_shifted)
+    @test get_t_start_Σ(ref_model_shifted) == get_t_start_Σ(ref_model_not_shifted)
+    @test get_t_end_Σ(ref_model_shifted) == get_t_end_Σ(ref_model_not_shifted)
+
+    # Test that LES are shifted
+    kwargs_ref_model = Dict(
+        # Use variables with same LES alias since we are using SCM as LES
+        :y_names => [["v_mean"], ["v_mean"]],
+        :y_dir => y_dirs,
+        :Σ_dir => y_dirs,
+        :case_name => repeat([case], 2),
+        :t_start => repeat([t_max - 3600], 2),
+        :t_end => [t_max, t_max],
+        :Σ_t_start => repeat([t_max - 2.0 * 3600], 2),
+        :Σ_t_end => repeat([t_max - 0.5 * 3600], 2),
+        :namelist_args => repeat([namelist_args], 2),
+        :y_type => LES(),
+        :Σ_type => LES(),
+    )
+    ref_models = construct_reference_models(kwargs_ref_model)
+    # Check that they are equivalent when all ModelTypes are SCM
+    ref_model_shifted = time_shift_reference_model(ref_models[1], Δt)
+    ref_model_not_shifted = ref_models[2]
+    @test get_t_start(ref_model_shifted) != get_t_start(ref_model_not_shifted)
+    @test get_t_end(ref_model_shifted) != get_t_end(ref_model_not_shifted)
+    @test get_t_start_Σ(ref_model_shifted) != get_t_start_Σ(ref_model_not_shifted)
+    @test get_t_end_Σ(ref_model_shifted) != get_t_end_Σ(ref_model_not_shifted)
 end
 
 @testset "ReferenceModel namelist_args prioritization" begin
