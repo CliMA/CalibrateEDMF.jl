@@ -24,10 +24,11 @@ using EnsembleKalmanProcesses.ParameterDistributions
 struct SCT3Train end
 struct SCT3Val end
 
-batch = 15 # Possible batch sizes are [1, 3, 5, 9, 15, 27, 45, 135]
+NUM_NN_PARAMS = 76
 
-dt_default = 135.0 / batch
-dt = dt_default * 1.0 # Treat as hyperparameter
+batch = 40 # Possible batch sizes are [1, 2, 4, 5, 8, 10, 20, 25, 40, 50, 100]
+dt_default = 200.0 / batch
+dt = dt_default * 2.0 # Treat as hyperparameter
 
 namelist_args = [
     ("time_stepping", "dt_min", 0.5),
@@ -40,6 +41,9 @@ namelist_args = [
     ("turbulence", "EDMF_PrognosticTKE", "detr_dim_scale", "none"),
     ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
     ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "NN"),
+    ("turbulence", "EDMF_PrognosticTKE", "nn_arc", (6, 6, 5, 2)),
+    ("turbulence", "EDMF_PrognosticTKE", "nn_ent_params", zeros(NUM_NN_PARAMS)),
+    ("turbulence", "EDMF_PrognosticTKE", "nn_ent_biases", false),
 ]
 
 function get_config()
@@ -91,7 +95,7 @@ function get_regularization_config()
     # in UKI. Feel free to set treat these as hyperparameters.
     config["l2_reg"] = Dict(
         # entrainment parameters
-        "nn_ent_params" => repeat([0.0], 58),
+        "nn_ent_params" => repeat([0.0], NUM_NN_PARAMS),
     )
     return config
 end
@@ -99,7 +103,7 @@ end
 function get_process_config()
     config = Dict()
     config["N_iter"] = 50
-    config["N_ens"] = 50 # Must be 2p+1 when algorithm is "Unscented"
+    config["N_ens"] = 100 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
@@ -108,13 +112,14 @@ function get_process_config()
     config["augmented"] = false
     config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
     # https://github.com/CliMA/EnsembleKalmanProcesses.jl/blob/main/src/Localizers.jl#L63
-    config["localizer"] = SEC(0.5, 0.1) # First arg is strength of localization, second is the minimum correlation retained
+    # use localizer when number of parameters > number of ensemble members
+    # config["localizer"] = SEC(0.5, 0.1) # First arg is strength of localization, second is the minimum correlation retained
     return config
 end
 
 function get_reference_config(::SCT3Train)
     config = Dict()
-    # Get all 135 shallow cases from Shen et al (2022)
+    # Get 200 shallow cases
     les_library = get_shallow_LES_library()
 
     ref_dirs = []
@@ -125,6 +130,7 @@ function get_reference_config(::SCT3Train)
             append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
         end
     end
+    ref_dirs = ref_dirs[1:200]
     n_repeat = length(ref_dirs)
 
     config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
@@ -139,7 +145,7 @@ function get_reference_config(::SCT3Train)
     # Use full LES timeseries for covariance
     config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
-    config["batch_size"] = batch # Possible batch sizes are [1, 3, 5, 9, 15, 27, 45, 135]
+    config["batch_size"] = batch # Possible batch sizes are [1, 2, 4, 5, 8, 10, 20, 25, 40, 50, 100]
     config["write_full_stats"] = false
     config["namelist_args"] = repeat([namelist_args], n_repeat)
     return config
@@ -185,13 +191,13 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # data-driven entrainment parameters
-        "nn_ent_params" => [repeat([no_constraint()], 58)...],
+        "nn_ent_params" => [repeat([no_constraint()], NUM_NN_PARAMS)...],
     )
 
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # data-driven entrainment parameters
-        "nn_ent_params" => 0.1 .* (rand(58) .- 0.5),
+        "nn_ent_params" => 0.1 .* (rand(NUM_NN_PARAMS) .- 0.5),
     )
 
     config["unconstrained_σ"] = 1.0
