@@ -2,7 +2,7 @@ status = [
   # "buildkite/calibrateedmf-ci", # random errors within Distributed 
   "format",
   "docbuild",
-  "ci 1.8.1 - ubuntu-latest",
+  # "ci 1.8.1 - ubuntu-latest",
   # "ci 1.8.1 - windows-latest", # not passing
   "ci 1.8.1 - macOS-latest",
 ]
