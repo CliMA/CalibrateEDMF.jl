@@ -4,6 +4,7 @@ using NCDatasets
 const NC = NCDatasets
 
 using Statistics
+using DocStringExtensions
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
@@ -18,23 +19,42 @@ export init_iteration_io, init_particle_diags, init_metrics, init_ensemble_diags
 export init_val_diagnostics
 export io_prior, io_reference, io_diagnostics, io_val_diagnostics
 
+"""
+    NetCDFIO_Diags
 
+Struct to work with NetCDFIO diagnostics data. Stores direct references to ensemble, particle and metric data.
+
+# Fields
+
+$(TYPEDFIELDS)
+
+# Constructors
+
+$(METHODLIST)
+"""
 mutable struct NetCDFIO_Diags
+    "Reference to full NetCDF file"
     root_grp::NC.NCDataset{Nothing}
+    "Reference to the `ensmeble_diags` group in the NetCDF file"
     ensemble_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Reference to the `particle_diags` group in the NetCDF file"
     particle_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Reference to the `metrics` group in the NetCDF file"
     metric_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Path to directory where the NetCDF file is located"
     outdir_path::String
+    "Path to the NetCDF file"
     filepath::String
-    vars::Dict{String, Any} # Hack to avoid https://github.com/Alexander-Barth/NCDatasets.jl/issues/135
+    "Nested dictionary with references to stored variables within each of the ensemble, particle and metrics groups"
+    vars::Dict{String, Any} # TODO: Refactor `vars`. See https://github.com/CliMA/TurbulenceConvection.jl/pull/1214
     function NetCDFIO_Diags(
         config::Dict{Any, Any},
         outdir_path::String,
         ref_stats::ReferenceStatistics,
-        N_ens::IT,
+        N_ens::Integer,
         priors::ParameterDistribution,
         val_ref_stats::Union{ReferenceStatistics, Nothing} = nothing,
-    ) where {IT <: Integer}
+    )
 
         # Initialize properties with valid type:
         tmp = tempname()
@@ -198,6 +218,13 @@ mutable struct NetCDFIO_Diags
     end
 end
 
+"""
+    open_files(diags::NetCDFIO_Diags)
+
+Open the NetCDF file associated with `diags` and store its ensemble, particle and metric data in the struct.
+
+See also [close_files](@ref).
+"""
 function open_files(diags::NetCDFIO_Diags)
     diags.root_grp = NC.Dataset(diags.filepath, "a")
     diags.ensemble_grp = diags.root_grp.group["ensemble_diags"]
@@ -205,7 +232,6 @@ function open_files(diags::NetCDFIO_Diags)
     diags.metric_grp = diags.root_grp.group["metrics"]
     vars = diags.vars
 
-    # Hack to avoid https://github.com/Alexander-Barth/NCDatasets.jl/issues/135
     vars["ensemble_diags"] = Dict{String, Any}()
     for k in keys(diags.ensemble_grp)
         vars["ensemble_diags"][k] = diags.ensemble_grp[k]
@@ -220,11 +246,22 @@ function open_files(diags::NetCDFIO_Diags)
     end
 end
 
+"""
+    close_files(diags::NetCDFIO_Diags)
+
+Close the NetCDF file associated with `diags`.
+
+See also [open_files](@ref).
+"""
 function close_files(diags::NetCDFIO_Diags)
     close(diags.root_grp)
 end
 
-"""Adds a given field to an existing NetCDF Dataset."""
+"""
+    add_field(diags::NetCDFIO_Diags, var_name; dims, group, type)
+
+Add a field with some `var_name` and `type` to some `group` in an existing NetCDF Dataset. The dataset is assumed closed.
+"""
 function add_field(diags::NetCDFIO_Diags, var_name::String; dims, group, type)
     NC.Dataset(diags.filepath, "a") do root_grp
         grp = root_grp.group[group]
@@ -232,27 +269,32 @@ function add_field(diags::NetCDFIO_Diags, var_name::String; dims, group, type)
     end
 end
 
-"""Writes current field `data` to an existing variable in a NetCDF Dataset."""
-function write_current(diags::NetCDFIO_Diags, var_name::String, data; group)
-    var = diags.vars[group][var_name]
-    last_dim = length(size(var))
-    last_dim_end = size(var, last_dim)
-    try
-        selectdim(var, last_dim, last_dim_end) .= data
-    catch e
-        @error string(
-            "Failed to write array of dimension $(size(data)) as $var_name",
-            " to NetCDF file. Expected array of dimension $(size(var)[1:end-1]).",
-        )
-        # TODO: throw(e)
-        e
-    end
+"""
+    write_current(diags::NetCDFIO_Diags, group, var, data)
+
+Write current field `data` to an existing variable in an open NetCDF Dataset.
+
+Note that the last dimension of the variable is always assumed to be `iteration`, and the write operation writes to
+the last available index of this dimension. See [`write_iteration`](@ref) to extend the `iteration` dimension.
+"""
+function write_current(diags::NetCDFIO_Diags, group::String, var::String, data::Number)
+    diags.vars[group][var][end] = data
+end
+function write_current(diags::NetCDFIO_Diags, group::String, var::String, data::AbstractVector)
+    diags.vars[group][var][:, end] = data
+end
+function write_current(diags::NetCDFIO_Diags, group::String, var::String, data::AbstractMatrix)
+    diags.vars[group][var][:, :, end] = data
 end
 
-"""Writes all current fields in a given io_dict to an existing NetCDF Dataset."""
+"""
+    write_current_dict(diags::NetCDFIO_Diags, io_dict)
+
+Write all fields in the io_dict to a NetCDF Dataset. The dataset is assumed to be open.
+"""
 function write_current_dict(diags::NetCDFIO_Diags, io_dict)
     for var in keys(io_dict)
-        write_current(diags, var, io_dict[var].field; group = io_dict[var].group)
+        write_current(diags, io_dict[var].group, var, io_dict[var].field)
     end
 end
 
@@ -282,6 +324,13 @@ function write_ref(diags::NetCDFIO_Diags, var_name::String, data)
     end
 end
 
+"""
+    io_reference(diags::NetCDFIO_Diags, ref_stats, ref_models, [write_full_stats = true])
+
+Initialize and write reference data to the `reference` group in the NetCDF diagnostics file.
+
+If `write_full_stats` is true, also write Γ_full to file.
+"""
 function io_reference(
     diags::NetCDFIO_Diags,
     ref_stats::ReferenceStatistics,
@@ -308,6 +357,11 @@ function io_val_reference(
     end
 end
 
+"""
+    init_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Initialize and write initial ensemble state to the `ensemble_diags` group in the NetCDF diagnostics file.
+"""
 function init_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_ensemble(ekp, priors)
     init_io_dict(diags, io_dict)
@@ -317,6 +371,11 @@ function init_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, 
     close_files(diags)
 end
 
+"""
+    init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Initialize and write initial particle state to the `particle` group in the NetCDF diagnostics file.
+"""
 function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_particle_eval()
     init_io_dict(diags, io_dict)
@@ -328,6 +387,11 @@ function init_particle_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, 
     close_files(diags)
 end
 
+"""
+    init_metrics(diags::NetCDFIO_Diags)
+
+Initialize the `metrics` group in the NetCDF diagnostics file.
+"""
 function init_metrics(diags::NetCDFIO_Diags)
     io_dict = io_dictionary_metrics()
     init_io_dict(diags, io_dict)
@@ -354,7 +418,12 @@ function init_val_diagnostics(
     init_val_particle_diags(diags)
 end
 
-function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{FT}) where {FT <: Real}
+"""
+    io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector)
+
+Write current metrics data to the `metrics` group in the NetCDF diagnostics file.
+"""
+function io_metrics(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, mse_full::Vector{<:Real})
     io_dict = io_dictionary_metrics(ekp, mse_full)
     write_current_dict(diags, io_dict)
 end
@@ -370,6 +439,11 @@ function io_val_metrics(
     write_current_dict(diags, io_dict)
 end
 
+"""
+    io_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
+
+Write current ensemble diagnostics data to the `ensemble_diags` group in the NetCDF diagnostics file.
+"""
 function io_ensemble_diags(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_ensemble(ekp, priors)
     write_current_dict(diags, io_dict)
@@ -411,11 +485,7 @@ function io_particle_diags_eval(
     write_current_dict(diags, io_dict)
 end
 
-function io_particle_diags_state(
-    diags::NetCDFIO_Diags,
-    ekp::EnsembleKalmanProcess,
-    priors::ParameterDistribution,
-) where {FT <: Real}
+function io_particle_diags_state(diags::NetCDFIO_Diags, ekp::EnsembleKalmanProcess, priors::ParameterDistribution)
     io_dict = io_dictionary_particle_state(ekp, priors)
     write_current_dict(diags, io_dict)
 end
@@ -454,6 +524,11 @@ function io_val_diagnostics(
     close_files(diags)
 end
 
+"""
+    init_iteration_io(diags::NetCDFIO_Diags)
+
+Initialize iteration count at 0 in the NetCDF diagnostic file. File is assumed to be closed.
+"""
 function init_iteration_io(diags::NetCDFIO_Diags)
     open_files(diags)
     ensemble_t = diags.ensemble_grp["iteration"]
@@ -465,6 +540,11 @@ function init_iteration_io(diags::NetCDFIO_Diags)
     close_files(diags)
 end
 
+"""
+    write_iteration(diags::NetCDFIO_Diags)
+
+Extend the iteration count by 1 in the NetCDF diagnostics file. File is assumed to open.
+"""
 function write_iteration(diags::NetCDFIO_Diags)
     ensemble_t = diags.ensemble_grp["iteration"]
     @inbounds ensemble_t[end + 1] = ensemble_t[end] + 1
