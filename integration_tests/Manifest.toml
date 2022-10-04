@@ -93,9 +93,9 @@ version = "0.8.11"
 
 [[deps.ArtifactWrappers]]
 deps = ["Downloads", "Pkg"]
-git-tree-sha1 = "760f4c06375735829b8c1b67560b608b9dba4c6a"
+git-tree-sha1 = "a441cb9044080134a141a67370f01c2baba8a24a"
 uuid = "a14bc488-3040-4b00-9dc1-f6467924858a"
-version = "0.2.0"
+version = "0.1.2"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
