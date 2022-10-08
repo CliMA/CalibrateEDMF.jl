@@ -1,10 +1,18 @@
+testlist = [
+    "HelperFuncs",
+    "DistributionUtils",
+    "LESUtils",
+    "KalmanProcessUtils",
+    "TurbulenceConvectionUtils",
+    "ReferenceModels",
+    "ReferenceStats",
+    "Pipeline",
+    "NetCDFIO",
+]
 
-include(joinpath("HelperFuncs", "runtests.jl"))
-include(joinpath("DistributionUtils", "runtests.jl"))
-include(joinpath("LESUtils", "runtests.jl"))
-include(joinpath("KalmanProcessUtils", "runtests.jl"))
-include(joinpath("TurbulenceConvectionUtils", "runtests.jl"))
-include(joinpath("ReferenceModels", "runtests.jl"))
-include(joinpath("ReferenceStats", "runtests.jl"))
-include(joinpath("Pipeline", "runtests.jl"))
-include(joinpath("NetCDFIO", "runtests.jl"))
+for test in testlist
+    @time begin
+        println("$(test):")
+        include(joinpath(test, "runtests.jl"))
+    end
+end

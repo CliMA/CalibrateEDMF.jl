@@ -374,11 +374,7 @@ Output:
  - z: Vertical level coordinates.
 """
 function get_height(filename::String; get_faces::Bool = false)
-    if get_faces
-        return nc_fetch(filename, ("zf", "z"))
-    else
-        return nc_fetch(filename, ("zc", "z_half"))
-    end
+    return get_faces ? nc_fetch(filename, ("zf", "z")) : nc_fetch(filename, ("zc", "z_half"))
 end
 
 """
