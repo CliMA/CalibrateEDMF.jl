@@ -1,7 +1,11 @@
 using Test
 using Distributions
 using Random
+using CalibrateEDMF
 using CalibrateEDMF.HelperFuncs
+
+cedmf = pkgdir(CalibrateEDMF)
+test_dir = joinpath(cedmf, "test", "HelperFuncs")
 
 @testset "error_utils" begin
     # Vector of vectors vs vector
@@ -53,10 +57,8 @@ end
 
 @testset "netCDF handling" begin
     using CalibrateEDMF.ReferenceModels
-    using CalibrateEDMF.TurbulenceConvectionUtils
 
-    pwdir = mktempdir()
-    output_root = joinpath(pwdir, "foo/bar/scm")
+    output_root = joinpath(test_dir, "foo/bar/scm")
     case_name_test = "DYCOMS_RF02"
     scm_test_uuid = "12345"
     # Use SCM sim as data
@@ -66,13 +68,16 @@ end
     tf = 10.0
 
     ref_model = ReferenceModel(y_names, y_dir_test, case_name_test, ti, tf)
-    run_reference_SCM(
-        ref_model;
-        output_root = output_root,
-        uuid = scm_test_uuid,
-        overwrite = true,
-        run_single_timestep = true,
-    )
+
+    # Already run and stored in local directory to avoid allocs
+    # run_reference_SCM(
+    #     ref_model;
+    #     output_root = output_root,
+    #     uuid = scm_test_uuid,
+    #     overwrite = true,
+    #     run_single_timestep = true,
+    # )
+
     data_filename = y_nc_file(ref_model)
 
     # Error handling
