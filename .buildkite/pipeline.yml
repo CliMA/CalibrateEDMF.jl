@@ -162,6 +162,7 @@ steps:
     agents:
       config: cpu
       queue: central
+      slurm_mem_per_cpu: 6G
 
   - label: "ReferenceModels"
     key: "cpu_referencemodels"
@@ -170,6 +171,7 @@ steps:
     agents:
       config: cpu
       queue: central
+      slurm_mem_per_cpu: 6G
 
   - label: "ReferenceStats"
     key: "cpu_referencestats"
@@ -178,6 +180,7 @@ steps:
     agents:
       config: cpu
       queue: central
+      slurm_mem_per_cpu: 6G
 
   - label: "Pipeline"
     key: "cpu_pipeline"
@@ -186,6 +189,7 @@ steps:
     agents:
       config: cpu
       queue: central
+      slurm_mem_per_cpu: 6G
 
   - label: "NetCDFIO"
     key: "cpu_netcdfio"
@@ -194,6 +198,7 @@ steps:
     agents:
       config: cpu
       queue: central
+      slurm_mem_per_cpu: 6G
 
 
 
