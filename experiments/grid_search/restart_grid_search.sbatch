@@ -11,6 +11,6 @@
 outdir=${1?Error: no output directory given}
 
 module purge
-module load julia/1.8.1 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.8.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 julia --project -p 25 grid_search.jl --outdir $outdir --mode restart
