@@ -14,14 +14,17 @@ using EnsembleKalmanProcesses.ParameterDistributions
     @test priors1.name == ["bar", "foo"]
 
     μ_correct = Dict("foo" => [0.4], "bar" => [0.5])
+    μ_correct2 = Dict("bar" => [0.5], "foo" => [0.4]) # order-agnostic
     μ_incorrect1 = Dict("foo" => [0.0], "bar" => [2.5]) # Out of bounds
     μ_incorrect2 = Dict("foo" => [0.1]) # Incorrect shape
-    priors3 = construct_priors(params, outdir_path = tmpdir, prior_mean = μ_correct)
+    priors2 = construct_priors(params, outdir_path = tmpdir, prior_mean = μ_correct)
+    priors3 = construct_priors(params, outdir_path = tmpdir, prior_mean = μ_correct2)
 
     @test !isempty(readdir(tmpdir))
     @test readdir(tmpdir)[1] == "prior.jld2"
     @test_throws AssertionError construct_priors(params, outdir_path = tmpdir, prior_mean = μ_incorrect2)
     @test_throws DomainError construct_priors(params, outdir_path = tmpdir, prior_mean = μ_incorrect1)
+    @test priors2 == priors3
 end
 
 @testset "Prior Vectors" begin
@@ -29,16 +32,22 @@ end
     unc_σ = 0.5
 
     # vector and float -> correct
-    params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [no_constraint(), bounded(-3.0, 3.0), no_constraint()])
-    prior_μ = Dict("foo" => [0.4], "bar_vect" => [1.0, 2.0, 3.0])
+    params = Dict(
+        "foo" => [bounded(0.1, 1.0)],
+        "bar_vect" => [no_constraint(), bounded(-3.0, 3.0), no_constraint()],
+        "bar" => [bounded(0.3, 0.6)],
+    )
+    prior_μ = Dict("bar_vect" => [1.0, 2.0, 3.0], "foo" => [0.8], "bar" => [0.4])
     priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
 
-    @test priors.name == ["bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
-    @test priors.constraint == [no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
-    @test priors.distribution[1].distribution.μ == 1.0
-    @test priors.distribution[2].distribution.μ ==
+    @test priors.name == ["bar", "bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
+    @test priors.constraint ==
+          [bounded(0.3, 0.6), no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
+    @test priors.distribution[1].distribution.μ == params["bar"][1].constrained_to_unconstrained(prior_μ["bar"][1])
+    @test priors.distribution[2].distribution.μ == 1.0
+    @test priors.distribution[3].distribution.μ ==
           params["bar_vect"][2].constrained_to_unconstrained(prior_μ["bar_vect"][2])
-    @test priors.distribution[4].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
+    @test priors.distribution[5].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
 
     # length mismatch [length(bar_vect mu) != length(bar_vect constraint)]
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])
@@ -76,9 +85,10 @@ end
 
     params = Dict("foo" => foo_constraint, "bar" => bar_constraint, "vect" => vect_constraint)
     flattened_names, flattened_values = DistributionUtils.flatten_config_dict(params)
-    @test flattened_names == ["bar", "vect_{1}", "vect_{2}", "vect_{3}", "foo"]
+    @test flattened_names == ["bar", "foo", "vect_{1}", "vect_{2}", "vect_{3}"]
     @test flattened_values[1] == bar_constraint
-    @test flattened_values[2][1] == vect_constraint[1]
-    @test flattened_values[4][1] == vect_constraint[3]
-    @test flattened_values[5] == foo_constraint
+    @test flattened_values[2] == foo_constraint
+    @test flattened_values[3][1] == vect_constraint[1]
+    @test flattened_values[5][1] == vect_constraint[3]
+
 end

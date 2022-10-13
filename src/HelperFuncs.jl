@@ -24,6 +24,8 @@ export vertical_interpolation,
     scm_val_init_path,
     scm_val_output_path,
     ekobj_path,
+    keys_ordered,
+    values_ordered,
     write_versions,
     expand_dict_entry,
     get_entry,
@@ -623,6 +625,24 @@ function write_versions(versions::Vector{String}, iteration::Int; outdir_path::S
     open(joinpath(outdir_path, "versions_$(iteration).txt"), "w") do io
         println.(Ref(io), versions)
     end
+end
+
+"""
+    keys_ordered(dict::Dict{String, Vector{FT}})
+Return sorted keys in a dictionary.
+
+"""
+function keys_ordered(dict::Dict)
+    return sort(collect(keys(dict)))
+end
+
+"""
+    values_ordered(dict::Dict{String, Vector{FT}})
+Return sorted values in a dictionary in a manner complementary to `keys_ordered`.
+
+"""
+function values_ordered(dict::Dict)
+    return [dict[key] for key in keys_ordered(dict)]
 end
 
 "Returns the N-vector stored in `dict[key]`, or an N-vector of `nothing`"
