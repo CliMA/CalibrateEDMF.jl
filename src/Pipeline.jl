@@ -109,7 +109,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     )
 
     if !isnothing(prior_μ)
-        @assert collect(keys(params)) == collect(keys(prior_μ))
+        @assert keys_ordered(params) == keys_ordered(prior_μ)
     else
         prior_μ = nothing
     end

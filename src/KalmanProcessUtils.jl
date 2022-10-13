@@ -194,7 +194,7 @@ function generate_tekp(
         if any(1 .< [length(val) for val in collect(values(l2_reg))])
             _, l2_reg_values = flatten_config_dict(l2_reg)
         else
-            l2_reg_values = collect(values(l2_reg))
+            l2_reg_values = values_ordered(l2_reg)
         end
         l2_reg_values = vcat(l2_reg_values...)
 
