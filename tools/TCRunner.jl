@@ -29,6 +29,7 @@ using optimal parameters on a case set and save the resulting TC stats files.
 - method           :: method for computing optimal parameters. Use parameters of:
     "best_particle" - particle with lowest mse in training (`metric` = "mse_full") or validation (`metric` = "mse_full_val") set.
     "best_nn_particle_mean" - particle nearest to ensemble mean for the iteration with lowest mse.
+    "final_mean" - ensemble mean at final iteration.
 - metric           :: mse metric to find the minimum of {"mse_full", "val_mse_full"}.
 - n_ens            :: Number of ensemble to run per case
 """
@@ -50,7 +51,12 @@ function run_TC_optimal(
     namelist_args = merge_namelist_args.(Ref(global_namelist_args), case_namelist_args)
 
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
-    u_names, u = optimal_parameters(joinpath(results_dir, "Diagnostics.nc"); method = method, metric = metric)
+
+    if method == "final_mean"
+        u_names, u = final_parameters(joinpath(results_dir, "Diagnostics.nc"))
+    else
+        u_names, u = optimal_parameters(joinpath(results_dir, "Diagnostics.nc"); method = method, metric = metric)
+    end
 
     @everywhere run_single_SCM(t::Tuple) = run_single_SCM(t...)
     @everywhere run_single_SCM(case_nt::NamedTuple, ens_ind::Integer) = begin
