@@ -10,7 +10,7 @@ using JLD2
 using EnsembleKalmanProcesses.ParameterDistributions
 
 import ..AbstractTypes: OptVec
-import ..HelperFuncs: ParameterMap, do_nothing_param_map
+import ..HelperFuncs: ParameterMap, do_nothing_param_map, keys_ordered, values_ordered
 
 export construct_priors
 export logmean_and_logstd, mean_and_std_from_ln
@@ -20,9 +20,8 @@ export flat_dict_keys_where, identity, above_eps
 """
     flatten_config_dict(param_dict::Dict{String, Vector{T}})
 
-Given a dictionary of parameter names to parameter vectors of arbitrary length,
-return a new dictionary that maps a unique parameter name to each element of the full
-flattened vector of parameters.
+Given a dictionary of parameter names => parameter vectors of arbitrary length,
+return a pair of vectors (name, values) with vector components as unique parameters.
 
 Inputs:
 
@@ -36,7 +35,8 @@ function flatten_config_dict(param_dict::Dict{String, T}) where {T}
 
     u_names = Vector{String}()
     values = Vector{T}()
-    for (param, value) in param_dict
+    for param in keys_ordered(param_dict)
+        value = param_dict[param]
         if length(value) > 1
             for j in 1:length(value)
                 push!(u_names, "$(param)_{$j}")
@@ -73,7 +73,7 @@ function flat_dict_keys_where(param_dict::Dict{String, Vector{T}}, condition::Fu
     if any(1 .< [length(val) for val in collect(values(param_dict))])
         _, dict_values = flatten_config_dict(param_dict)
     else
-        dict_values = collect(values(param_dict))
+        dict_values = values_ordered(param_dict)
     end
     dict_values = vcat(dict_values...)
 
@@ -118,6 +118,9 @@ function construct_priors(
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T, FT}
+    if !isnothing(prior_mean)
+        @assert keys(const_dict) == keys(prior_mean)
+    end
     # if parameter vectors found => flatten
     if any(1 .< [length(val) for val in collect(values(const_dict))])
         u_names, constraints = flatten_config_dict(const_dict)
@@ -128,9 +131,9 @@ function construct_priors(
             prior_μ = nothing
         end
     else
-        u_names = collect(keys(const_dict))
-        constraints = collect(values(const_dict))
-        prior_μ = !isnothing(prior_mean) ? collect(values(prior_mean)) : nothing
+        u_names = keys_ordered(const_dict)
+        constraints = values_ordered(const_dict)
+        prior_μ = !isnothing(prior_mean) ? values_ordered(prior_mean) : nothing
     end
     n_param = length(u_names)
     @assert isnothing(prior_μ) || length(prior_μ) == n_param
