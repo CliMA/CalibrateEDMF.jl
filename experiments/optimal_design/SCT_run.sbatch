@@ -3,7 +3,7 @@
 #SBATCH --time=2:00:00   # walltime
 #SBATCH --ntasks=10  # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --mem-per-cpu=24G   # memory per CPU core
 #SBATCH -J "hadgem"   # job name
 
 module load julia/1.8.2
@@ -20,7 +20,7 @@ experiment=results_Inversion_dt_1.0_p2_e50_i10_d40_LES_2022-07-13_22-31_ewR
 
 #### OUTPUT AND DATA DEFINITION
 # Define the output directory where output data will be stored
-out_name=perf_model_HadGEM2_nz55_B38_Inv_d40_p2_ewR
+out_name=/central/groups/esm/zhaoyi/calibrate_edmf/perf_model_HadGEM2_nz55_B38_Inv_d40_p2_ewR
 # Path to TCRunner
 tc_runner_path=../../tools/
 # Path to config defining the data to be generated, RELATIVE TO TCRunner!
