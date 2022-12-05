@@ -119,7 +119,7 @@ function get_reference_config(::ShallowHadGEM)
     n_repeat = length(les_ref_dirs)
 
     # Get SCM directories for truth values (perfect model experiment)
-    perf_model_dir = "/groups/esm/ilopezgo/optimal_design/perf_model_HadGEM2_nz55_B38_Inv_d40_p2_ewR"
+    perf_model_dir = "/central/groups/esm/zhaoyi/calibrate_edmf/perf_model_HadGEM2_nz55_B38_Inv_d40_p2_ewR/"
     perf_model_exps = Glob.glob(relpath(abspath(joinpath(perf_model_dir, "Output*"))))
     # Order 1-to-1 with LES directories
     ordered_perf_model_exps = []
