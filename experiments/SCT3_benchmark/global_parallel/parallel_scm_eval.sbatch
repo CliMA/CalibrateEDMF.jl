@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --time=1:00:00   # walltime
+#SBATCH --time=2:00:00   # walltime
 #SBATCH --nodes=1         # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --mem-per-cpu=15G   # memory per CPU core
 #SBATCH -J "sct_run"   # job name
 
 module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
