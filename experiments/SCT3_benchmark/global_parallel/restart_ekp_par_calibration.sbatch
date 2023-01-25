@@ -33,8 +33,8 @@ export JULIA_MPI_BINARY=system
 export JULIA_CUDA_USE_BINARYBUILDER=false
 
 # run instantiate/precompile serial
-julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
-julia --project -C skylake-avx512 -e 'using Pkg; Pkg.precompile()'
+julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+julia --project -e 'using Pkg; Pkg.precompile()'
 
 for it in $(seq $first_new_iter 1 $n_it)
 do
