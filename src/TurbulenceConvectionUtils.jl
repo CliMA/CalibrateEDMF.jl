@@ -10,7 +10,8 @@ export ModelEvaluator,
     save_full_ensemble_data,
     precondition,
     get_gcm_les_uuid,
-    save_tc_data
+    save_tc_data,
+    create_parameter_vectors
 
 import Logging
 using JLD2
@@ -430,7 +431,6 @@ function create_parameter_vectors(
     filter_vec_params = filter(!isnothing, find_vec_params)
     u_vec_names = getindex.(filter_vec_params, 1)
     u_vec_inds = getindex.(filter_vec_params, 2)
-
     # collect scalar parameters
     scalar_param_inds = isnothing.(find_vec_params)
     append!(u_names_out, u_names[scalar_param_inds])
@@ -441,7 +441,8 @@ function create_parameter_vectors(
     for u_name in unique(u_vec_names)
         u_name_inds = u_vec_names .== u_name
         u_vals = u[vector_param_inds][u_name_inds]
-        u_vals_sort_inds = sortperm(u_vec_inds[u_name_inds])
+        u_inds_int = parse.(Int, u_vec_inds[u_name_inds])  # Parse indices as integers
+        u_vals_sort_inds = sortperm(u_inds_int)
         permute!(u_vals, u_vals_sort_inds)
         push!(u_names_out, u_name)
         push!(u_out, u_vals)

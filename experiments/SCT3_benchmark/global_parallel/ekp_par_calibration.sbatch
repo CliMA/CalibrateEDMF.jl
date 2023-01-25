@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=0:20:00   # walltime
+#SBATCH --time=02:00:00   # walltime
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "sct_call"   # job name
@@ -26,8 +26,8 @@ export JULIA_MPI_BINARY=system
 export JULIA_CUDA_USE_BINARYBUILDER=false
 
 # run instantiate/precompile serial
-julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
-julia --project -C skylake-avx512 -e 'using Pkg; Pkg.precompile()'
+julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+julia --project -e 'using Pkg; Pkg.precompile()'
 
 for it in $(seq 1 1 $n_it)
 do

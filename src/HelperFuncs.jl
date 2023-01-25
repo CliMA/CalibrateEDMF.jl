@@ -173,7 +173,7 @@ function expand_params(u_names_calib::AbstractVector, u_calib::AbstractVector, p
         end
     end
 
-    return collect.((keys(params), values(params)))
+    return collect.((keys_ordered(params), values_ordered(params)))
 end
 
 """
@@ -686,12 +686,31 @@ function write_versions(versions::Vector{String}, iteration::Int; outdir_path::S
 end
 
 """
+    increasing_sort(s1::String, s2::String)
+Custom sorting function used in keys_ordered. If parameter vectors are present, sort components
+in increasing order. (ie. param_vect_{1}, param_vect_{2}, ... param_vect_{n})
+
+"""
+
+function increasing_sort(s1::String, s2::String)
+    # Extract the numbers following the underscore, if any
+    match1 = match(r"_\{(\d+)\}", s1)
+    match2 = match(r"_\{(\d+)\}", s2)
+    num1 = isnothing(match1) ? -1 : parse(Int, match1.captures[1])
+    num2 = isnothing(match2) ? -1 : parse(Int, match2.captures[1])
+
+    # Sort by number, and then by the original strings
+    return num1 < num2 || (num1 == num2 && s1 < s2)
+end
+
+
+"""
     keys_ordered(dict::Dict{String, Vector{FT}})
 Return sorted keys in a dictionary.
 
 """
 function keys_ordered(dict::Dict)
-    return sort(collect(keys(dict)))
+    return sort(collect(keys(dict)), lt = increasing_sort)
 end
 
 """
