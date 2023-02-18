@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "hadgem"   # job name
 
-module load julia/1.8.2
+module load julia/1.8.5
 
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 

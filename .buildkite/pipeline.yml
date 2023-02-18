@@ -1,5 +1,5 @@
 env:
-  JULIA_VERSION: "1.8.2"
+  JULIA_VERSION: "1.8.5"
   SLURM_CPUS_PER_TASK: 1
   OPENMPI_VERSION: "4.0.4"
   CUDA_VERSION: "11.2"
@@ -61,7 +61,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 11
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "Bomex Inv continue"
     key: "cpu_bomex_continue"
@@ -74,7 +74,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 11
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "SCT1 julia parallel"
     key: "cpu_sct1_julia_p10"
@@ -86,7 +86,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 11
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "Heterogeneous batching"
     key: "cpu_het_batch"
@@ -98,7 +98,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 8
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
      
   - label: "TRMM stretch + micro"
     key: "cpu_trmm_stretch"
@@ -110,7 +110,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 11
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "grid search"
     key: "grid_search_p10"
@@ -122,6 +122,7 @@ steps:
       config: cpu
       queue: central
       slurm_cpus_per_task: 14
+      slurm_mem_per_cpu: 12G
 
   - label: "HelperFuncs"
     key: "cpu_helper_funcs"
@@ -162,7 +163,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "ReferenceModels"
     key: "cpu_referencemodels"
@@ -171,7 +172,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "ReferenceStats"
     key: "cpu_referencestats"
@@ -180,7 +181,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "Pipeline"
     key: "cpu_pipeline"
@@ -189,7 +190,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
   - label: "NetCDFIO"
     key: "cpu_netcdfio"
@@ -198,7 +199,7 @@ steps:
     agents:
       config: cpu
       queue: central
-      slurm_mem_per_cpu: 6G
+      slurm_mem_per_cpu: 12G
 
 
 
