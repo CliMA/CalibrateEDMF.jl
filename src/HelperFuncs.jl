@@ -44,6 +44,14 @@ using LinearAlgebra
 using Glob
 using JSON
 using Random
+import Thermodynamics as TD
+import CLIMAParameters as CP
+import Thermodynamics.Parameters as TP
+
+toml_dict = CP.create_toml_dict(Float64; dict_type = "alias")
+aliases = string.(fieldnames(TP.ThermodynamicsParameters))
+param_pairs = CP.get_parameter_values!(toml_dict, aliases, "Thermodynamics")
+thermo_param_set = TP.ThermodynamicsParameters{Float64}(; param_pairs...)
 
 using ..AbstractTypes
 import ..AbstractTypes: OptVec
@@ -324,6 +332,7 @@ Output:
     is that the `total_flux_(...)` in TC.jl simulations includes the full flux, whereas the PyCLES `resolved`
     definitions only include the resolved flux. We must add the `sgs_z_flux_(...)` component here.
 
+
 - PyCLES prognostic vertical fluxes (defined in [ScalarAdvection.pyx](https://github.com/CliMA/pycles/blob/master/ScalarAdvection.pyx#L136),
     [ScalarDiffusion.pyx](https://github.com/CliMA/pycles/blob/master/ScalarDiffusion.pyx#L174), MomentumAdvection.pyx,
     MomentumDiffusion.pyx) are defined at cell centers and have already been multiplied by density. They are computed
@@ -334,6 +343,8 @@ Output:
     at cell faces. This mismatch is handled through `is_face_variable`. Another difference is that the `total_flux_(...)`
     in TC.jl simulations includes the full flux, whereas the PyCLES `(...)_flux_z` definition only includes the resolved
     flux. We must add the `(...)__sgs_flux_z` component here.
+    PyCLES `sgs_z_flux` and `resolved` flux fields do not include a contribution from the surface flux,
+    so the bottom cell is set to the diagnosed surface flux.
 """
 function fetch_interpolate_transform(var_name::String, filename::String, z_scm::OptVec{<:Real})
     # Multiply by density, add sgs flux
@@ -349,7 +360,9 @@ function fetch_interpolate_transform(var_name::String, filename::String, z_scm::
         resolved_flux = nc_fetch_interpolate(var_name, filename, z_scm)
         sgs_flux_name = string(first(split(var_name, "flux_z")), "sgs_flux_z")
         sgs_flux = nc_fetch_interpolate(sgs_flux_name, filename, z_scm)
-        var_ = resolved_flux .+ sgs_flux
+        total_flux = resolved_flux .+ sgs_flux
+        total_flux = rectify_surface_flux(total_flux, var_name, filename, z_scm)
+        var_ = total_flux
 
         # Combine horizontal velocities
     elseif var_name == "horizontal_vel"
@@ -361,6 +374,49 @@ function fetch_interpolate_transform(var_name::String, filename::String, z_scm::
         var_ = nc_fetch_interpolate(var_name, filename, z_scm)
     end
     return var_
+end
+
+"""
+    rectify_surface_flux(interpolated_var::Vector{FT}, var_name::String, filename::String, z_scm::OptVec{<:Real})
+
+Sets bottom cell in interpolated flux profile equal to surface flux. This is needed for
+LES profiles since neither the resolved nor the SGS fluxes include contributions
+from the surface flux (otherwise flux goes to zero at the surface).
+
+Inputs:
+ - `interpolated_var` :: Interpolated variable vector.
+ - `var_name` :: Name of variable in the netcdf dataset.
+ - `filename` :: nc filename
+ - `z_scm` :: Vertical coordinate vector onto which var_name is interpolated.
+Output:
+ - Flux profile with bottom cell set equal to surface flux.
+ """
+
+function rectify_surface_flux(
+    interpolated_var::Array{FT},
+    var_name::String,
+    filename::String,
+    z_scm::OptVec{<:Real},
+) where {FT}
+    if z_scm != nothing
+        min_z_index = argmin(z_scm)
+    else
+        min_z_index = 1
+    end
+
+    if occursin("qt", var_name)
+        lhf_surface = nc_fetch_interpolate("lhf_surface_mean", filename, z_scm)
+        t_surface = nc_fetch_interpolate("surface_temperature", filename, z_scm)
+        surf_qt_flux = lhf_surface ./ TD.latent_heat_vapor.(thermo_param_set, t_surface)
+        interpolated_var[min_z_index, :] .= surf_qt_flux
+        return interpolated_var
+    elseif occursin("s", var_name)
+        surf_s_flux = nc_fetch_interpolate("s_flux_surface_mean", filename, z_scm)
+        interpolated_var[min_z_index, :] .= surf_s_flux
+        return interpolated_var
+    else
+        @warn "Surface flux correcton not implemented for $(var_name). Check consistency of flux definitions."
+    end
 end
 
 """
