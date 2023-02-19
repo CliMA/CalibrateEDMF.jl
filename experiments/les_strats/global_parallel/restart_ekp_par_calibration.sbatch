@@ -26,7 +26,7 @@ n_proc_scm=10
 echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (grand total)."
 
 module purge
-module load julia/1.8.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
