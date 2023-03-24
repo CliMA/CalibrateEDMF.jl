@@ -353,7 +353,9 @@ function fetch_interpolate_transform(var_name::String, filename::String, z_scm::
         sgs_flux_name = string("sgs_z_flux", last(split(var_name, "resolved_z_flux")))
         sgs_flux = nc_fetch_interpolate(sgs_flux_name, filename, z_scm)
         rho_half = nc_fetch_interpolate("rho0_half", filename, z_scm)
-        var_ = rho_half .* (resolved_flux .+ sgs_flux)
+        total_flux = rho_half .* (resolved_flux .+ sgs_flux)
+        total_flux = rectify_surface_flux(total_flux, var_name, filename, z_scm)
+        var_ = total_flux
 
         # Add sgs flux
     elseif occursin("_flux_z", var_name)
@@ -406,8 +408,8 @@ function rectify_surface_flux(
 
     if occursin("qt", var_name)
         lhf_surface = nc_fetch_interpolate("lhf_surface_mean", filename, z_scm)
-        t_surface = nc_fetch_interpolate("surface_temperature", filename, z_scm)
-        surf_qt_flux = lhf_surface ./ TD.latent_heat_vapor.(thermo_param_set, t_surface)
+        t_profile = nc_fetch_interpolate("temperature_mean", filename, z_scm)
+        surf_qt_flux = lhf_surface ./ TD.latent_heat_vapor.(thermo_param_set, t_profile[min_z_index])
         interpolated_var[min_z_index, :] .= surf_qt_flux
         return interpolated_var
     elseif occursin("s", var_name)
