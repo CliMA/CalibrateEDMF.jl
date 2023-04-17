@@ -173,6 +173,7 @@ end
 
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
     model_errors = get_entry(ref_config, "model_errors", nothing)
+    time_shift = get_entry(ref_config, "time_shift", 6.0 * 3600.0)
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
     normalize = get_entry(reg_config, "normalize", true)
@@ -187,6 +188,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :tikhonov_mode => tikhonov_mode,
         :dim_scaling => dim_scaling,
         :model_errors => model_errors,
+        :Δt => time_shift,
     )
 end
 
