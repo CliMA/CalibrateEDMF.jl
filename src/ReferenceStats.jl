@@ -37,7 +37,7 @@ $(TYPEDFIELDS)
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-        Δt::FT = 6 * 3600.0,
+        time_shift::FT = 6 * 3600.0,
         model_errors::OptVec{T} = nothing,
     ) where {FT <: Real}
 
@@ -54,7 +54,7 @@ Inputs:
     the inverse of the desired condition number. This value is enforced to be
     larger than the sqrt of the machine precision for stability.
  - `dim_scaling`      :: Whether to scale covariance blocks by their size.
- - `Δt`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
+ - `time_shift`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
  - `model_errors`     :: Vector of model errors added to the internal variability noise, each containing
                             the model error per variable normalized by the pooled variable variance.
 """
@@ -87,7 +87,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-        Δt::FT = 6 * 3600.0,
+        time_shift::FT = 6 * 3600.0,
         model_errors::OptVec{T} = nothing,
     ) where {FT <: Real, T}
         IT = Int64
@@ -103,7 +103,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         zdof = IT[]
 
         for (i, m) in enumerate(RM)
-            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, Δt) : m
+            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, time_shift) : m
             model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
             y_, y_var_, pool_var = get_obs(model, normalize, z_scm = get_z_obs(model), model_error = model_error)

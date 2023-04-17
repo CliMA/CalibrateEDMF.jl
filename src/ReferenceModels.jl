@@ -316,7 +316,7 @@ function construct_reference_models(kwarg_ld::Dict; seed::OptInt = nothing)::Vec
 end
 
 """
-    time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
+    time_shift_reference_model(m::ReferenceModel, time_shift::FT) where {FT <: Real}
 
 Returns a time-shifted ReferenceModel, considering an interval relative to the last
 available time step of the original model. Only LES data (from y_dir or Σ_dir) are time shifted.
@@ -324,23 +324,23 @@ available time step of the original model. Only LES data (from y_dir or Σ_dir) 
 Inputs:
 
  - `m`     :: A ReferenceModel.
- - `Δt`  :: [LES last time - SCM start time (LES timeframe)]
+ - `time_shift`  :: [LES last time - SCM start time (LES timeframe)]
 
 Outputs:
 
  - The time-shifted ReferenceModel.
 """
-function time_shift_reference_model(m::ReferenceModel, Δt::FT) where {FT <: Real}
+function time_shift_reference_model(m::ReferenceModel, time_shift::FT) where {FT <: Real}
     filename = y_nc_file(m)
     t_mean = nc_fetch(filename, "t")
 
     filename = Σ_nc_file(m)
     t_Σ = nc_fetch(filename, "t")
 
-    t_start = isa(m.y_type, LES) ? t_mean[end] - Δt + get_t_start(m) : get_t_start(m)
-    t_end = isa(m.y_type, LES) ? t_mean[end] - Δt + get_t_end(m) : get_t_end(m)
-    Σ_t_start = isa(m.Σ_type, LES) ? t_Σ[end] - Δt + get_t_start_Σ(m) : get_t_start_Σ(m)
-    Σ_t_end = isa(m.Σ_type, LES) ? t_Σ[end] - Δt + get_t_end_Σ(m) : get_t_end_Σ(m)
+    t_start = isa(m.y_type, LES) ? t_mean[end] - time_shift + get_t_start(m) : get_t_start(m)
+    t_end = isa(m.y_type, LES) ? t_mean[end] - time_shift + get_t_end(m) : get_t_end(m)
+    Σ_t_start = isa(m.Σ_type, LES) ? t_Σ[end] - time_shift + get_t_start_Σ(m) : get_t_start_Σ(m)
+    Σ_t_end = isa(m.Σ_type, LES) ? t_Σ[end] - time_shift + get_t_end_Σ(m) : get_t_end_Σ(m)
 
     @assert t_start >= 0 "t_start must be positive after time shift, but $t_start was given."
     @assert Σ_t_start >= 0 "Σ_t_start must be positive after time shift, but $Σ_t_start was given."
