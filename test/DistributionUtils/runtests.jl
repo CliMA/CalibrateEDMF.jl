@@ -31,6 +31,8 @@ end
     tmpdir = mktempdir()
     unc_σ = 0.5
 
+    unc_σ_vary = Dict("foo" => [0.1], "bar_vect" => [1.5, 0.2, 3.0], "bar" => [0.9])
+
     # vector and float -> correct
     params = Dict(
         "foo" => [bounded(0.1, 1.0)],
@@ -39,7 +41,16 @@ end
     )
     prior_μ = Dict("bar_vect" => [1.0, 2.0, 3.0], "foo" => [0.8], "bar" => [0.4])
     priors = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ, prior_mean = prior_μ)
+    priors_σ_vary = construct_priors(params, outdir_path = tmpdir, unconstrained_σ = unc_σ_vary, prior_mean = prior_μ)
 
+    # ensure variable σ does not change other attributes of prior objects
+    @test priors.name == priors_σ_vary.name
+    @test priors.constraint == priors_σ_vary.constraint
+    @test all([
+        priors.distribution[i].distribution.μ == priors_σ_vary.distribution[i].distribution.μ for
+        i in 1:length(priors.distribution)
+    ])
+    # ensure correct ordering and values
     @test priors.name == ["bar", "bar_vect_{1}", "bar_vect_{2}", "bar_vect_{3}", "foo"]
     @test priors.constraint ==
           [bounded(0.3, 0.6), no_constraint(), bounded(-3.0, 3.0), no_constraint(), bounded(0.1, 1.0)]
@@ -48,6 +59,13 @@ end
     @test priors.distribution[3].distribution.μ ==
           params["bar_vect"][2].constrained_to_unconstrained(prior_μ["bar_vect"][2])
     @test priors.distribution[5].distribution.μ == params["foo"][1].constrained_to_unconstrained(prior_μ["foo"][1])
+
+    # ensure generated prior objects have expected σ
+    @test all([priors.distribution[i].distribution.σ == unc_σ for i in 1:length(priors.distribution)]) # contant σ case
+    @test priors_σ_vary.distribution[1].distribution.σ == unc_σ_vary["bar"][1] # variable σ case
+    prior_vect_σ = [priors_σ_vary.distribution[i + 1].distribution.σ for i in 1:length(unc_σ_vary["bar_vect"])]
+    @test prior_vect_σ == unc_σ_vary["bar_vect"]
+    @test priors_σ_vary.distribution[end].distribution.σ == unc_σ_vary["foo"][1]
 
     # length mismatch [length(bar_vect mu) != length(bar_vect constraint)]
     params = Dict("foo" => [bounded(0.1, 1.0)], "bar_vect" => [repeat([no_constraint()], 3)...])

@@ -102,7 +102,8 @@ constrained space.
 
 Inputs:
  - const_dict :: Dictionary of parameter names to constraints.
- - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space).
+ - unconstrained_σ :: Standard deviation of the transformed gaussians (unconstrained space)
+    or a dictionary mapping parameter names to standard deviations in unconstrained space.
  - prior_mean :: The mean value of the prior in constrained space. If not given,
     the prior is selected to be 0 in the centered unconstrained space.
  - outdir_path :: Output path.
@@ -113,7 +114,7 @@ Output:
 """
 function construct_priors(
     const_dict::Dict{String, T};
-    unconstrained_σ::FT = 1.0,
+    unconstrained_σ::Union{FT, Dict{String, Vector{FT}}} = 1.0,
     prior_mean::Union{Dict{String, Vector{Float64}}, Nothing} = nothing,
     outdir_path::String = pwd(),
     to_file::Bool = true,
@@ -121,19 +122,27 @@ function construct_priors(
     if !isnothing(prior_mean)
         @assert keys(const_dict) == keys(prior_mean)
     end
+    if unconstrained_σ isa Dict
+        @assert keys(const_dict) == keys(unconstrained_σ)
+    end
     # if parameter vectors found => flatten
     if any(1 .< [length(val) for val in collect(values(const_dict))])
         u_names, constraints = flatten_config_dict(const_dict)
         if !isnothing(prior_mean)
             u_names_mean, prior_μ = flatten_config_dict(prior_mean)
-            @assert u_names_mean == u_names
+            @assert u_names_mean == u_names # ensure order preserved
         else
             prior_μ = nothing
+        end
+        if unconstrained_σ isa Dict
+            u_names_σ, unconstrained_σ = flatten_config_dict(unconstrained_σ)
+            @assert u_names_σ == u_names # ensure order preserved
         end
     else
         u_names = keys_ordered(const_dict)
         constraints = values_ordered(const_dict)
         prior_μ = !isnothing(prior_mean) ? values_ordered(prior_mean) : nothing
+        unconstrained_σ = unconstrained_σ isa Dict ? values_ordered(unconstrained_σ) : unconstrained_σ
     end
     n_param = length(u_names)
     @assert isnothing(prior_μ) || length(prior_μ) == n_param
@@ -172,8 +181,11 @@ function construct_prior(
     param_name::String,
     constraint::Vector{CT},
     prior_μ::OptVec{FT},
-    unconstrained_σ::ST,
+    unconstrained_σ::Union{ST, Vector{FT}},
 ) where {CT, FT <: Real, ST <: Real}
+    if unconstrained_σ isa Vector
+        unconstrained_σ = unconstrained_σ[1]
+    end
     if isnothing(prior_μ)
         distribution = Parameterized(Normal(0.0, unconstrained_σ))
     else
