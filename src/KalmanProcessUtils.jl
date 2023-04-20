@@ -121,7 +121,7 @@ function generate_ekp(
         fh = IgnoreFailures()
     end
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer)
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process; kwargs...) :
         EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process; kwargs...)
@@ -219,7 +219,7 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer)
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process; kwargs...) :
         EnsembleKalmanProcess(u, y_aug, Γ_aug, process; kwargs...)
