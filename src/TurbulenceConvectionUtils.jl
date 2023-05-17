@@ -10,7 +10,8 @@ export ModelEvaluator,
     save_full_ensemble_data,
     precondition,
     get_gcm_les_uuid,
-    save_tc_data
+    save_tc_data,
+    create_parameter_vectors
 
 import Logging
 using JLD2
