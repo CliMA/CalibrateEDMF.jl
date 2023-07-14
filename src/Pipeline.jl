@@ -129,7 +129,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         elseif algo_name == "Sampler"
             algo = Sampler(vcat(mean(priors)...), cov(priors))
         end
-        initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
+        initial_params = construct_initial_ensemble(priors, N_ens)
         if augmented
             ekobj = generate_tekp(ref_stats, priors, algo, initial_params; l2_reg = l2_reg, ekp_kwargs...)
         else
