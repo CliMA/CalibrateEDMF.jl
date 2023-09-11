@@ -299,6 +299,7 @@ Elements:
  - `mse_full_var` :: Variance estimate of MSE(`g_full`, `y_full`), empirical (EKI/EKS) or quadrature (UKI).
  - `mse_full_nn_mean` :: MSE(`g_full`, `y_full`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
  - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures due to parameter mapping.
+ - `timestep` :: EKP timestep in current iteration. 
  - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space. This index is used to construct `..._nn_mean` metrics.
 """
 function io_dictionary_metrics()
@@ -315,6 +316,7 @@ function io_dictionary_metrics()
         "mse_full_var" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "mse_full_nn_mean" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "failures" => (; dims = ("iteration",), group = "metrics", type = Int16),
+        "timestep" => (; dims = ("iteration",), group = "metrics", type = Float64),
         "nn_mean_index" => (; dims = ("iteration",), group = "metrics", type = Int16),
     )
     return io_dict
@@ -340,6 +342,9 @@ function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT})
     # Get loss at nearest_to_mean point
     loss_nn_mean = loss[nn_mean]
 
+    # get timestep in latest iteration
+    timestep = ekp.Δt[end]
+
     # Filter NaNs
     loss_filt = filter(!isnan, loss)
     mse_filt = filter(!isnan, mse_full)
@@ -357,6 +362,7 @@ function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT})
         "mse_full_var" => Base.setindex(orig_dict["mse_full_var"], mse_full_var, :field),
         "mse_full_nn_mean" => Base.setindex(orig_dict["mse_full_nn_mean"], mse_full_nn_mean, :field),
         "failures" => Base.setindex(orig_dict["failures"], failures, :field),
+        "timestep" => Base.setindex(orig_dict["timestep"], timestep, :field),
         "nn_mean_index" => Base.setindex(orig_dict["nn_mean_index"], nn_mean, :field),
     )
     return io_dict

@@ -6,7 +6,7 @@ Utils for the construction and handling of Kalman Process structs.
 module KalmanProcessUtils
 
 export generate_ekp,
-    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, PiecewiseConstantDecay, PiecewiseConstantGrowth
+    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, modify_field, update_ek_timestepper, PiecewiseConstantDecay, PiecewiseConstantGrowth
 
 using LinearAlgebra
 using Statistics
@@ -109,6 +109,7 @@ function generate_ekp(
     u::Union{Matrix{T}, T} = nothing;
     failure_handler::String = "ignore_failures",
     localizer::LocalizationMethod = NoLocalization(),
+    scheduler = DefaultScheduler(), 
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T}
@@ -121,10 +122,12 @@ function generate_ekp(
         fh = IgnoreFailures()
     end
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :scheduler => scheduler)
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process; kwargs...) :
         EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process; kwargs...)
+
+
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
@@ -176,6 +179,7 @@ function generate_tekp(
     l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
     failure_handler::String = "ignore_failures",
     localizer::LocalizationMethod = NoLocalization(),
+    scheduler = DefaultScheduler(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T, R}
@@ -219,7 +223,7 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
+    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :scheduler => scheduler)
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process; kwargs...) :
         EnsembleKalmanProcess(u, y_aug, Γ_aug, process; kwargs...)
@@ -243,6 +247,38 @@ end
 
 "Returns the indices of parameters to be regularized, given the l2 regularization configuration dictionary."
 get_regularized_indices(l2_config::Dict) = flat_dict_keys_where(l2_config, above_eps)
+
+function modify_field(ekp::EnsembleKalmanProcess, field_name::Symbol, new_value)
+    fields = fieldnames(EnsembleKalmanProcess)
+    values = [field_name == f ? new_value : getfield(ekp, f) for f in fields]
+    return EnsembleKalmanProcess(values...)
+end
+
+function modify_field(scheduler::T, field_name::Symbol, new_value) where T
+    fields = fieldnames(T)
+    values = [field_name == f ? new_value : getfield(scheduler, f) for f in fields]
+    return T(values...)
+end
+
+"""Return new ekp object with updated scheduler object."""
+function update_ek_timestepper(ekp, iteration)
+    ekp_cp = deepcopy(ekp)
+    
+    if !isempty(ekp_cp.Δt)
+        FT = eltype(ekp_cp.Δt)
+        # create empty Δt so that calculate_timestep! updates inv_sqrt_noise
+        ekp_cp = modify_field(ekp_cp, :Δt, Vector{FT}())
+    end
+    scheduler_cp = deepcopy(ekp_cp.scheduler)
+    g_ = ekp_cp.obs_noise_cov
+    # compute inv_sqrt_noise from obs_mean in current batch
+    calculate_timestep!(ekp_cp, g_, nothing, scheduler_cp)
+    # update iteration number
+    scheduler_updated = modify_field(scheduler_cp, :iteration, [iteration])
+    ekp = modify_field(ekp, :scheduler, scheduler_updated)
+    return ekp
+end
+
 
 
 end # module

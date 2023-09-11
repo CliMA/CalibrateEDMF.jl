@@ -129,6 +129,7 @@ end
     end
 
     ek_update(ekobj, priors, 1, config, versions, outdir_path)
+    ekobj_i2 = load(ekobj_path(outdir_path, 2))["ekp"]
 
     # Test ek_update output
     @test isfile(joinpath(outdir_path, "ekobj_iter_2.jld2"))
@@ -138,7 +139,7 @@ end
         @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
     end
 
-    restart_calibration(ekobj, priors, 2, config, outdir_path; mode = "hpc", job_id = test_id)
+    restart_calibration(ekobj_i2, priors, 2, config, outdir_path; mode = "hpc", job_id = test_id)
     @test isfile(joinpath(outdir_path, "ekobj_iter_3.jld2"))
     @test isfile(joinpath(outdir_path, "versions_3.txt"))
     versions = readlines(joinpath(outdir_path, "versions_3.txt"))
@@ -147,6 +148,66 @@ end
     end
 
     rm(outdir_path, recursive = true)
+end
+
+@testset "Pipeline with Different Timesteppers" begin
+
+    ###  Test HPC pipeline
+    temp_file = tempname(pwd())
+    test_id = basename(temp_file)
+    schedulers = [DefaultScheduler(0.75),  DataMisfitController(on_terminate = "continue"), EKSStableScheduler()]
+    for scheduler in schedulers
+        config["process"]["scheduler"] = scheduler
+        outdir_path =
+            init_calibration(config; mode = "hpc", config_path = joinpath(test_dir, "config.jl"), job_id = test_id)
+
+        ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
+        @test ekobj.scheduler == scheduler
+        versions = readlines(joinpath(outdir_path, "versions_1.txt"))
+        for i in 1:config["process"]["N_ens"]
+            @test isfile(joinpath(outdir_path, "scm_initializer_$(versions[i]).jld2"))
+        end
+
+        # Run one simulation and perturb results to emulate ensemble
+        scm_args = load(scm_init_path(outdir_path, versions[1]))
+        batch_indices = scm_args["batch_indices"]
+        priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
+        model_evaluator = scm_args["model_evaluator"]
+        model_evaluator = precondition(model_evaluator, priors)
+        sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator)
+        for version in versions
+            g_scm = g_scm_orig .* (1.0 + rand())
+            g_scm_pca = g_scm_pca_orig .* (1.0 + rand())
+            jldsave(
+                scm_output_path(outdir_path, version);
+                sim_dirs,
+                g_scm,
+                g_scm_pca,
+                model_evaluator,
+                version,
+                batch_indices,
+            )
+            @test isfile(joinpath(outdir_path, "scm_output_$version.jld2"))
+        end
+
+        ek_update(ekobj, priors, 1, config, versions, outdir_path)
+        ekobj_i2 = load(ekobj_path(outdir_path, 2))["ekp"]
+
+        # check that scheduler object is updated as expected
+        if typeof(ekobj_i2.scheduler) <: DataMisfitController
+            @test ekobj_i2.scheduler.iteration[end] == 1
+            @test !isempty(ekobj_i2.scheduler.inv_sqrt_noise[end])
+        else
+            @test ekobj_i2.scheduler == scheduler
+        end
+
+        restart_calibration(ekobj_i2, priors, 2, config, outdir_path; mode = "hpc", job_id = test_id)
+        ekobj_i3 = load(ekobj_path(outdir_path, 3))["ekp"]
+        @test ekobj_i3.scheduler == ekobj_i2.scheduler
+
+        rm(outdir_path, recursive = true)
+    end
+
 end
 
 @testset "Pipeline_with_validation" begin
