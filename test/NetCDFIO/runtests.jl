@@ -10,6 +10,7 @@ using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.DistributionUtils
 using CalibrateEDMF.HelperFuncs
 using CalibrateEDMF.TurbulenceConvectionUtils
+using CalibrateEDMF.KalmanProcessUtils
 using CalibrateEDMF.NetCDFIO
 const CN = CalibrateEDMF.NetCDFIO
 using EnsembleKalmanProcesses
@@ -56,6 +57,7 @@ using EnsembleKalmanProcesses: DataContainer
     config["reference"] = Dict()
     priors = construct_priors(config["prior"]["constraints"]; to_file = false)
     ekp = EnsembleKalmanProcess(rand(2, 10), ref_stats.y, ref_stats.Γ, Inversion(), verbose = true)
+    ekp = modify_field(ekp, :Δt, [1.0])
     N_ens = size(get_u_final(ekp), 2)
     diags = NetCDFIO_Diags(config, data_dir, ref_stats, N_ens, priors)
     # Write fabricated loss data to ekp
