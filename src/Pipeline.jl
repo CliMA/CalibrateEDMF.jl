@@ -59,6 +59,12 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
     Δt = get_Δt(Δt_scheduler, 1)
 
+    scheduler = get_entry(proc_config, "scheduler", nothing)
+
+    if !isnothing(scheduler)
+        Δt = nothing
+    end
+
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     localizer = get_entry(proc_config, "localizer", NoLocalization())
@@ -99,7 +105,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         ref_stats,
         outdir_root,
         algo_name,
-        Δt,
         n_param,
         N_ens,
         N_iter,
@@ -114,7 +119,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
-    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer, :scheduler => scheduler)
     # parameters are sampled in unconstrained space
     if algo_name in ["Inversion", "Sampler", "SparseInversion"]
         if algo_name == "Inversion"
@@ -197,7 +202,6 @@ function create_output_dir(
     ref_stats::ReferenceStatistics,
     outdir_root::String,
     algo_name::String,
-    Δt::FT,
     n_param::IT,
     N_ens::IT,
     N_iter::IT,
@@ -211,7 +215,7 @@ function create_output_dir(
     suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt_$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
+        "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
@@ -365,6 +369,13 @@ function ek_update(
     Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
     Δt = get_Δt(Δt_scheduler, iteration)
 
+    scheduler = ekobj.scheduler
+
+    if !isnothing(scheduler)
+        Δt = nothing
+        ekobj = update_ek_timestepper(ekobj, iteration)
+    end
+
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
     augmented = get_entry(proc_config, "augmented", false)
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
@@ -482,7 +493,6 @@ function restart_calibration(
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
-
     val_config = get(config, "validation", nothing)
 
     # Prepare updated EKP and ReferenceModelBatch if minibatching.
@@ -766,14 +776,16 @@ function update_minibatch_inverse_problem(
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+
+    # scheduler = get_entry(proc_config, "scheduler", nothing)
+    scheduler = ekp_old.scheduler
     localizer = get_entry(proc_config, "localizer", NoLocalization())
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
-
-    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
-
+    Δt = ekp_old.Δt
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer, :scheduler => scheduler)
     if isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
         algo = Unscented(
@@ -795,6 +807,11 @@ function update_minibatch_inverse_problem(
             ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old); ekp_kwargs...)
         end
     end
+    # keep track of Δt history if ekp-native learning rate scheduler is used
+    if !isnothing(scheduler)
+        ekp = modify_field(ekp, :Δt, ekp_old.Δt)
+    end
+
     return ekp, ref_models, ref_stats, ref_model_batch, batch_indices
 end
 
