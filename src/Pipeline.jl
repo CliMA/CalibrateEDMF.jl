@@ -59,6 +59,12 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
     Δt = get_Δt(Δt_scheduler, 1)
 
+    scheduler = get_entry(proc_config, "scheduler", nothing)
+
+    if !isnothing(scheduler)
+        Δt = nothing
+    end
+
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
     localizer = get_entry(proc_config, "localizer", NoLocalization())
@@ -99,7 +105,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         ref_stats,
         outdir_root,
         algo_name,
-        Δt,
         n_param,
         N_ens,
         N_iter,
@@ -114,7 +119,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         prior_μ = nothing
     end
     priors = construct_priors(params, outdir_path = outdir_path, unconstrained_σ = unc_σ, prior_mean = prior_μ)
-    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer, :verbose => true, :scheduler => scheduler)
     # parameters are sampled in unconstrained space
     if algo_name in ["Inversion", "Sampler", "SparseInversion"]
         if algo_name == "Inversion"
@@ -197,7 +202,6 @@ function create_output_dir(
     ref_stats::ReferenceStatistics,
     outdir_root::String,
     algo_name::String,
-    Δt::FT,
     n_param::IT,
     N_ens::IT,
     N_iter::IT,
@@ -211,7 +215,7 @@ function create_output_dir(
     suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_dt_$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
+        "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
@@ -365,6 +369,12 @@ function ek_update(
     Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
     Δt = get_Δt(Δt_scheduler, iteration)
 
+    scheduler = ekobj.scheduler
+
+    if !isnothing(scheduler)
+        Δt = nothing
+    end
+
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
     augmented = get_entry(proc_config, "augmented", false)
     param_map = get_entry(config["prior"], "param_map", HelperFuncs.do_nothing_param_map())  # do-nothing param map by default
@@ -413,9 +423,17 @@ function ek_update(
                 update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
             rm(joinpath(outdir_path, "ref_model_batch.jld2"))
             write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+            # if ekp-native scheduler used, keep full Δt history
+            # this is needed because `update_minibatch_inverse_problem` creates a new ekp object and erases Δt history
+            if !isnothing(scheduler)
+                ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
+            end
+
         else
             ekp = ekobj
         end
+
+        update_scheduler!(ekp, iteration)
 
         # Write to file new EKP and ModelEvaluators
         jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
@@ -426,8 +444,13 @@ function ek_update(
             reg_config = config["regularization"]
             update_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path, iteration)
         end
-    end
 
+    else
+         # If final iteration, update saved ekp object for current iteration
+         ekp = ekobj
+         update_scheduler!(ekp, iteration)
+         jldsave(ekobj_path(outdir_path, iteration); ekp)
+    end
 
     # Clean up
     for version in versions
@@ -482,7 +505,6 @@ function restart_calibration(
 
     reg_config = config["regularization"]
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
-
     val_config = get(config, "validation", nothing)
 
     # Prepare updated EKP and ReferenceModelBatch if minibatching.
@@ -766,14 +788,14 @@ function update_minibatch_inverse_problem(
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
+
+    scheduler = deepcopy(ekp_old.scheduler)
     localizer = get_entry(proc_config, "localizer", NoLocalization())
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
-
-    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer)
-
+    ekp_kwargs = Dict(:outdir_path => outdir_path, :failure_handler => failure_handler, :localizer => localizer, :verbose => true, :scheduler => scheduler)
     if isa(process, Unscented)
         # Reconstruct UKI using regularization toward the prior
         algo = Unscented(
