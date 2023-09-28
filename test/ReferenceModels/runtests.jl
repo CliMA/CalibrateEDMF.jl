@@ -109,19 +109,19 @@ end
     run_reference_SCM.(ref_models; output_root = data_dir, uuid = uuid, overwrite = true, run_single_timestep = false)
 
     # Test model 1 -- shifted
-    Δt = 3.0 * 3600
-    ref_model = time_shift_reference_model(ref_models[1], Δt)
+    time_shift = 3.0 * 3600
+    ref_model = time_shift_reference_model(ref_models[1], time_shift)
     z = get_z_obs(ref_model)
 
     @test get_t_start(ref_model) == t_max - 3600 # No shift
     @test get_t_end(ref_model) == t_max # No shift
-    @test get_t_start_Σ(ref_model) == t_max - Δt + (t_max - 2.0 * 3600)
-    @test get_t_end_Σ(ref_model) == t_max - Δt + (t_max - 0.5 * 3600)
+    @test get_t_start_Σ(ref_model) == t_max - time_shift + (t_max - 2.0 * 3600)
+    @test get_t_end_Σ(ref_model) == t_max - time_shift + (t_max - 0.5 * 3600)
     @test length(z) == 20
     @test z[2] - z[1] ≈ 150
 
-    Δt_error = 2 * t_max
-    @test_throws AssertionError time_shift_reference_model(ref_models[1], Δt_error)
+    time_shift_error = 2 * t_max
+    @test_throws AssertionError time_shift_reference_model(ref_models[1], time_shift_error)
 
     # Test model 2 -- not shifted
     ref_model = ref_models[2]
@@ -151,7 +151,7 @@ end
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     # Check that no shift happens when all ModelTypes are SCM
-    ref_model_shifted = time_shift_reference_model(ref_models[1], Δt)
+    ref_model_shifted = time_shift_reference_model(ref_models[1], time_shift)
     ref_model_not_shifted = ref_models[2]
     @test get_t_start(ref_model_shifted) == get_t_start(ref_model_not_shifted)
     @test get_t_end(ref_model_shifted) == get_t_end(ref_model_not_shifted)
@@ -175,7 +175,7 @@ end
     )
     ref_models = construct_reference_models(kwargs_ref_model)
     # Check that they are equivalent when all ModelTypes are SCM
-    ref_model_shifted = time_shift_reference_model(ref_models[1], Δt)
+    ref_model_shifted = time_shift_reference_model(ref_models[1], time_shift)
     ref_model_not_shifted = ref_models[2]
     @test get_t_start(ref_model_shifted) != get_t_start(ref_model_not_shifted)
     @test get_t_end(ref_model_shifted) != get_t_end(ref_model_not_shifted)

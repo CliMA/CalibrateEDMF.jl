@@ -129,7 +129,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         elseif algo_name == "Sampler"
             algo = Sampler(vcat(mean(priors)...), cov(priors))
         end
-        initial_params = construct_initial_ensemble(priors, N_ens, rng_seed = rand(1:1000))
+        initial_params = construct_initial_ensemble(priors, N_ens)
         if augmented
             ekobj = generate_tekp(ref_stats, priors, algo, initial_params; l2_reg = l2_reg, ekp_kwargs...)
         else
@@ -173,6 +173,7 @@ end
 
 function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
     model_errors = get_entry(ref_config, "model_errors", nothing)
+    time_shift = get_entry(ref_config, "time_shift", 6.0 * 3600.0)
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
     normalize = get_entry(reg_config, "normalize", true)
@@ -187,6 +188,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :tikhonov_mode => tikhonov_mode,
         :dim_scaling => dim_scaling,
         :model_errors => model_errors,
+        :time_shift => time_shift,
     )
 end
 
