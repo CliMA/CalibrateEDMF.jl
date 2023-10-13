@@ -6,7 +6,7 @@ Utils for the construction and handling of Kalman Process structs.
 module KalmanProcessUtils
 
 export generate_ekp,
-    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, modify_field, update_ek_timestepper, PiecewiseConstantDecay, PiecewiseConstantGrowth
+    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, modify_field, update_scheduler!, PiecewiseConstantDecay, PiecewiseConstantGrowth
 
 using LinearAlgebra
 using Statistics
@@ -109,7 +109,7 @@ function generate_ekp(
     u::Union{Matrix{T}, T} = nothing;
     failure_handler::String = "ignore_failures",
     localizer::LocalizationMethod = NoLocalization(),
-    scheduler = DefaultScheduler(), 
+    scheduler = DefaultScheduler(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
 ) where {T}
@@ -260,25 +260,11 @@ function modify_field(scheduler::T, field_name::Symbol, new_value) where T
     return T(values...)
 end
 
-"""Return new ekp object with updated scheduler object."""
-function update_ek_timestepper(ekp, iteration)
-    ekp_cp = deepcopy(ekp)
-    
-    if !isempty(ekp_cp.Δt)
-        FT = eltype(ekp_cp.Δt)
-        # create empty Δt so that calculate_timestep! updates inv_sqrt_noise
-        ekp_cp = modify_field(ekp_cp, :Δt, Vector{FT}())
+function update_scheduler!(ekp, iteration)
+    if typeof(ekp.scheduler) <: DataMisfitController && iteration > 1
+        inv_sqrt_Γ = inv(sqrt(posdef_correct(ekp.obs_noise_cov)))
+        push!(ekp.scheduler.inv_sqrt_noise, inv_sqrt_Γ)
     end
-    scheduler_cp = deepcopy(ekp_cp.scheduler)
-    g_ = ekp_cp.obs_noise_cov
-    # compute inv_sqrt_noise from obs_mean in current batch
-    calculate_timestep!(ekp_cp, g_, nothing, scheduler_cp)
-    # update iteration number
-    scheduler_updated = modify_field(scheduler_cp, :iteration, [iteration])
-    ekp = modify_field(ekp, :scheduler, scheduler_updated)
-    return ekp
 end
-
-
 
 end # module

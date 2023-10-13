@@ -299,7 +299,7 @@ Elements:
  - `mse_full_var` :: Variance estimate of MSE(`g_full`, `y_full`), empirical (EKI/EKS) or quadrature (UKI).
  - `mse_full_nn_mean` :: MSE(`g_full`, `y_full`) of particle closest to the mean in parameter space. The mean in parameter space is the solution to the particle-based inversion.
  - `failures` :: Number of particle failures per iteration. If the calibration is run with the "high_loss" failure handler, this diagnostic will not capture the failures due to parameter mapping.
- - `timestep` :: EKP timestep in current iteration. 
+ - `timestep` :: EKP timestep in current iteration.
  - `nn_mean_index` :: Particle index of the nearest neighbor to the ensemble mean in parameter space. This index is used to construct `..._nn_mean` metrics.
 """
 function io_dictionary_metrics()
@@ -343,7 +343,7 @@ function io_dictionary_metrics(ekp::EnsembleKalmanProcess, mse_full::Vector{FT})
     loss_nn_mean = loss[nn_mean]
 
     # get timestep in latest iteration
-    timestep = ekp.Δt[end]
+    timestep = deepcopy(ekp.Δt[end])
 
     # Filter NaNs
     loss_filt = filter(!isnan, loss)

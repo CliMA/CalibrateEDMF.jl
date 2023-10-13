@@ -373,7 +373,6 @@ function ek_update(
 
     if !isnothing(scheduler)
         Δt = nothing
-        ekobj = update_ek_timestepper(ekobj, iteration)
     end
 
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
@@ -424,9 +423,17 @@ function ek_update(
                 update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
             rm(joinpath(outdir_path, "ref_model_batch.jld2"))
             write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+            # if ekp-native scheduler used, keep full Δt history
+            # this is needed because `update_minibatch_inverse_problem` creates a new ekp object and erases Δt history
+            if !isnothing(scheduler)
+                ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
+            end
+
         else
             ekp = ekobj
         end
+
+        update_scheduler!(ekp, iteration)
 
         # Write to file new EKP and ModelEvaluators
         jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
@@ -437,8 +444,13 @@ function ek_update(
             reg_config = config["regularization"]
             update_validation(val_config, reg_config, ekobj, priors, param_map, versions, outdir_path, iteration)
         end
-    end
 
+    else
+         # If final iteration, update saved ekp object for current iteration
+         ekp = ekobj
+         update_scheduler!(ekp, iteration)
+         jldsave(ekobj_path(outdir_path, iteration); ekp)
+    end
 
     # Clean up
     for version in versions
@@ -777,8 +789,7 @@ function update_minibatch_inverse_problem(
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
 
-    # scheduler = get_entry(proc_config, "scheduler", nothing)
-    scheduler = ekp_old.scheduler
+    scheduler = deepcopy(ekp_old.scheduler)
     localizer = get_entry(proc_config, "localizer", NoLocalization())
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
@@ -806,10 +817,6 @@ function update_minibatch_inverse_problem(
         else
             ekp = generate_ekp(ref_stats, process, get_u_final(ekp_old); ekp_kwargs...)
         end
-    end
-    # keep track of Δt history if ekp-native learning rate scheduler is used
-    if !isnothing(scheduler)
-        ekp = modify_field(ekp, :Δt, ekp_old.Δt)
     end
 
     return ekp, ref_models, ref_stats, ref_model_batch, batch_indices

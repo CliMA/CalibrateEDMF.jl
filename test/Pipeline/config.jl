@@ -65,7 +65,7 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 2
+    config["N_iter"] = 3
     config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     return config
