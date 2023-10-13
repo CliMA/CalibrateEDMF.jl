@@ -7,7 +7,7 @@
 #SBATCH -J "sct_init"   # job name
 
 #julia package management
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1
+module load julia/1.9.3 hdf5/1.10.1 netcdf-c/4.6.1
 
 config=${1?Error: no config file given}
 job_id=${2?Error: no job ID given}
