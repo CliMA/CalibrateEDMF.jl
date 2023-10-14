@@ -83,8 +83,8 @@ function quick_plots(ncfile, out_path)
                 ytitle = pName2
             end
 
-            Label(fig[2, :], text = string(xtitle), textsize = text_size)  # x-axis
-            Label(fig[:, 0], text = string(ytitle), textsize = text_size, rotation = pi / 2)  # y-axis
+            Label(fig[2, :], text = string(xtitle), fontsize = text_size)  # x-axis
+            Label(fig[:, 0], text = string(ytitle), fontsize = text_size, rotation = pi / 2)  # y-axis
             save(joinpath(out_path, "$(group_name).png"), fig)
         end  # end groups
     end  # end NC.Dataset

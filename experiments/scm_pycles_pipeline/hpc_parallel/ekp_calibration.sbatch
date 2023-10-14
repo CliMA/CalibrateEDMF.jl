@@ -17,7 +17,7 @@ n_it=$(grep N_iter ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.9.3
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
