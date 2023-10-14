@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --time=1:00:00   # walltime
+#SBATCH --time=3:00:00   # walltime
 #SBATCH --nodes=1         # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --mem-per-cpu=10G   # memory per CPU core
 #SBATCH -J "sct_run"   # job name
 
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.9.3 openmpi/4.1.5
 iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 n_proc_scm=${3?Error: number of processes not given}

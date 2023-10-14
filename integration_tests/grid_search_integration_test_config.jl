@@ -55,7 +55,7 @@ function get_reference_config(::GridSearchCases)
     n_cases = length(config["case_name"])
     # Flag to indicate source of data (LES or SCM) for reference data and covariance
     config["y_reference_type"] = SCM()
-    # config["Σ_reference_type"] = LES()
+    config["Σ_reference_type"] = SCM()
     # Fields to learn from during training
     config["y_names"] = repeat([["ql_mean", "qt_mean", "total_flux_qt"]], n_cases)
     # LES data can be stored as an Artifact and downloaded lazily
@@ -77,7 +77,6 @@ function get_scm_config()
     config["namelist_args"] = [
         ("time_stepping", "t_max", 200.0),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "moisture_deficit"),
-        ("turbulence", "EDMF_PrognosticTKE", "stochastic_entrainment", "prognostic_noisy_relaxation_process"),
         ("time_stepping", "adapt_dt", false),
     ]
     return config
@@ -86,11 +85,7 @@ end
 function get_grid_search_config()
     config = Dict()
     # Grid search is performed over each pair of parameters, across all specified values
-    config["parameters"] = Dict(
-        "general_stochastic_ent_params_{1}" => [0.3, 0.4],
-        "general_stochastic_ent_params_{2}" => [0.2, 0.3],
-        "entrainment_factor" => [0.1],
-    )
+    config["parameters"] = Dict("entrainment_factor" => [0.1, 0.15], "detrainment_factor" => [0.48, 0.52])
     # Number of simulations to run with identical configuration (except random seed)
     config["ensemble_size"] = 1
     # grid search output data stored in `<output_root_dir>/output/YYmmdd_abc`

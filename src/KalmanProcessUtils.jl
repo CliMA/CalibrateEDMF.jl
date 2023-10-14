@@ -280,7 +280,7 @@ end
 
 "Update inv_sqrt_noise of EKP object when using DMC"
 function update_scheduler!(ekp, iteration)
-    if typeof(ekp.scheduler) <: DataMisfitController && iteration > 1
+    if typeof(ekp.scheduler) <: DataMisfitController && iteration >= 1
         inv_sqrt_Γ = inv(sqrt(posdef_correct(ekp.obs_noise_cov)))
         push!(ekp.scheduler.inv_sqrt_noise, inv_sqrt_Γ)
     end

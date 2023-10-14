@@ -28,7 +28,7 @@ import CalibrateEDMF.LESUtils: get_LES_library, get_shallow_LES_library
     @test get_les_names(scm_names, filename) == ["qt_flux_z", "resolved_z_flux_thetali", "u_translational_mean", "foo"]
 
     @testset "cfSite_getter" begin
-        @test isa(get_cfsite_les_dir(2), String)
+        @test isa(get_cfsite_les_dir(23), String)
         @test isa(get_cfsite_les_dir(14), String)
         @test isa(get_cfsite_les_dir(15), String)
         @test_throws AssertionError get_cfsite_les_dir(15; month = 4, experiment = "amip4K")

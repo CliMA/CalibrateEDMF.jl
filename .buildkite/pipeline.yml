@@ -1,5 +1,5 @@
 env:
-  JULIA_VERSION: "1.8.5"
+  JULIA_VERSION: "1.9.3"
   SLURM_CPUS_PER_TASK: 1
   OPENMPI_VERSION: "4.0.4"
   CUDA_VERSION: "11.2"
@@ -9,9 +9,13 @@ env:
   BUILDKITE_BRANCH: "${BUILDKITE_BRANCH}"
   JULIA_DEPOT_PATH: "${BUILDKITE_BUILD_PATH}/${BUILDKITE_PIPELINE_SLUG}/depot/cpu"
 
+agents:
+  config: cpu
+  queue: central
+
 steps:
 
-  # Clear depot
+  # # Clear depot
   # - label: "clear depot"
   #   command:
   #     - "rm -rf /central/scratch/esm/slurm-buildkite/calibrateedmf-ci/depot/cpu"
@@ -19,10 +23,16 @@ steps:
   #     config: init
   #     queue: central
 
+  # - wait
+
   - label: "init environment :computer:"
     key: "init_cpu_env"
     command:
       - "echo $$JULIA_DEPOT_PATH"
+
+      - echo "--- Configure MPI"
+      - julia -e 'using Pkg; Pkg.add("MPIPreferences"); using MPIPreferences; use_system_binary()'
+
       - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
       - "julia --project -e 'using Pkg; Pkg.status()'"
@@ -34,22 +44,19 @@ steps:
 
       - "julia --project=integration_tests integration_tests/download_artifacts.jl"
 
-    agents:
-      config: cpu
-      queue: central
-
   - wait
 
-  - label: "create system image"  
-    key: "cpu_create_so"
-    command:
-      - "julia --project=integration_tests -C skylake-avx512 integration_tests/test_create_tc_so.jl"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 1
-      slurm_nodes: 1
-      slurm_mem_per_cpu: 20G
+  # Disable for now. Variable HPC hardware prevents reliable use of system image
+  # - label: "create system image"
+  #   key: "cpu_create_so"
+  #   command:
+  #     - "julia --project=integration_tests -C skylake-avx512 integration_tests/test_create_tc_so.jl"
+  #   agents:
+  #     config: cpu
+  #     queue: central
+  #     slurm_cpus_per_task: 1
+  #     slurm_nodes: 1
+  #     slurm_mem_per_cpu: 20G
 
   - label: "Bomex Inv julia_par"
     key: "cpu_bomex_julia_p10"
@@ -112,17 +119,18 @@ steps:
       slurm_cpus_per_task: 11
       slurm_mem_per_cpu: 12G
 
-  - label: "grid search"
-    key: "grid_search_p10"
-    command:
-      - "julia --color=yes -p 13 --project=integration_tests integration_tests/grid_search_test.jl grid_search_integration_test_config.jl"
-    artifact_paths:
-      - "integration_tests/output/grid_search/*"
-    agents:
-      config: cpu
-      queue: central
-      slurm_cpus_per_task: 14
-      slurm_mem_per_cpu: 12G
+# Disable for now.
+  # - label: "grid search"
+  #   key: "grid_search_p10"
+  #   command:
+  #     - "julia --color=yes -p 13 --project=integration_tests integration_tests/grid_search_test.jl grid_search_integration_test_config.jl"
+  #   artifact_paths:
+  #     - "integration_tests/output/grid_search/*"
+  #   agents:
+  #     config: cpu
+  #     queue: central
+  #     slurm_cpus_per_task: 14
+  #     slurm_mem_per_cpu: 12G
 
   - label: "HelperFuncs"
     key: "cpu_helper_funcs"

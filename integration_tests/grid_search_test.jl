@@ -21,7 +21,7 @@ rm(out_dir, recursive = true, force = true)  # delete old test output
     grid_search(config, config_path, out_dir)
     @info "Grid search complete"
 end
-y_root = joinpath(out_dir, "general_stochastic_ent_params_{1}.general_stochastic_ent_params_{2}/0.3_0.2")
+y_root = joinpath(out_dir, "entrainment_factor.detrainment_factor/0.1_0.52")
 y_dirs = [
     joinpath(y_root, "TRMM_LBA.1/Output.TRMM_LBA.1"),
     joinpath(y_root, "Rico.1/Output.Rico.1"),
