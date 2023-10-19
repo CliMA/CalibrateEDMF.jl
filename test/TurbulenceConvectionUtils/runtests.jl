@@ -40,6 +40,29 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
         @test all(u_names_out .∈ [["foo", "bar"]])
         @test only(u_out[u_names_out .== "foo"]) == 2.0
         @test only(u_out[u_names_out .== "bar"]) == [3.0, 1.0]
+
+        # scalars and larger vector parameter, sorted
+        vect_names = ["bar_{$(i)}" for i in 1:20]
+        u_names = ["foo", vect_names..., "baz"]
+        u = randn(length(u_names))
+        param_map = do_nothing_param_map()
+        u_names_out, u_out = create_parameter_vectors(u_names, u, param_map, namelist)
+        @test all(u_names_out .∈ [["foo", "bar", "baz"]])
+        @test only(u_out[u_names_out .== "foo"]) == u[1]
+        @test only(u_out[u_names_out .== "baz"]) == u[end]
+        @test only(u_out[u_names_out .== "bar"]) == u[2:21]
+
+        # scalars and larger vector parameter, decreasing order
+        # check that parameter vectors components are in increasing order (sorted by vector component index)
+        vect_names = ["bar_{$(i)}" for i in 22:-1:1]
+        u_names = ["foo", vect_names..., "baz"]
+        u = randn(length(u_names))
+        param_map = do_nothing_param_map()
+        u_names_out, u_out = create_parameter_vectors(u_names, u, param_map, namelist)
+        @test all(u_names_out .∈ [["foo", "bar", "baz"]])
+        @test only(u_out[u_names_out .== "foo"]) == u[1]
+        @test only(u_out[u_names_out .== "baz"]) == u[end]
+        @test only(u_out[u_names_out .== "bar"]) == u[23:-1:2]
     end
 
     @test get_gcm_les_uuid(1, forcing_model = "model1", month = 1, experiment = "experiment1") ==
