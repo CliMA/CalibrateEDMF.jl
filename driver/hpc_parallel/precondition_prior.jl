@@ -30,6 +30,8 @@ version = parsed_args["version"]
 outdir_path = parsed_args["job_dir"]
 include(joinpath(outdir_path, "config.jl"))
 config = get_config()
+proc_config = config["process"]
+max_counter = get_entry(proc_config, "precondition_max_counter", 10)
 
 scm_args = load(scm_init_path(outdir_path, version))
 priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
@@ -37,7 +39,7 @@ ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
 # Preconditioning ensemble methods in unconstrained space
 if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
-    model_evaluator = precondition(scm_args["model_evaluator"], priors)
+    model_evaluator = precondition(scm_args["model_evaluator"], priors; max_counter = max_counter)
     batch_indices = scm_args["batch_indices"]
     rm(scm_init_path(outdir_path, version))
     jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
