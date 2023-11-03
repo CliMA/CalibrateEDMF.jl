@@ -10,12 +10,13 @@ using CalibrateEDMF.ReferenceModels
 using CalibrateEDMF.ReferenceStats
 using CalibrateEDMF.LESUtils
 using CalibrateEDMF.TurbulenceConvectionUtils
-const src_dir = dirname(pathof(CalibrateEDMF))
 using CalibrateEDMF.HelperFuncs
 # Import EKP modules
 using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 using JLD2
+cedmf = pkgdir(CalibrateEDMF)
+test_dir = joinpath(cedmf, "test", "Pipeline")
 
 namelist_args = [
     ("time_stepping", "t_max", 2.0 * 3600),
@@ -65,7 +66,7 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 2
+    config["N_iter"] = 5
     config["N_ens"] = 5
     config["algorithm"] = "Inversion" # "Sampler", "Unscented"
     return config
@@ -78,8 +79,7 @@ function get_reference_config(::Bomex)
     config["y_reference_type"] = SCM()
     config["Σ_reference_type"] = SCM()
     config["y_names"] = [["thetal_mean", "qt_mean"]]
-    ref_root_dir = mktempdir()
-    config["y_dir"] = [joinpath(ref_root_dir, "Output.Bomex.ref")]
+    config["y_dir"] = [joinpath(test_dir, "ref_data", "Output.Bomex.ref")]
     config["t_start"] = [0.0]
     config["t_end"] = [2.0 * 3600]
     config["namelist_args"] = [namelist_args]

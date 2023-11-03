@@ -6,7 +6,14 @@ Utils for the construction and handling of Kalman Process structs.
 module KalmanProcessUtils
 
 export generate_ekp,
-    generate_tekp, get_sparse_indices, get_regularized_indices, get_Δt, PiecewiseConstantDecay, PiecewiseConstantGrowth
+    generate_tekp,
+    get_sparse_indices,
+    get_regularized_indices,
+    get_Δt,
+    modify_field,
+    update_scheduler!,
+    PiecewiseConstantDecay,
+    PiecewiseConstantGrowth
 
 using LinearAlgebra
 using Statistics
@@ -86,6 +93,7 @@ get_Δt(lrs::PiecewiseConstantGrowth, iteration::IT) where {IT <: Int} = lrs.Δt
         localizer::LocalizationMethod = NoLocalization(),
         outdir_path::String = pwd(),
         to_file::Bool = true,
+        verbose::Bool = true,
     ) where {T}
 
 Generates, and possible writes to file, an EnsembleKalmanProcess
@@ -99,6 +107,7 @@ Inputs:
  - localizer :: Covariance localization method.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
+ - verbose :: Whether to use verbose EKP object
 
 Output:
  - The generated EnsembleKalmanProcess.
@@ -109,8 +118,10 @@ function generate_ekp(
     u::Union{Matrix{T}, T} = nothing;
     failure_handler::String = "ignore_failures",
     localizer::LocalizationMethod = NoLocalization(),
+    scheduler = DefaultScheduler(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
+    verbose::Bool = true,
 ) where {T}
 
     @assert isa(process, Unscented) || !isnothing(u) "Incorrect EKP constructor."
@@ -121,10 +132,17 @@ function generate_ekp(
         fh = IgnoreFailures()
     end
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
+    kwargs = Dict(
+        :failure_handler_method => fh,
+        :localization_method => localizer,
+        :verbose => verbose,
+        :scheduler => scheduler,
+    )
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, process; kwargs...) :
         EnsembleKalmanProcess(u, ref_stats.y, ref_stats.Γ, process; kwargs...)
+
+
     if to_file
         jldsave(ekobj_path(outdir_path, 1); ekp)
     end
@@ -142,6 +160,7 @@ end
         localizer::LocalizationMethod = NoLocalization(),
         outdir_path::String = pwd(),
         to_file::Bool = true,
+        verbose::Bool = true,
     ) where {T, R}
 
 Generates, and possible writes to file, a Tikhonov EnsembleKalmanProcess
@@ -164,6 +183,7 @@ Inputs:
  - localizer :: Covariance localization method.
  - outdir_path :: Output path.
  - to_file :: Whether to write the serialized prior to a JLD2 file.
+ - verbose :: Whether to use verbose EKP object
 
 Output:
  - The generated augmented EnsembleKalmanProcess.
@@ -176,8 +196,10 @@ function generate_tekp(
     l2_reg::Union{Dict{String, Vector{R}}, R} = nothing,
     failure_handler::String = "ignore_failures",
     localizer::LocalizationMethod = NoLocalization(),
+    scheduler = DefaultScheduler(),
     outdir_path::String = pwd(),
     to_file::Bool = true,
+    verbose::Bool = true,
 ) where {T, R}
 
     @assert isa(process, Unscented) || !isnothing(u) "Incorrect TEKP constructor."
@@ -219,7 +241,12 @@ function generate_tekp(
     Γ_aug_list = [ref_stats.Γ, Array(Γ_θ)]
     Γ_aug = cat(Γ_aug_list..., dims = (1, 2))
 
-    kwargs = Dict(:failure_handler_method => fh, :localization_method => localizer, :verbose => true)
+    kwargs = Dict(
+        :failure_handler_method => fh,
+        :localization_method => localizer,
+        :verbose => verbose,
+        :scheduler => scheduler,
+    )
     ekp =
         isnothing(u) ? EnsembleKalmanProcess(y_aug, Γ_aug, process; kwargs...) :
         EnsembleKalmanProcess(u, y_aug, Γ_aug, process; kwargs...)
@@ -244,5 +271,19 @@ end
 "Returns the indices of parameters to be regularized, given the l2 regularization configuration dictionary."
 get_regularized_indices(l2_config::Dict) = flat_dict_keys_where(l2_config, above_eps)
 
+"Return new EKP object with `field_name` overridden by `new_value`"
+function modify_field(ekp::EnsembleKalmanProcess, field_name::Symbol, new_value)
+    fields = fieldnames(EnsembleKalmanProcess)
+    values = [field_name == f ? new_value : getfield(ekp, f) for f in fields]
+    return EnsembleKalmanProcess(values...)
+end
+
+"Update inv_sqrt_noise of EKP object when using DMC"
+function update_scheduler!(ekp, iteration)
+    if typeof(ekp.scheduler) <: DataMisfitController && iteration > 1
+        inv_sqrt_Γ = inv(sqrt(posdef_correct(ekp.obs_noise_cov)))
+        push!(ekp.scheduler.inv_sqrt_noise, inv_sqrt_Γ)
+    end
+end
 
 end # module
