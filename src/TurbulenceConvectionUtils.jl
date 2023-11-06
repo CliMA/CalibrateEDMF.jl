@@ -11,7 +11,8 @@ export ModelEvaluator,
     precondition,
     get_gcm_les_uuid,
     save_tc_data,
-    create_parameter_vectors
+    create_parameter_vectors,
+    write_failed_parameters
 
 import Logging
 using JLD2
@@ -19,6 +20,8 @@ using JSON
 using Random
 using DocStringExtensions
 using TurbulenceConvection
+using NCDatasets
+using Dates
 tc = pkgdir(TurbulenceConvection)
 include(joinpath(tc, "driver", "main.jl"))
 
@@ -566,6 +569,7 @@ Inputs:
 Outputs:
 
  - `new_param` :: A new parameter vector drawn from the prior, conditioned on simulations being stable (in unconstrained space).
+ - `param_failed` :: Failed parameters (in constrained space)
 """
 function precondition(
     param::Vector{FT},
@@ -575,6 +579,7 @@ function precondition(
     ref_stats::ReferenceStatistics;
     counter::Integer = 0,
     max_counter::Integer = 10,
+    param_failed::Vector{Tuple{Vector{String}, Vector{FT}}} = Tuple{Vector{String}, Vector{FT}}[]
 ) where {FT <: Real}
     param_names = priors.name
     # Wrapper around SCM
@@ -587,7 +592,8 @@ function precondition(
         append!(message, ["$param_name = $param \n" for (param_name, param) in zip(param_names, param_cons)])
         @warn join(message)
         @warn "Sampling new parameter vector from prior..."
-        return precondition(
+        push!(param_failed, (param_names, param_cons))
+        param, param_failed = precondition(
             vec(construct_initial_ensemble(priors, 1)),
             priors,
             param_map,
@@ -595,13 +601,81 @@ function precondition(
             ref_stats;
             counter = counter + 1,
             max_counter = max_counter,
+            param_failed = param_failed
         )
+        return param, param_failed
     elseif model_error
         @error "Number of recursive calls to preconditioner exceeded $(max_counter). Returning last failed parameter."
-        return param
+        return param, param_failed
     else
         @info "Preconditioning finished."
-        return param
+        return param, param_failed
+    end
+end
+
+"""
+    write_failed_parameters(
+        param_failed::Vector{Tuple{Vector{String}, Vector{FT}}},
+        filename::String = joinpath(pwd(), "failed_parameters.nc")
+    ) where {FT <: Real}
+
+Append a set of failed parameter vectors along with their names to a NetCDF file.
+If the file does not exist, it will be created. If it does exist, data will be appended.
+
+Inputs:
+
+ - `param_failed`    :: A vector of tuples, each containing a vector of parameter names and
+                        a corresponding vector of parameter values that have led to a failure.
+ - `filename`        :: The path to the NetCDF file to which the data is written.
+"""
+
+function write_failed_parameters(param_failed::Vector{Tuple{Vector{String}, Vector{FT}}}, filename::String) where {FT <: Real}
+    max_retries = 10
+    attempt = 1
+    append_mode = isfile(filename) ? "a" : "c"
+    ds = nothing
+
+    while attempt <= max_retries
+        try
+            ds = Dataset(filename, append_mode)
+            if append_mode == "c" || !haskey(ds, "phi")
+                # If creating the file, define the dimensions and variable.
+                !("params_name" in ds.dim) ? defDim(ds, "params_name", length(param_failed[1][1])) : nothing
+                !("num_failures" in ds.dim) ? defDim(ds, "num_failures", Inf) : nothing # unlimited dimension
+                defVar(ds, "phi", FT, ("params_name", "num_failures"))
+                defVar(ds, "params_name", param_failed[1][1] , ("params_name",))
+            else
+                num_existing_failures = size(ds["phi"], 2)
+            end
+
+            # Write data to the variable.
+            phi_var = ds["phi"]
+            for (i, (param_names, param_values)) in enumerate(param_failed)
+                # Adjust indices for each failure as per the size of the existing data.
+                start_index = append_mode == "a" ? num_existing_failures + i : i
+                phi_var[:, start_index] = param_values
+            end
+
+            break
+
+        catch e
+            if attempt < max_retries
+                @warn "Attempt $attempt failed to write parameters: $e. Retrying..."
+                sleep(rand(5:20)) # Wait for 5-20 seconds before retrying
+                attempt += 1
+            else
+                @error "Final attempt to write parameters failed: $e"
+                break
+            end
+        finally
+            if ds !== nothing
+                try
+                    close(ds)
+                catch close_exception
+                    @warn "Exception occurred while closing the dataset: $close_exception"
+                end
+            end
+        end
     end
 end
 
@@ -618,13 +692,13 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(ME::ModelEvaluator, priors)
+function precondition(ME::ModelEvaluator, priors; write_failed_params::Bool = true,)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats)
+    u, param_failed = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
-    return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats)
+    return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats), param_failed
 end
 
 end # module

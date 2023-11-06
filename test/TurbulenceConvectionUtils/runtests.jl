@@ -1,7 +1,9 @@
 using JSON
 using Test
 
+using Statistics
 import StaticArrays
+using NCDatasets
 const SA = StaticArrays
 
 using EnsembleKalmanProcesses.ParameterDistributions
@@ -74,6 +76,8 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
         case = "Rico"
         uuid = "01"
         y_dirs = [joinpath(data_dir, "Output.$case.$uuid")]
+        num_linear_params = 12
+        linear_ent_params = 1e2*(rand(num_linear_params) .- 0.5)
         # Violate CFL condition for TC.jl simulation to fail
         t_max = 2 * 3600.0
         namelist_args = [
@@ -84,6 +88,10 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
             ("grid", "nz", 20),
             ("stats_io", "frequency", 720.0),
             ("logging", "truncate_stack_trace", true),
+            ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
+            ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "Linear"),
+            ("turbulence", "EDMF_PrognosticTKE", "linear_ent_params", zeros(num_linear_params)),
+            ("turbulence", "EDMF_PrognosticTKE", "linear_ent_biases", false),
         ]
 
         kwargs_ref_model = Dict(
@@ -106,16 +114,22 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
             run_single_timestep = false,
         )
 
-        u_names = ["entrainment_factor", "dt_max", "τ_acnv_rai"]
-        u = [0.15, 210.0, 2500.0]
         constraints = Dict(
-            "entrainment_factor" => [bounded(0.0, 0.5)],
+            "linear_ent_params" => [repeat([no_constraint()], num_linear_params)...],
             "dt_max" => [bounded(200.0, 300.0)],
             "τ_acnv_rai" => [no_constraint()],
         )
+        prior_μ = Dict(
+            "linear_ent_params" => linear_ent_params,
+            "dt_max" => [210.0],
+            "τ_acnv_rai" => [2500.0],
+        )
         param_map = do_nothing_param_map()
-        prior = construct_priors(constraints; to_file = false)
+        prior = construct_priors(constraints; prior_mean = prior_μ, to_file = false)
         ref_stats = ReferenceStatistics(ref_models)
+
+        u_names, u = flatten_config_dict(prior_μ)
+        u = [i[1] for i in u]
 
         res_dir, model_error = run_SCM_handler(ref_models[1], data_dir, u, u_names, param_map)
         @test model_error
@@ -125,9 +139,34 @@ import CalibrateEDMF.HelperFuncs: do_nothing_param_map, change_entry!, update_na
             prior,
             param_map,
             ref_models,
-            ref_stats,
+            ref_stats;
             max_counter = 1,
         )
+        # test failed parameter writing and check precondition behavior
+
+        for i = 1:3
+            model_evaluator, param_failed = precondition(
+            u,
+            prior,
+            param_map,
+            ref_models,
+            ref_stats;
+            max_counter = i,
+        )
+            write_failed_parameters(param_failed, failed_path)
+        end
+
+        failed_params, param_names = Dataset(failed_path, "r") do ds
+            param_values_data = ds["phi"][:,:]
+            param_names = ds["params_name"][:]
+            return param_values_data, param_names
+        end
+        @test size(failed_params) == (14,6)
+        @test param_names == u_names
+
+        failed_params_mean = mean(failed_params, dims=2)
+        @test isapprox(u, failed_params_mean, rtol = 1e-1)
+
     end
 
     @testset "Namelist modification" begin

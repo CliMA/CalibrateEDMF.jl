@@ -31,14 +31,21 @@ outdir_path = parsed_args["job_dir"]
 include(joinpath(outdir_path, "config.jl"))
 config = get_config()
 
+proc_config = config["process"]
+write_failed_params = get_entry(proc_config, "write_failed_params", true)
+
 scm_args = load(scm_init_path(outdir_path, version))
 priors = load(joinpath(outdir_path, "prior.jld2"))["prior"]
 ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
 # Preconditioning ensemble methods in unconstrained space
 if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
-    model_evaluator = precondition(scm_args["model_evaluator"], priors)
+    model_evaluator, param_failed = precondition(scm_args["model_evaluator"], priors)
     batch_indices = scm_args["batch_indices"]
     rm(scm_init_path(outdir_path, version))
     jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)
+
+    if write_failed_params
+        write_failed_parameters(param_failed, joinpath(outdir_path, "failed_precondition_parameters.nc"))
+    end
 end
