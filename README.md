@@ -23,7 +23,6 @@ For further details on how to use CalibrateEDMF, consult the [documentation](htt
 | **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
 | **GHA CI**           | [![gha ci][gha-ci-img]][gha-ci-url]           |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
-| **Bors enabled**     | [![bors][bors-img]][bors-url]                 |
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6382864.svg
 [zenodo-latest-url]: https://doi.org/10.5281/zenodo.6382864
@@ -39,9 +38,6 @@ For further details on how to use CalibrateEDMF, consult the [documentation](htt
 
 [codecov-img]: https://codecov.io/gh/CliMA/CalibrateEDMF.jl/branch/main/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/CalibrateEDMF.jl
-
-[bors-img]: https://bors.tech/images/badge_small.svg
-[bors-url]: https://app.bors.tech/repositories/37644
 
 ### Requirements
 
