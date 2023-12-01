@@ -25,10 +25,10 @@ struct ShallowHadGEM end
 struct ShallowHadGEMVal end
 
 # No batching for now
-batch = 76 # Possible batch sizes are [1, 2, 4, 19, 38, and 76]
+batch = 42 # Possible batch sizes are [1, 2, 4, 19, 38, and 76]
 
 # Hyperparameters
-dt_default = 76.0 / batch
+dt_default = 42.0 / batch
 dt = dt_default * 1.0
 l2_reg_scale = 1.0
 
@@ -107,7 +107,7 @@ function get_reference_config(::ShallowHadGEM)
     # Get LES directories for noise construction. For now, only use HadGEM2-A model
     les_ref_dirs = []
     for model in ["HadGEM2-A"] # keys(les_library)
-        for month in keys(les_library[model])
+	    for month in ["10", "07"]#keys(les_library[model])
             cfsite_numbers = Tuple(les_library[model][month]["cfsite_numbers"])
             les_kwargs = (forcing_model = model, month = parse(Int, month), experiment = "amip")
             append!(
