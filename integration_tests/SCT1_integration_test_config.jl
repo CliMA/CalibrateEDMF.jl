@@ -119,7 +119,7 @@ function get_reference_config(::SCT1Val)
     config = Dict()
 
     # AMIP4K data: July
-    cfsite_numbers = (3, 5, 8, 11, 14)
+    cfsite_numbers = (5, 8, 11, 14)
     les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
     ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 

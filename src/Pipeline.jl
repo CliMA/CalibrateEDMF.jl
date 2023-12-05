@@ -431,10 +431,7 @@ function ek_update(
             write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
             # if ekp-native scheduler used, keep full Δt history
             # this is needed because `update_minibatch_inverse_problem` creates a new ekp object and erases Δt history
-            if !isnothing(scheduler)
-                ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
-            end
-
+            ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
         else
             ekp = ekobj
         end
@@ -443,6 +440,7 @@ function ek_update(
 
         # Write to file new EKP and ModelEvaluators
         jldsave(ekobj_path(outdir_path, iteration + 1); ekp)
+        # writes evaluators in file corresponding to iteration + 1
         write_model_evaluators(ekp, priors, param_map, ref_models, ref_stats, outdir_path, iteration, batch_indices)
 
         # Update validation ModelEvaluators
@@ -454,7 +452,8 @@ function ek_update(
     else
         # If final iteration, update saved ekp object for current iteration
         ekp = ekobj
-        update_scheduler!(ekp, iteration)
+        # needed to preserve history because update_ensemble! modifies Δt for variable timesteppers
+        ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
         jldsave(ekobj_path(outdir_path, iteration); ekp)
     end
 
@@ -520,6 +519,7 @@ function restart_calibration(
             update_minibatch_inverse_problem(ref_model_batch, ekobj, priors, batch_size, outdir_path, config)
         rm(joinpath(outdir_path, "ref_model_batch.jld2"))
         write_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
+        ekp = modify_field(ekp, :Δt, deepcopy(ekobj.Δt))
     else
         ekp = ekobj
         ref_models = construct_reference_models(kwargs_ref_model)
@@ -527,6 +527,7 @@ function restart_calibration(
         batch_indices = nothing
     end
 
+    update_scheduler!(ekp, last_iteration + 1)
     # Write to file new EKP and ModelEvaluators
     jldsave(ekobj_path(outdir_path, last_iteration + 1); ekp)
     write_model_evaluators(ekp, priors, param_map, ref_models, ref_stats, outdir_path, last_iteration, batch_indices)
