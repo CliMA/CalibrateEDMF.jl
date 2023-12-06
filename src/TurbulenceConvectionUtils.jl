@@ -574,7 +574,7 @@ function precondition(
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics;
     counter::Integer = 0,
-    max_counter::Integer = 10,
+    max_counter::Integer = 5,
 ) where {FT <: Real}
     param_names = priors.name
     # Wrapper around SCM
