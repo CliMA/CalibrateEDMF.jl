@@ -11,6 +11,6 @@
 config=${1?Error: no config file given}
 
 module purge
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.0 openmpi/4.1.5
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 julia --project -p 25 grid_search.jl --config $config --mode new

@@ -7,7 +7,7 @@
 #SBATCH -J "ekp_init"   # job name
 
 #julia package management
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.0 openmpi/4.1.5
 
 config=${1?Error: no config file given}
 job_id=${2?Error: no job ID given}
