@@ -191,6 +191,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
     tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
     dim_scaling = get_entry(reg_config, "dim_scaling", true)
+    obs_var_scaling = get_entry(reg_config, "obs_var_scaling", nothing)
     return Dict(
         :perform_PCA => perform_PCA,
         :normalize => normalize,
@@ -200,6 +201,7 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :dim_scaling => dim_scaling,
         :model_errors => model_errors,
         :time_shift => time_shift,
+        :obs_var_scaling => obs_var_scaling,
     )
 end
 
