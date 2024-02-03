@@ -11,6 +11,6 @@
 sim_dir=${1?Error: no simulation path given}
 
 module purge
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.0 openmpi/4.1.5
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 julia --project -p 25 loss_map.jl --sim_dir $sim_dir

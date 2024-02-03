@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "precond"   # job name
 
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.0 openmpi/4.1.5
 iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 
