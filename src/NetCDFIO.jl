@@ -41,6 +41,8 @@ mutable struct NetCDFIO_Diags
     particle_grp::NC.NCDataset{NC.NCDataset{Nothing}}
     "Reference to the `metrics` group in the NetCDF file"
     metric_grp::NC.NCDataset{NC.NCDataset{Nothing}}
+    "Reference to the `reference` group in the NetCDF file"
+    reference_grp::NC.NCDataset{NC.NCDataset{Nothing}}
     "Path to directory where the NetCDF file is located"
     outdir_path::String
     "Path to the NetCDF file"
@@ -62,9 +64,11 @@ mutable struct NetCDFIO_Diags
         NC.defGroup(root_grp, "ensemble_diags")
         NC.defGroup(root_grp, "particle_diags")
         NC.defGroup(root_grp, "metrics")
+        NC.defGroup(root_grp, "reference")
         ensemble_grp = root_grp.group["ensemble_diags"]
         particle_grp = root_grp.group["particle_diags"]
         metric_grp = root_grp.group["metrics"]
+        reference_grp = root_grp.group["reference"]
         close(root_grp)
 
         filepath = joinpath(outdir_path, "Diagnostics.nc")
@@ -146,8 +150,12 @@ mutable struct NetCDFIO_Diags
             NC.defVar(particle_grp, "config", configuration, ("config",))
             NC.defDim(particle_grp, "batch_index", batch_size)
             NC.defVar(particle_grp, "batch_index", batch_index, ("batch_index",))
+            NC.defDim(particle_grp, "config_field", f)
+            NC.defVar(particle_grp, "config_field", field, ("config_field",))
+
             NC.defDim(particle_grp, "iteration", Inf)
             NC.defVar(particle_grp, "iteration", Int16, ("iteration",))
+
 
             if !isnothing(val_ref_stats)
                 d_full_val = full_length(val_ref_stats)
@@ -202,7 +210,7 @@ mutable struct NetCDFIO_Diags
             NC.defVar(metric_grp, "iteration", Int16, ("iteration",))
         end
         vars = Dict{String, Any}()
-        return new(root_grp, ensemble_grp, particle_grp, metric_grp, outdir_path, filepath, vars)
+        return new(root_grp, ensemble_grp, particle_grp, metric_grp, reference_grp, outdir_path, filepath, vars)
     end
 
     function NetCDFIO_Diags(filepath::String)
@@ -212,7 +220,9 @@ mutable struct NetCDFIO_Diags
             ensemble_grp = root_grp.group["ensemble_diags"]
             particle_grp = root_grp.group["particle_diags"]
             metric_grp = root_grp.group["metrics"]
-            diags = new(root_grp, ensemble_grp, particle_grp, metric_grp, dirname(filepath), filepath, vars)
+            reference_grp = root_grp.group["reference"]
+            diags =
+                new(root_grp, ensemble_grp, particle_grp, metric_grp, reference_grp, dirname(filepath), filepath, vars)
         end
         return diags
     end
@@ -454,16 +464,25 @@ function io_val_particle_diags(
     mse_full::Vector{FT},
     g::Matrix{FT},
     g_full::Matrix{FT},
+    y_full::Vector{FT},
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     # Dimension of the outputs
     d_aug_val = length(diags.particle_grp["out_aug_val"])
     d_full_val = length(diags.particle_grp["out_full_val"])
+
+    var_dofs = diags.reference_grp["var_dof"][:]
+    norm_factors = diags.reference_grp["norm_factor"][:, :]
+    var_names = diags.reference_grp["ref_variable_names"][:, :]
     # If not minibatching - training set size
     batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config_val"]) : batch_indices
 
+    num_cases = length(batch_indices)
+    # compute mse
+    mse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
+
     # Write eval diagnostics to file
-    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, d_aug_val, d_full_val, batch_indices)
+    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, mse_by_var, d_aug_val, d_full_val, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -472,16 +491,24 @@ function io_particle_diags_eval(
     ekp::EnsembleKalmanProcess,
     mse_full::Vector{FT},
     g_full::Matrix{FT},
+    y_full::Vector{FT},
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     # Dimension of the outputs
     d = length(diags.particle_grp["out_aug"])
     d_full = length(diags.particle_grp["out_full"])
+
+    var_dofs = diags.reference_grp["var_dof"][:]
+    norm_factors = diags.reference_grp["norm_factor"][:, :]
+    var_names = diags.reference_grp["ref_variable_names"][:, :]
     # If not minibatching - training set size
     batch_indices = isnothing(batch_indices) ? Array(diags.particle_grp["config"]) : batch_indices
 
+    num_cases = length(batch_indices)
+    # compute mse
+    mse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
     # Write eval diagnostics to file
-    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, d, d_full, batch_indices)
+    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, mse_by_var, d, d_full, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -496,12 +523,13 @@ function io_diagnostics(
     priors::ParameterDistribution,
     mse_full::Vector{FT},
     g_full::Matrix{FT},
+    y_full::Vector{FT},
     batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     open_files(diags)
     # Eval diagnostics
     io_metrics(diags, ekp, mse_full)
-    io_particle_diags_eval(diags, ekp, mse_full, g_full, batch_indices)
+    io_particle_diags_eval(diags, ekp, mse_full, g_full, y_full, batch_indices)
     write_iteration(diags)
     # State diagnostics
     io_particle_diags_state(diags, ekp, priors)
@@ -516,11 +544,12 @@ function io_val_diagnostics(
     g_val::Matrix{FT},
     g_full_val::Matrix{FT},
     val_ref_stats::ReferenceStatistics,
+    y_full::Vector{FT},
     val_batch_indices::Union{Vector{Int}, Nothing},
 ) where {FT <: Real}
     open_files(diags)
     io_val_metrics(diags, ekp, val_ref_stats, g_val, mse_full_val)
-    io_val_particle_diags(diags, mse_full_val, g_val, g_full_val, val_batch_indices)
+    io_val_particle_diags(diags, mse_full_val, g_val, g_full_val, y_full, val_batch_indices)
     close_files(diags)
 end
 
