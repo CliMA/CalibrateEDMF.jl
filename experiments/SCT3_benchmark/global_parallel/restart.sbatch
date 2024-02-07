@@ -3,7 +3,7 @@
 #SBATCH --time=1:00:00   # walltime
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
-#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --mem-per-cpu=10G   # memory per CPU core
 #SBATCH -J "restart"   # job name
 
 module load julia/1.9.3 openmpi/4.1.5
