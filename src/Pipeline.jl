@@ -950,7 +950,7 @@ function update_diagnostics(
     mse_full = compute_mse(g_full, ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
 
-    io_diagnostics(diags, ekp, priors, mse_full, g_full, batch_indices)
+    io_diagnostics(diags, ekp, priors, mse_full, g_full, ref_stats.y_full, batch_indices)
 end
 
 function update_val_diagnostics(
@@ -973,7 +973,7 @@ function update_val_diagnostics(
     # Compute diagnostics
     mse_full = compute_mse(g_full, val_ref_stats.y_full)
     diags = NetCDFIO_Diags(joinpath(outdir_path, "Diagnostics.nc"))
-    io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_ref_stats, val_batch_indices)
+    io_val_diagnostics(diags, ekp, mse_full, g, g_full, val_ref_stats, val_ref_stats.y_full, val_batch_indices)
 end
 
 end # module

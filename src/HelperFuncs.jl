@@ -15,6 +15,7 @@ export vertical_interpolation,
     is_timeseries,
     get_stats_path,
     compute_mse,
+    compute_mse_by_var,
     penalize_nan,
     serialize_struct,
     deserialize_struct,
@@ -627,6 +628,43 @@ function compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT} where {FT <: 
     else
         throw(BoundsError("Dimension mismatch between inputs to `compute_error`."))
     end
+end
+
+function compute_mse_by_var(
+    g_full,
+    y_full,
+    var_dof,
+    var_names,
+    norm_factors,
+    num_cases;
+    integrated_quantities = ["lwp_mean"],
+)
+    mse_out = zeros(size(g_full, 2), size(var_names, 2))  # num ensemble members x number of fields
+    for particle_i in 1:size(g_full, 2)
+        idx_y_full = 1
+        for case_i in 1:num_cases
+            local_var_names = var_names[case_i, :]
+            for var_i in 1:length(local_var_names)
+                var_name_i = local_var_names[var_i]
+                norm_factor_var_i = norm_factors[case_i, var_i]
+
+                if var_name_i in integrated_quantities
+                    dof_var_i = 1
+                else
+                    dof_var_i = var_dof[case_i]
+                end
+
+                i_stop = idx_y_full + dof_var_i - 1
+                g_full_var_i = g_full[idx_y_full:i_stop, particle_i] .* sqrt(norm_factor_var_i)
+                y_full_var_i = y_full[idx_y_full:i_stop] .* sqrt(norm_factor_var_i)
+
+                mse_out[particle_i, var_i] += (1 / dof_var_i) * sum((y_full_var_i - g_full_var_i) .^ 2)
+                idx_y_full += dof_var_i
+            end
+        end
+    end
+
+    return sqrt.(mse_out)
 end
 
 """

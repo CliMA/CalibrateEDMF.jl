@@ -89,7 +89,7 @@ using EnsembleKalmanProcesses: DataContainer
     CN.open_files(diags)
 
     CN.io_metrics(diags, ekp, mse_full)  # test writing of Floats
-    CN.io_particle_diags_eval(diags, ekp, mse_full, g_full, nothing)  # test writing of vectors and matrices
+    CN.io_particle_diags_eval(diags, ekp, mse_full, g_full, ref_stats.y_full, nothing)  # test writing of vectors and matrices
     CN.write_iteration(diags)
     CN.close_files(diags)
     NC.Dataset(diags.filepath, "r") do root_grp

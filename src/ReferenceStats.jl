@@ -89,6 +89,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         dim_scaling::Bool = false,
         time_shift::FT = 6 * 3600.0,
         model_errors::OptVec{T} = nothing,
+        obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real, T}
         IT = Int64
         # Init arrays
@@ -211,6 +212,7 @@ function get_obs(
     normalize::Bool;
     z_scm::OptVec{FT} = nothing,
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
     Σ, pool_var = get_time_covariance(m, Σ_names, z_scm, normalize = normalize, model_error = model_error)
@@ -228,6 +230,7 @@ function get_obs(
     normalize::Bool;
     z_scm::OptVec{FT},
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     y_names = isa(m.y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(m.Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
@@ -404,6 +407,7 @@ end
         z_scm::Vector{FT};
         normalize::Bool = true,
         model_error::OptVec{FT} = nothing,
+        obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
@@ -424,6 +428,7 @@ function get_time_covariance(
     z_scm::Vector{FT};
     normalize::Bool = true,
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")

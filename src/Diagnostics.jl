@@ -57,6 +57,7 @@ function io_dictionary_reference()
         "config_name" => (; dims = ("config",), group = "reference", type = String),
         "config_z_obs" => (; dims = ("config", "dof"), group = "reference", type = Float64),
         "norm_factor" => (; dims = ("config", "config_field"), group = "reference", type = Float64),
+        "ref_variable_names" => (; dims = ("config", "config_field"), group = "reference", type = String),
     )
     return io_dict
 end
@@ -77,9 +78,11 @@ function io_dictionary_reference(
     ]
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
+    ref_variable_names = fill("", (length(config_name), maximum(num_vars)))
     for (i, rm) in enumerate(ref_models)
         z_obs = get_z_obs(rm)
         config_z_obs[i, 1:length(z_obs)] = z_obs
+        ref_variable_names[i, :] = rm.y_names
     end
 
     P_pca_full = zeros(d_full, d)
@@ -102,6 +105,7 @@ function io_dictionary_reference(
         "config_pca_dim" => Base.setindex(orig_dict["config_pca_dim"], config_pca_dim, :field),
         "config_name" => Base.setindex(orig_dict["config_name"], config_name, :field),
         "config_z_obs" => Base.setindex(orig_dict["config_z_obs"], config_z_obs, :field),
+        "ref_variable_names" => Base.setindex(orig_dict["ref_variable_names"], ref_variable_names, :field),
     )
     max_num_fields = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
     norm_factor = zeros(length(ref_stats.norm_vec), max_num_fields)
@@ -156,6 +160,8 @@ function io_dictionary_val_reference()
         "config_name_val" => (; dims = ("config_val",), group = "reference", type = String),
         "config_z_obs_val" => (; dims = ("config_val", "dof_val"), group = "reference", type = Float64),
         "norm_factor_val" => (; dims = ("config_val", "config_field_val"), group = "reference", type = Float64),
+        "ref_variable_names_val" =>
+            (; dims = ("config_val", "config_field_val"), group = "reference", type = String),
     )
     return io_dict
 end
@@ -176,9 +182,11 @@ function io_dictionary_val_reference(
     ]
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
+    ref_variable_names = fill("", (length(config_name), maximum(num_vars)))
     for (i, rm) in enumerate(ref_models)
         z_obs = get_z_obs(rm)
         config_z_obs[i, 1:length(z_obs)] = z_obs
+        ref_variable_names[i, :] = rm.y_names
     end
 
     P_pca_full = zeros(d_full, d)
@@ -202,6 +210,7 @@ function io_dictionary_val_reference(
         "config_pca_dim_val" => Base.setindex(orig_dict["config_pca_dim_val"], config_pca_dim, :field),
         "config_name_val" => Base.setindex(orig_dict["config_name_val"], config_name, :field),
         "config_z_obs_val" => Base.setindex(orig_dict["config_z_obs_val"], config_z_obs, :field),
+        "ref_variable_names_val" => Base.setindex(orig_dict["ref_variable_names_val"], ref_variable_names, :field),
     )
     max_num_fields = maximum([length(norm_vec) for norm_vec in ref_stats.norm_vec])
     norm_factor = zeros(length(ref_stats.norm_vec), max_num_fields)
@@ -517,6 +526,8 @@ function io_dictionary_particle_eval()
         "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags", type = Float64),
         "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "batch_indices" => (; dims = ("batch_index", "iteration"), group = "particle_diags", type = Int16),
+        "mse_by_var_full" =>
+            (; dims = ("particle", "config_field", "iteration"), group = "particle_diags", type = Float64),
     )
     return io_dict
 end
@@ -524,6 +535,7 @@ function io_dictionary_particle_eval(
     ekp::EnsembleKalmanProcess,
     g_full::Matrix{FT},
     mse_full::Vector{FT},
+    mse_by_var::Matrix{FT},
     d::IT,
     d_full::IT,
     batch_indices::Vector{IT},
@@ -545,7 +557,9 @@ function io_dictionary_particle_eval(
         "g_full" => Base.setindex(orig_dict["g_full"], g_full_filled', :field),
         "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
         "batch_indices" => Base.setindex(orig_dict["batch_indices"], batch_indices, :field),
+        "mse_by_var_full" => Base.setindex(orig_dict["mse_by_var_full"], mse_by_var, :field),
     )
+
     return io_dict
 end
 
@@ -576,6 +590,8 @@ function io_dictionary_val_particle_eval()
             (; dims = ("particle", "out_full_val", "iteration"), group = "particle_diags", type = Float64),
         "val_mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "val_batch_indices" => (; dims = ("batch_index_val", "iteration"), group = "particle_diags", type = Int16),
+        "val_mse_by_var_full" =>
+            (; dims = ("particle", "config_field", "iteration"), group = "particle_diags", type = Float64),
     )
     return io_dict
 end
@@ -583,6 +599,7 @@ function io_dictionary_val_particle_eval(
     g::Matrix{FT},
     g_full::Matrix{FT},
     mse_full::Vector{FT},
+    mse_by_var::Matrix{FT},
     d_aug::IT,
     d_full::IT,
     batch_indices::Vector{IT},
@@ -603,6 +620,7 @@ function io_dictionary_val_particle_eval(
         "val_g_full" => Base.setindex(orig_dict["val_g_full"], g_full_filled', :field),
         "val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field),
         "val_batch_indices" => Base.setindex(orig_dict["val_batch_indices"], batch_indices, :field),
+        "val_mse_by_var_full" => Base.setindex(orig_dict["val_mse_by_var_full"], mse_by_var, :field),
     )
     return io_dict
 end
