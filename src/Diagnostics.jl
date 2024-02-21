@@ -525,7 +525,7 @@ function io_dictionary_particle_eval()
         "g_full" => (; dims = ("particle", "out_full", "iteration"), group = "particle_diags", type = Float64),
         "mse_full" => (; dims = ("particle", "iteration"), group = "particle_diags", type = Float64),
         "batch_indices" => (; dims = ("batch_index", "iteration"), group = "particle_diags", type = Int16),
-        "mse_by_var_full" => (; dims = ("particle", "config_field", "iteration"), group = "particle_diags", type = Float64)
+        "rmse_by_var_full" => (; dims = ("particle", "config_field", "iteration"), group = "particle_diags", type = Float64)
     )
     return io_dict
 end
@@ -533,7 +533,7 @@ function io_dictionary_particle_eval(
     ekp::EnsembleKalmanProcess,
     g_full::Matrix{FT},
     mse_full::Vector{FT},
-    mse_by_var::Matrix{FT},
+    rmse_by_var::Matrix{FT},
     d::IT,
     d_full::IT,
     batch_indices::Vector{IT},
@@ -555,7 +555,7 @@ function io_dictionary_particle_eval(
         "g_full" => Base.setindex(orig_dict["g_full"], g_full_filled', :field),
         "mse_full" => Base.setindex(orig_dict["mse_full"], mse_full, :field),
         "batch_indices" => Base.setindex(orig_dict["batch_indices"], batch_indices, :field),
-        "mse_by_var_full" => Base.setindex(orig_dict["mse_by_var_full"], mse_by_var, :field),
+        "rmse_by_var_full" => Base.setindex(orig_dict["rmse_by_var_full"], rmse_by_var, :field),
     )
 
     return io_dict
@@ -596,7 +596,7 @@ function io_dictionary_val_particle_eval(
     g::Matrix{FT},
     g_full::Matrix{FT},
     mse_full::Vector{FT},
-    mse_by_var::Matrix{FT},
+    rmse_by_var::Matrix{FT},
     d_aug::IT,
     d_full::IT,
     batch_indices::Vector{IT},
@@ -617,7 +617,7 @@ function io_dictionary_val_particle_eval(
         "val_g_full" => Base.setindex(orig_dict["val_g_full"], g_full_filled', :field),
         "val_mse_full" => Base.setindex(orig_dict["val_mse_full"], mse_full, :field),
         "val_batch_indices" => Base.setindex(orig_dict["val_batch_indices"], batch_indices, :field),
-        "val_mse_by_var_full" => Base.setindex(orig_dict["val_mse_by_var_full"], mse_by_var, :field),
+        "val_mse_by_var_full" => Base.setindex(orig_dict["val_mse_by_var_full"], rmse_by_var, :field),
     )
     return io_dict
 end

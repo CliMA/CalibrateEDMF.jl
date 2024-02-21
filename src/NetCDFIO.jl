@@ -478,10 +478,10 @@ function io_val_particle_diags(
 
     num_cases = length(batch_indices)
     # compute mse
-    mse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
+    rmse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
 
     # Write eval diagnostics to file
-    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, mse_by_var, d_aug_val, d_full_val, batch_indices)
+    io_dict = io_dictionary_val_particle_eval(g, g_full, mse_full, rmse_by_var, d_aug_val, d_full_val, batch_indices)
     write_current_dict(diags, io_dict)
 end
 
@@ -505,9 +505,9 @@ function io_particle_diags_eval(
 
     num_cases = length(batch_indices)
     # compute mse
-    mse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
+    rmse_by_var = compute_mse_by_var(g_full, y_full, var_dofs, var_names, norm_factors, num_cases)
     # Write eval diagnostics to file
-    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, mse_by_var, d, d_full, batch_indices)
+    io_dict = io_dictionary_particle_eval(ekp, g_full, mse_full, rmse_by_var, d, d_full, batch_indices)
     write_current_dict(diags, io_dict)
 end
 

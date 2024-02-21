@@ -447,7 +447,13 @@ function get_time_covariance(
     for (i, var_name) in enumerate(y_names)
 
         if !isnothing(obs_var_scaling)
-            var_factor = get(obs_var_scaling, var_name, 1.0)
+            if var_name == "s_flux_z"
+                var_factor = get(obs_var_scaling, "total_flux_s", 1.0)
+            elseif var_name in ("resolved_z_flux_qt", "qt_flux_z")
+                var_factor = get(obs_var_scaling, "total_flux_qt", 1.0)
+            else
+                var_factor = get(obs_var_scaling, var_name, 1.0)
+            end
         else
             var_factor = 1.0
         end
