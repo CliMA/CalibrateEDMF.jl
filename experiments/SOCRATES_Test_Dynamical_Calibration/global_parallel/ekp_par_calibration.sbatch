@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=0:20:00   # walltime
+#SBATCH --time=0:20:00   # walltime (what times do we need for our runs) -- just inits so 20 should be fine
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "sct_call"   # job name
@@ -19,7 +19,7 @@ n_proc_scm=10
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # check these are still up to date
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
@@ -47,4 +47,5 @@ fi
 # Update ensemble
 id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n step_ekp.sbatch $it $job_id)
 done
+
 

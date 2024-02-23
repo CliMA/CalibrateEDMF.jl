@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=2:00:00   # walltime
+#SBATCH --time=2:00:00   # walltime (what times do we need for our runs)
 #SBATCH --ntasks=1       # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=20G   # memory per CPU core
@@ -19,3 +19,4 @@ julia --project -C skylake-avx512 -JCEDMF.so init.jl --config $config --job_id $
 )
 
 echo 'Ensemble initialized for calibration.'
+
