@@ -211,6 +211,8 @@ function namelist_subdict_by_key(namelist::Dict, param_name::AbstractString)::Di
         namelist["time_stepping"]
     elseif haskey(namelist["grid"]["stretch"], param_name)
         namelist["grid"]["stretch"]
+    elseif haskey(namelist, "user_aux") && haskey(namelist["user_aux"], param_name) # allow user calibratable variables
+        namelist["user_aux"]
     else
         throw(ArgumentError("Parameter $param_name cannot be calibrated. Consider adding namelist dictionary if needed."))
     end
@@ -787,12 +789,77 @@ end
 """
 Changed it from the prior implementation lol, now it's just a list of keys to the subdict you want... no final key leading to value hanging on at the end lol
 Note that this is also better cause it's protects you from having a final key that doesn't exist in the subdict 
+(Addendum), that protection can be a pain, instead we'd like to just set that value...
 """
 function get_last_nested_dict(dict, keys)
-    if length(keys) ≥ 1
+    if length(keys) > 1
         return get_last_nested_dict(dict[keys[1]], keys[2:end])
+    elseif length(keys) == 1
+        if haskey(dict, keys[1])
+            return dict[keys[1]]
+        else
+            dict[keys[1]] = Dict() # if the last key (leaf key) doesn't exist, create it -- however we don't create intermediate (branch) keys
+            return dict[keys[1]]
+        end
     else
         return dict
+    end
+end
+
+
+
+function realpath_resolve_symlinks(
+    path::AbstractString;
+    starting_point::AbstractString="", # the path we start from, if empty is assumed to just be pwd(), not symlinks up the the starting point won't be resolved.
+    use_shell=false, # add a shell method that uses run() since that works always
+    )
+    """
+    Iterates along path, converting symlinks to absolute paths as you go since readlink chockes on symlinks that don't exist yet
+    See https://github.com/JuliaLang/julia/issues/34135
+
+    Alternatively, just use shell realpath which works correctly
+    """
+
+    if use_shell # note this will crash if at any point the path doesn't exist (though it can handle a final broken pointer to nowhere)
+        return readchomp(`realpath $(joinpath(starting_point, path))`) 
+    end
+
+    split_path = splitpath(path)
+
+    if starting_point == "" || splitpath(starting_point)[1] != "/" # we have a relative path or empty starting point
+        starting_point = abspath(joinpath(pwd(), starting_point))
+    end
+
+    # move up the starting point if the path is up_relative so that we get to a path with a path that only gets deeper
+    while split_path[1] == ".." # if we need to go up, do that now to resolve symlinks above us (unecessary bc we start from the beginning of the path later anyway...)
+        split_path = split_path[2:end]
+        starting_point = joinpath(starting_point, "..")
+    end
+    starting_point = abspath(starting_point) # resolve any ".." etc in starting_point, that we added or alraedy there
+
+    head = joinpath(starting_point, split_path[1])
+    tail = split_path[2:end]
+    tail = length(tail) > 0 ? joinpath(tail...) : "" # if the tail is empty, joinpath will complain so check for that
+
+    if islink(head) # resolve symlink
+        link_pointer = splitpath(readlink(head)) # read where the symlink points to, split it into a vector
+
+        head = joinpath(head, "..") # drop the symlink from the path so we can replace it with the link pointer
+        while link_pointer[1] == ".." # resolve up relative symlinkn
+            link_pointer = link_pointer[2:end]
+            head = joinpath(head, "..")
+        end
+        head = abspath(head)
+        tail = joinpath(link_pointer..., tail) # add the link pointer to the tail
+    elseif !ispath(head) # if the head doesn't exist, just return the tail since there are no more downstream symlinks to resolve
+        return joinpath(head, tail) # truncate if head doesnt exist
+    end
+
+    if isempty(tail) # we've covered the whole path
+        return head
+    else # recurse
+        tail = realpath_resolve_symlinks(tail, starting_point=head, use_shell=use_shell)
+        return abspath(joinpath(head, tail))
     end
 end
 

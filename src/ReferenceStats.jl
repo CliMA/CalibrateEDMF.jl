@@ -471,8 +471,6 @@ function get_time_covariance(
             var  = Statistics.var
         end
 
-        @info(mean)
-        @info(var)
 
         if ndims(var_) == 2
             # Store pooled variance
