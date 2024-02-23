@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=20G   # memory per CPU core
 #SBATCH -J "sys_im"   # job name
 
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+module load julia/1.8.5 #hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 
 julia --project -C skylake-avx512 create_tc_so.jl
 
