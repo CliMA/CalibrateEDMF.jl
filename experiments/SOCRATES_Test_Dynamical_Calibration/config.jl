@@ -307,7 +307,7 @@ function get_scm_config() # set all my namelist stuff here
     config["namelist_args"] = [
         ("time_stepping", "dt_min", 0.5),
         ("time_stepping", "dt_max", 2.0),
-        ("time_stepping", "t_max", 14*3600.0),
+        ("stats_io", "frequency", 600.0), # long runs so try a lower output rate for smaller files... (seems to be seconds) -- changed to 10 minutes... 14 hours default runs are loooong...
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
         ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "NN"),
         ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
