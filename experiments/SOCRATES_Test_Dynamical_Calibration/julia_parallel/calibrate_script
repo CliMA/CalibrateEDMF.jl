@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#Submit this script with: sbatch calibrate_script
+
+#SBATCH --time=02:00:00   # walltime
+#SBATCH --ntasks=10  # number of processor cores (i.e. tasks)
+#SBATCH --nodes=1   # number of nodes
+#SBATCH -J "ekp_socrates"   # job name
+#SBATCH --mem-per-cpu=6G   # memory per CPU core
+#SBATCH --output=slurm_julia_par_%j.out
+
+config=${1?Error: no config file given}
+
+thisdir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ) # the location of this filesh
+
+module purge
+# module load julia/1.8.5 # hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # do we need these then? costa amde it seem like we don't anymore (doesn't work on sampo anyway... and we should have julia loaded already -- might need on clima idk, it's in my bashrc)
+julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
+
+julia --project -p 11 ${thisdir}/calibrate.jl --config $config # Not sure how many processors I should go for... maybe at least 1 more than the batch size?
