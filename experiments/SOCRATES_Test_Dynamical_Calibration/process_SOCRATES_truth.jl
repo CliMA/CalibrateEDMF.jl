@@ -12,8 +12,12 @@ default_data_vars = Dict{Tuple{String,String}, String}( #TC.jl (Name, Group) => 
 ("thetal_mean", "profiles") => "THETAL",
 ("temperature_mean", "profiles") => "TABS",
 ("qt_mean", "profiles") => "QT",
-("ql_mean", "profiles") => "QCL", # weems QCL and QC are the same
+("ql_mean", "profiles") => "QCL", # Seems QCL and QC are the same
 ("qi_mean", "profiles") => "QCI", # seems QCI and QI are the same
+("qc_mean", "profiles") => "QN", # cloud liquid and ice (not in TC.jl output)
+("qr_mean", "profiles") => "QR",
+("qs_mean", "profiles") => "QS",
+("qp_mean", "profiles") => "QP", # total precipitation (rain + snow) , not in TC.jl output
 ("t", "timeseries") => "time",
 ("t", "profiles") => "time",
 ("zf", "profiles") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
