@@ -121,7 +121,6 @@ function get_reference_config(::SOCRATES_Train)
     config["y_reference_type"] = SOCRATES()
     config["Σ_reference_type"] = SOCRATES()
     config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # are these what we want to validate on? so theta_li, qt, for our dynamical calibration?
     config["y_dir"] = ref_dirs
     config["t_start"] = repeat([0], n_repeat)
     config["t_end"] = repeat([14.0 * 3600], n_repeat)
@@ -136,7 +135,8 @@ end
 function get_reference_config(::SOCRATES_Val)
     config = Dict()
 
-    # Train on same thing? or waht do we do here
+    # Train on same thing? or waht do we do here        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # are these what we want to validate on? so theta_li, qt, for our dynamical calibration?
+
     flight_numbers = (9,) # just validate on same flight
     aux_kwargs     = (,) # fill in later
     # ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
@@ -147,7 +147,7 @@ function get_reference_config(::SOCRATES_Val)
     config["y_reference_type"] = SOCRATES()
     config["Σ_reference_type"] = SOCRATES()
     config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # change here to qt, theta_li?
+        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # change here to qt, theta_li? (remove s for now or use theta_l for now since we have that)
     config["y_dir"] = ref_dirs
     config["t_start"] = repeat([0.0 * 3600], n_repeat)
     config["t_end"] = repeat([14.0 * 3600], n_repeat)
