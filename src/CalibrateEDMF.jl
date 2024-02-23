@@ -13,5 +13,6 @@ include("TurbulenceConvectionUtils.jl")
 include("Diagnostics.jl")
 include("NetCDFIO.jl")
 include("Pipeline.jl")
+include("TCRunnerUtils.jl") # moved from src back to tools (now moved back w/o distributed stuff)
 
 end # module

@@ -758,19 +758,25 @@ Inputs:
                      and the value to use to modify it.
 """
 function change_entry!(dict, keys_and_value)
-    function get_last_nested_dict(dict, keys)
-        if length(keys) > 1
-            return get_last_nested_dict(dict[keys[1]], keys[2:end])
-        else
-            return dict
-        end
-    end
     # Unpack
-    value = keys_and_value[end]
-    keys = keys_and_value[1:(end - 1)]
+    value_value  = keys_and_value[end]
+    value_key    = keys_and_value[end-1]
+    subdict_keys = keys_and_value[1:(end - 2)]
     # Modify entry
-    last_dict = get_last_nested_dict(dict, keys)
-    last_dict[keys[end]] = value
+    last_dict = get_last_nested_dict(dict, subdict_keys)
+    last_dict[value_key] = value_value
+end
+
+"""
+Changed it from the prior implementation lol, now it's just a list of keys to the subdict you want... no final key leading to value hanging on at the end lol
+Note that this is also better cause it's protects you from having a final key that doesn't exist in the subdict 
+"""
+function get_last_nested_dict(dict, keys)
+    if length(keys) ≥ 1
+        return get_last_nested_dict(dict[keys[1]], keys[2:end])
+    else
+        return dict
+    end
 end
 
 end # module
