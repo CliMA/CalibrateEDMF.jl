@@ -106,17 +106,21 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         batch_indices = nothing
     end
 
-    outdir_path = create_output_dir(
-        ref_stats,
-        outdir_root,
-        algo_name,
-        n_param,
-        N_ens,
-        N_iter,
-        batch_size,
-        config_path,
-        y_ref_type,
-    )
+    if "use_outdir_root_as_outdir_path" in keys(out_config) && (out_config["use_outdir_root_as_outdir_path"] == true)
+        outdir_path = outdir_root # just keep the outdir_root as the root directory and don't create another inside of it using create_output_dir()
+    else
+        outdir_path = create_output_dir(
+            ref_stats,
+            outdir_root,
+            algo_name,
+            n_param,
+            N_ens,
+            N_iter,
+            batch_size,
+            config_path,
+            y_ref_type,
+        )
+    end
 
     if !isnothing(prior_μ)
         @assert keys_ordered(params) == keys_ordered(prior_μ)
