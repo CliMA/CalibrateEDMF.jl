@@ -1,1 +1,0 @@
-/central/groups/esm/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/subexperiments/SOCRATES_Base/Calibrate_and_Run/pow_icenuc_autoconv_eq/calibrate/output/Atlas_LES/RFAll_obs
