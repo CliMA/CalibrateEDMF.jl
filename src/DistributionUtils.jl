@@ -7,6 +7,7 @@ module DistributionUtils
 
 using Distributions
 using JLD2
+using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
 import ..AbstractTypes: OptVec
@@ -130,6 +131,8 @@ function construct_priors(
         u_names, constraints = flatten_config_dict(const_dict)
         if !isnothing(prior_mean)
             u_names_mean, prior_μ = flatten_config_dict(prior_mean)
+            @show u_names_mean
+            @show u_names
             @assert u_names_mean == u_names # ensure order preserved
         else
             prior_μ = nothing
@@ -147,6 +150,14 @@ function construct_priors(
     n_param = length(u_names)
     @assert isnothing(prior_μ) || length(prior_μ) == n_param
 
+    # p = constrained_gaussian("x",10,10,0,Inf, repeats = 2)
+    # p2 = constrained_gaussian("y",3,1,0,10)
+
+    # marginal_priors = construct_prior.(u_names, constraints, prior_μ, unconstrained_σ)
+    # marginal_priors = constrained_gaussian.(u_names,3,1,0,10) for 
+
+    # marginal_priors = [constrained_gaussian(u_names[i], prior_μ[i],) for i=1:length(u_names)]
+    
     marginal_priors = construct_prior.(u_names, constraints, prior_μ, unconstrained_σ)
     prior = combine_distributions(marginal_priors)
     to_file ? jldsave(joinpath(outdir_path, "prior.jld2"); prior) : nothing
@@ -177,6 +188,9 @@ Inputs:
 Output:
  - The prior ParameterDistribution.
 """
+
+
+
 function construct_prior(
     param_name::String,
     constraint::Vector{CT},
@@ -185,15 +199,44 @@ function construct_prior(
 ) where {CT, FT <: Real, ST <: Real}
     if unconstrained_σ isa Vector
         unconstrained_σ = unconstrained_σ[1]
+        @show "in here"
+        @show param_name
+        @show prior_μ
+        @show unconstrained_σ
+        @show constraint[1].bounds
     end
-    if isnothing(prior_μ)
-        distribution = Parameterized(Normal(0.0, unconstrained_σ))
+    if isnothing(constraint[1].bounds)
+        lb = -Inf
+        ub = Inf
     else
-        uncons_μ = constraint[1].constrained_to_unconstrained(prior_μ[1])
-        distribution = Parameterized(Normal(uncons_μ, unconstrained_σ))
+        lb = constraint[1].bounds["lower_bound"]
+        ub = constraint[1].bounds["upper_bound"]
     end
-    return ParameterDistribution(distribution, constraint, param_name)
+        
+    result = constrained_gaussian(param_name, prior_μ[1], unconstrained_σ, lb, ub)
+    @show result 
+    return result
 end
+
+
+# function construct_prior(
+#     param_name::String,
+#     constraint::Vector{CT},
+#     prior_μ::OptVec{FT},
+#     unconstrained_σ::Union{ST, Vector{FT}},
+# ) where {CT, FT <: Real, ST <: Real}
+#     if unconstrained_σ isa Vector
+#         unconstrained_σ = unconstrained_σ[1]
+#     end
+#     if isnothing(prior_μ)
+#         distribution = Parameterized(Normal(0.0, unconstrained_σ))
+#     else
+#         uncons_μ = constraint[1].constrained_to_unconstrained(prior_μ[1])
+#         distribution = Parameterized(Normal(uncons_μ, unconstrained_σ))
+#     end
+#     return ParameterDistribution(distribution, constraint, param_name)
+# end
+
 
 """
     logmean_and_logstd(μ, σ)

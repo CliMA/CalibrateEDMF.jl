@@ -23,8 +23,14 @@ tc = pkgdir(TurbulenceConvection)
 include(joinpath(tc, "driver", "main.jl"))
 
 # EKP modules
+using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 import EnsembleKalmanProcesses: construct_initial_ensemble
+
+using Statistics
+using SpecialFunctions
+using Distributions
+
 
 using ..ReferenceModels
 import ..ReferenceModels: NameList
@@ -33,6 +39,46 @@ using ..ReferenceStats
 using ..HelperFuncs
 using ..AbstractTypes
 import ..AbstractTypes: OptVec
+
+
+"Generates ensemble from p-Gaussian with same mean and var as Gaussian in each dimension, use keyword `p=x` for `x<2` to increase the restriction to axes, `use keyword pGvar_to_Gvar=k to match the variance of the pGaussian to k * variance of the Gaussian"
+function construct_initial_ensemble_stable(rng::AbstractRNG, prior::ParameterDistribution, N_ens::Int; p=2, pGvar_to_Gvar=1)
+    if p<=0
+        @warn "keyword `p` must be set greater than 0, p=$p provided; using 2"
+        p=2
+    end
+    if pGvar_to_Gvar<=0
+        @warn "keyword `pGvar_to_Gvar` must be set greater than 0, pGvar_to_Gvar=$(pGvar_to_Gvar) provided; using value 1"
+        pGvar_to_Gvar=1.0
+    end
+   
+    dists=get_distribution(prior) # assume univariate Normals
+    names=get_name(prior);
+    samples = zeros(ndims(prior),N_ens)
+    batches=batch(prior) # e.g. [[1,2], [3]]
+
+    for (kv_pair, bat) in zip(dists,batches)
+        ddd = kv_pair.second #dist or vec of dist
+        if length(bat) > 1
+            for (idx,d) in zip(bat,ddd) # e.g. ([1,2], [dist1,dist2])
+                var = pGvar_to_Gvar * d.σ^2
+                
+                Z = PGeneralizedGaussian(d.μ, sqrt(var * gamma(1/p) / gamma(3/p)),0.5)
+                samples[idx,:] = rand(rng,Z,N_ens)
+            end
+        else # else the batch is just one index e.g. [3]
+            var = pGvar_to_Gvar * ddd.σ^2
+            Z = PGeneralizedGaussian(ddd.μ, sqrt(var * gamma(1/p) / gamma(3/p)),0.5)
+            samples[bat[1],:] = rand(rng,Z,N_ens)
+        end
+            
+    end
+    return samples
+end
+
+function construct_initial_ensemble_stable(prior::ParameterDistribution,N_ens::Int; kwargs...)
+    return construct_initial_ensemble_stable(Random.default_rng(), prior, N_ens; kwargs...)
+end
 
 """
     ModelEvaluator
@@ -574,7 +620,7 @@ function precondition(
     ref_models::Vector{ReferenceModel},
     ref_stats::ReferenceStatistics;
     counter::Integer = 0,
-    max_counter::Integer = 10,
+    max_counter::Integer = 0,
 ) where {FT <: Real}
     param_names = priors.name
     # Wrapper around SCM
@@ -588,7 +634,8 @@ function precondition(
         @warn join(message)
         @warn "Sampling new parameter vector from prior..."
         return precondition(
-            vec(construct_initial_ensemble(priors, 1)),
+            # vec(construct_initial_ensemble(priors, 1)),
+            vec(construct_initial_ensemble_stable(priors, 1; p=0.5, pGvar_to_Gvar=1)),
             priors,
             param_map,
             ref_models,
