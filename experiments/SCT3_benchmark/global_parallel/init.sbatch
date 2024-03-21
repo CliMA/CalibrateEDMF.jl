@@ -6,8 +6,10 @@
 #SBATCH --mem-per-cpu=50G   # memory per CPU core
 #SBATCH -J "sct_init"   # job name
 
+export MODULEPATH="/groups/esm/modules:$MODULEPATH"
+
 #julia package management
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.1
 
 config=${1?Error: no config file given}
 job_id=${2?Error: no job ID given}

@@ -1,11 +1,14 @@
 #!/bin/bash
 
-#SBATCH --time=6:00:00   # walltime
+#SBATCH --time=4:00:00   # walltime
+#SBATCH --ntasks=1
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=12G   # memory per CPU core
 #SBATCH -J "precond"   # job name
 
-module load julia/1.9.3 openmpi/4.1.5
+export MODULEPATH="/groups/esm/modules:$MODULEPATH"
+
+module load julia/1.10.1
 iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 

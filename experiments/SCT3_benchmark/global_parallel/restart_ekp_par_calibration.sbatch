@@ -5,6 +5,8 @@
 #SBATCH --nodes=1         # number of nodes
 #SBATCH -J "restart_call"   # job name
 
+export MODULEPATH="/groups/esm/modules:$MODULEPATH"
+
 output_dir_rel=${1?Error: no output directory given}
 output_dir=$(realpath $output_dir_rel)
 config=${output_dir}/"config.jl"
@@ -22,11 +24,11 @@ last_iter=${last_iter##*_} # Remove leading filename
 first_new_iter=$(($last_iter + 1))
 
 # Number of parallel processes for SCM evaluation, split evenly between train and validation
-n_proc_scm=10
+n_proc_scm=4
 echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (grand total)."
 
 module purge
-module load julia/1.9.3 openmpi/4.1.5
+module load julia/1.10.1
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
@@ -41,15 +43,15 @@ do
 # Parallel runs of forward model
 if [ "$it" = "$first_new_iter" ]; then
     # Generate system image
-    id_so=$(sbatch --parsable -A esm sysimage.sbatch)
+    id_so=$(sbatch --parsable -A esm -p expansion sysimage.sbatch)
     # Restart calibration
-    id_restart_ens=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so restart.sbatch $output_dir $job_id)
+    id_restart_ens=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm -p expansion --dependency=afterok:$id_so restart.sbatch $output_dir $job_id)
     # Run ensemble of forward models
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_restart_ens --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm -p expansion --dependency=afterok:$id_restart_ens --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
 else
-    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
+    id_ens_array=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm -p expansion --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
 fi
 # Update ensemble
-id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_ens_array --export=n=$n step_ekp.sbatch $it $job_id)
+id_ek_upd=$(sbatch --parsable --kill-on-invalid-dep=yes -A esm -p expansion --dependency=afterok:$id_ens_array --export=n=$n step_ekp.sbatch $it $job_id)
 done
 
