@@ -1,8 +1,5 @@
 env:
-  JULIA_VERSION: "1.10.0"
   SLURM_CPUS_PER_TASK: 1
-  OPENMPI_VERSION: "4.0.4"
-  CUDA_VERSION: "11.2"
   OPENBLAS_NUM_THREADS: 1
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
   BUILDKITE_COMMIT: "${BUILDKITE_COMMIT}"
@@ -10,8 +7,8 @@ env:
   JULIA_DEPOT_PATH: "${BUILDKITE_BUILD_PATH}/${BUILDKITE_PIPELINE_SLUG}/depot/cpu"
 
 agents:
-  config: cpu
-  queue: central
+  queue: new-central
+  modules: climacommon/2024_04_05
 
 steps:
 
@@ -21,7 +18,7 @@ steps:
   #     - "rm -rf /central/scratch/esm/slurm-buildkite/calibrateedmf-ci/depot/cpu"
   #   agents:
   #     config: init
-  #     queue: central
+  #     queue: new-central
 
   # - wait
 
@@ -29,9 +26,6 @@ steps:
     key: "init_cpu_env"
     command:
       - "echo $$JULIA_DEPOT_PATH"
-
-      - echo "--- Configure MPI"
-      - julia -e 'using Pkg; Pkg.add("MPIPreferences"); using MPIPreferences; use_system_binary()'
 
       - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
@@ -52,8 +46,6 @@ steps:
   #   command:
   #     - "julia --project=integration_tests -C skylake-avx512 integration_tests/test_create_tc_so.jl"
   #   agents:
-  #     config: cpu
-  #     queue: central
   #     slurm_cpus_per_task: 1
   #     slurm_nodes: 1
   #     slurm_mem_per_cpu: 20G
@@ -65,8 +57,6 @@ steps:
     artifact_paths:
       - "integration_tests/output/Bomex_inversion_test_config_julia_parallel/*"
     agents:
-      config: cpu
-      queue: central
       slurm_cpus_per_task: 11
       slurm_mem_per_cpu: 12G
 
@@ -78,8 +68,6 @@ steps:
     artifact_paths:
       - "integration_tests/output/Bomex_inversion_test_config_julia_parallel/*"
     agents:
-      config: cpu
-      queue: central
       slurm_cpus_per_task: 11
       slurm_mem_per_cpu: 12G
 
@@ -90,8 +78,6 @@ steps:
     artifact_paths:
       - "integration_tests/output/SCT1_integration_test_config_julia_parallel/*"
     agents:
-      config: cpu
-      queue: central
       slurm_cpus_per_task: 11
       slurm_mem_per_cpu: 12G
 
@@ -102,8 +88,6 @@ steps:
     artifact_paths:
       - "integration_tests/output/Het_batch_unscented_test_config_julia_parallel/*"
     agents:
-      config: cpu
-      queue: central
       slurm_cpus_per_task: 8
       slurm_mem_per_cpu: 12G
      
@@ -114,8 +98,6 @@ steps:
     artifact_paths:
       - "integration_tests/output/TRMM_micro_test_config_julia_parallel/*"
     agents:
-      config: cpu
-      queue: central
       slurm_cpus_per_task: 11
       slurm_mem_per_cpu: 12G
 
@@ -127,8 +109,6 @@ steps:
   #   artifact_paths:
   #     - "integration_tests/output/grid_search/*"
   #   agents:
-  #     config: cpu
-  #     queue: central
   #     slurm_cpus_per_task: 14
   #     slurm_mem_per_cpu: 12G
 
@@ -136,41 +116,27 @@ steps:
     key: "cpu_helper_funcs"
     command:
       - "julia --color=yes --project test/HelperFuncs/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
 
   - label: "DistributionUtils"
     key: "cpu_distributionutils"
     command:
       - "julia --color=yes --project test/DistributionUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
 
   - label: "LESUtils"
     key: "cpu_lesutils"
     command:
       - "julia --color=yes --project test/LESUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
 
   - label: "KalmanProcessUtils"
     key: "cpu_kalmanutils"
     command:
       - "julia --color=yes --project test/KalmanProcessUtils/runtests.jl"
-    agents:
-      config: cpu
-      queue: central
 
   - label: "TurbulenceConvectionUtils"
     key: "cpu_turbulenceconvectionutils"
     command:
       - "julia --color=yes --project test/TurbulenceConvectionUtils/runtests.jl"
     agents:
-      config: cpu
-      queue: central
       slurm_mem_per_cpu: 12G
 
   - label: "ReferenceModels"
@@ -178,8 +144,6 @@ steps:
     command:
       - "julia --color=yes --project test/ReferenceModels/runtests.jl"
     agents:
-      config: cpu
-      queue: central
       slurm_mem_per_cpu: 12G
 
   - label: "ReferenceStats"
@@ -187,8 +151,6 @@ steps:
     command:
       - "julia --color=yes --project test/ReferenceStats/runtests.jl"
     agents:
-      config: cpu
-      queue: central
       slurm_mem_per_cpu: 12G
 
   - label: "Pipeline"
@@ -196,8 +158,6 @@ steps:
     command:
       - "julia --color=yes --project test/Pipeline/runtests.jl"
     agents:
-      config: cpu
-      queue: central
       slurm_mem_per_cpu: 12G
 
   - label: "NetCDFIO"
@@ -205,8 +165,6 @@ steps:
     command:
       - "julia --color=yes --project test/NetCDFIO/runtests.jl"
     agents:
-      config: cpu
-      queue: central
       slurm_mem_per_cpu: 12G
 
 
