@@ -39,6 +39,7 @@ $(TYPEDFIELDS)
         dim_scaling::Bool = false,
         time_shift::FT = 6 * 3600.0,
         model_errors::OptVec{T} = nothing,
+        obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real}
 
 Constructs the ReferenceStatistics defining the inverse problem.
@@ -57,6 +58,7 @@ Inputs:
  - `time_shift`               :: [LES last time - SCM start time (LES timeframe)] for `LES_driven_SCM` cases.
  - `model_errors`     :: Vector of model errors added to the internal variability noise, each containing
                             the model error per variable normalized by the pooled variable variance.
+ - `obs_var_scaling`  :: Scaling factor for observational variance estimate
 """
 Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
     "Reference data, length: nSim * n_vars * n_zLevels (possibly reduced by PCA)"
@@ -89,6 +91,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         dim_scaling::Bool = false,
         time_shift::FT = 6 * 3600.0,
         model_errors::OptVec{T} = nothing,
+        obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real, T}
         IT = Int64
         # Init arrays
@@ -106,7 +109,13 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, time_shift) : m
             model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
-            y_, y_var_, pool_var = get_obs(model, normalize, z_scm = get_z_obs(model), model_error = model_error)
+            y_, y_var_, pool_var = get_obs(
+                model,
+                normalize,
+                z_scm = get_z_obs(model),
+                model_error = model_error,
+                obs_var_scaling = obs_var_scaling,
+            )
             push!(norm_vec, pool_var)
             if perform_PCA
                 y_pca, y_var_pca, P_pca = obs_PCA(y_, y_var_, variance_loss)
@@ -193,6 +202,7 @@ If `z_scm` is given, interpolate observations to the given levels.
 - `Σ_names`      :: Names of fields used to construct covariances, may be different than `y_names`
     if there are LES/SCM name discrepancies.
 - `normalize`    :: Whether to normalize the observations.
+- `obs_var_scaling`  :: Scaling factor for observational variance estimate
 
 # Keywords
 - `z_scm`        :: If given, interpolate LES observations to given array of vertical levels.
@@ -211,9 +221,17 @@ function get_obs(
     normalize::Bool;
     z_scm::OptVec{FT} = nothing,
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
-    Σ, pool_var = get_time_covariance(m, Σ_names, z_scm, normalize = normalize, model_error = model_error)
+    Σ, pool_var = get_time_covariance(
+        m,
+        Σ_names,
+        z_scm,
+        normalize = normalize,
+        model_error = model_error,
+        obs_var_scaling = obs_var_scaling,
+    )
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
     # Get true observables
@@ -228,10 +246,11 @@ function get_obs(
     normalize::Bool;
     z_scm::OptVec{FT},
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     y_names = isa(m.y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(m.Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error)
+    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling)
 end
 
 """
@@ -404,6 +423,7 @@ end
         z_scm::Vector{FT};
         normalize::Bool = true,
         model_error::OptVec{FT} = nothing,
+        obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real}
 
 Obtain the covariance matrix of a group of profiles, where the covariance
@@ -417,6 +437,7 @@ Inputs:
         before computing the covariance, or not.
 - `model_error`  :: Model error per variable, added to the internal variability noise, and
                     normalized by the pooled variance of the variable.
+- `obs_var_scaling`  :: Scaling factor for observational variance estimate
 """
 function get_time_covariance(
     m::ReferenceModel,
@@ -424,6 +445,7 @@ function get_time_covariance(
     z_scm::Vector{FT};
     normalize::Bool = true,
     model_error::OptVec{FT} = nothing,
+    obs_var_scaling::Union{Dict, Nothing} = nothing,
 ) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
@@ -437,15 +459,28 @@ function get_time_covariance(
     model_error_expanded = Vector{FT}[]
 
     for (i, var_name) in enumerate(y_names)
+
+        if !isnothing(obs_var_scaling)
+            if var_name == "s_flux_z"
+                var_factor = get(obs_var_scaling, "total_flux_s", 1.0)
+            elseif var_name in ("resolved_z_flux_qt", "qt_flux_z")
+                var_factor = get(obs_var_scaling, "total_flux_qt", 1.0)
+            else
+                var_factor = get(obs_var_scaling, var_name, 1.0)
+            end
+        else
+            var_factor = 1.0
+        end
+
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
         if ndims(var_) == 2
             # Store pooled variance
-            pool_var[i] = mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
+            pool_var[i] = var_factor * mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
             # Normalize timeseries
             ts_var_i = normalize ? var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) : var_[:, ti_index:tf_index] # dims: (Nz, Nt)
         elseif ndims(var_) == 1
             # Store pooled variance
-            pool_var[i] = var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
+            pool_var[i] = var_factor * var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
             # Normalize timeseries
             ts_var_i =
                 normalize ? Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) : Array(var_[ti_index:tf_index]') # dims: (1, Nt)
