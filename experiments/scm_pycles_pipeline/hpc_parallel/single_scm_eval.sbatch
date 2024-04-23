@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "scm_run"   # job name
 
-module load julia/1.10.0 openmpi/4.1.5
+module load julia/1.10.1
 iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 

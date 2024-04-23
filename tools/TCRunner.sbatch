@@ -9,7 +9,7 @@
 #SBATCH --output=slurm_TCRunner_%j.out
 
 module purge
-module load julia/1.10.0 openmpi/4.1.5
+module load julia/1.10.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
 julia -p15 TCRunner.jl "$@"
