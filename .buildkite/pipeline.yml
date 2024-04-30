@@ -8,7 +8,7 @@ env:
 
 agents:
   queue: new-central
-  modules: climacommon/2024_04_05
+  modules: climacommon/2024_04_30
 
 steps:
 
