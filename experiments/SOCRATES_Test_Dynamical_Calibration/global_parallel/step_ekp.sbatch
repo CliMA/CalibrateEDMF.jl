@@ -6,10 +6,15 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "sct_cont"   # job name
 
-module load julia/1.8.5 #hdf5/1.10.1 netcdf-c/4.6.1
+module load julia/1.9.3 openmpi/4.1.5
 iteration_=${1?Error: no iteration given}
 job_id=${2?Error: no job ID given}
 job_dir=$(head $job_id".txt" | tail -1)
+
+echo $job_id
+echo $PWD
+
+thisdir=/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Test_Dynamical_Calibration/global_parallel/ # can't figure out how to fool proof make this work w/ HPC even on interactive node which has a separate slurm id... this makes it however, not at all transporatable to other machines...
 
 # julia --project -C skylake-avx512 -JCEDMF.so step_ekp.jl --iteration $iteration_ --job_dir $job_dir && (
 #   echo sysimage loaded successfully
@@ -17,7 +22,7 @@ job_dir=$(head $job_id".txt" | tail -1)
 #   julia --project step_ekp.jl --iteration $iteration_ --job_dir $job_dir
 # )
 
-julia --project step_ekp.jl --iteration $iteration_ --job_dir $job_dir # ignore system image for now (according to costa)
+julia --project $thisdir/step_ekp.jl --iteration $iteration_ --job_dir $job_dir # ignore system image for now (according to costa)
 
 
 echo "Ensemble at iteration ${iteration_} stepped forward."
