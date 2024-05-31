@@ -35,7 +35,7 @@ results_*
 *.nc
 CEDMF.so
 output
-config[-_]*.jl
+# config[-_]*.jl
 
 # Output directory
 **/Output/
