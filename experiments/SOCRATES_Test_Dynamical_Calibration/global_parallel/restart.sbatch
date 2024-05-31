@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=6G   # memory per CPU core
 #SBATCH -J "restart"   # job name
 
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1
+module load julia/1.8.5 #hdf5/1.10.1 netcdf-c/4.6.1
 
 output_dir=${1?Error: no output directory given}
 job_id=${2?Error: no job ID given}
