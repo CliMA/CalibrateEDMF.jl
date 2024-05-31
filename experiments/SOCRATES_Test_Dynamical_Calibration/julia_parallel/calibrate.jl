@@ -7,6 +7,12 @@
 # calibration processes involving a larger number of ensemble members, parallelization
 # using HPC resources directly is advantageous.
 
+# import ClusterManagers
+# ClusterManagers.addprocs_slurm(25, nodes=5, partition="esm", time="06:00:00", mem_per_cpu="10G") # I think this actually launches new jobs lol which is bad and doesn't even work from inside an interactive node...
+
+import SlurmClusterManager
+SlurmClusterManager.addprocs(SlurmClusterManager.SlurmManager(verbose=true)) # i think this will autodetect the slurm alloc and just attach to it i think... and not add new processes, also doesnt create a ton of output files... maybe still doesnt work from inside srun?
+
 # Import modules to all processes
 using Distributed
 @everywhere using Pkg
