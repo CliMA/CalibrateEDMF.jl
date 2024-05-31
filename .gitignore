@@ -39,3 +39,7 @@ output
 
 # Output directory
 **/Output/
+
+
+# slurm logs not in output directory (I had some in global_parallel/slurm)
+**/slurm/*

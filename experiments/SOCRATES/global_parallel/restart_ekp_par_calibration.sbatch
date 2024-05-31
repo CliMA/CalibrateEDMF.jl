@@ -33,7 +33,7 @@ echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (
 
 module purge
 # module load julia/1.9.3 openmpi/4.1.5
-module load julia/1.9.3 mpich/4.0.0 # copied from other experiments
+module load julia/1.10.0 mpich/4.0.0 # copied from other experiments
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
