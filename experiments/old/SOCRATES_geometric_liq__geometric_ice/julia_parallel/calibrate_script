@@ -1,0 +1,47 @@
+#!/bin/bash
+
+#Submit this script with: sbatch calibrate_script
+
+#SBATCH --time=09:00:00   # walltime, longer, calibration with all keeps failing...
+#SBATCH --ntasks=11  # number of processor cores (i.e. tasks) (each node I believe on HPC has 64 cpus as per sinfo --Node --long | head -n 10) | ran out of time on like iteration 6-8... (currently running 15 ensemble members x 6 cases per ensemble member...)
+#SBATCH --nodes=1   # number of nodes, a range works i suppose, before i went 1-ntasks but that crashed maybe too many things open? idk...
+#SBATCH -J "ekp_socrates"   # job name
+#SBATCH --mem-per-cpu=60G   # memory per CPU core (one job failed runining 6 cases with 6G, trying again w/ 10G... failed w/ 10, trying w/ 20)
+#SBATCH --output=slurm_julia_par_%j.out
+
+module purge
+
+config=${1?Error: no config file given} # maybe we add later to just default to config.jl in the experiment directory?
+# check if script is started via SLURM or bash (https://stackoverflow.com/q/56962129/13331585) | if with SLURM: there variable '$SLURM_JOB_ID' will exist `if [ -n $SLURM_JOB_ID ]` checks if $SLURM_JOB_ID is not an empty string
+
+# if false;  then # need to add quotes here, see https://unix.stackexchange.com/questions/109625/shell-scripting-z-and-n-options-with-if#comment1152278_109631
+# if [ -n "$SLURM_JOB_ID" ];  then # need to add quotes here, see https://unix.stackexchange.com/questions/109625/shell-scripting-z-and-n-options-with-if#comment1152278_109631 | seems to crash on HPC even when launched form slurm... idk why... works on clima... just says  command is sh
+
+#     # check the original location through scontrol and $SLURM_JOB_ID
+#     thisfile=$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}')
+# else # otherwise: started with bash. Get the real location.
+#     # thisfile=$(realpath $0)
+#     thisfile="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" # the location of this file I think is more versatile than the stack overflow solution (see https://stackoverflow.com/a/9107028/13331585), realpath might be better though idk...
+# fi
+
+# scriptDir="$(dirname $0)" # works w/ no slurm but already on interactive noe
+# echo $scriptDir
+# scriptDir=$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}') # works w/ slurm both while and while not on interactive node?
+# echo $scriptDir
+# scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" # the location of this file I think is more versatile than the stack overflow solution (see https://stackoverflow.com/a/9107028/13331585), realpath might be better though idk...
+# echo $scriptDir
+
+
+thisfile=/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Calibrate_exponential_T_scaling/julia_parallel/calibrate_script # can't figure out how to fool proof make this work w/ HPC even on interactive node which has a separate slurm id... this makes it however, not at all transporatable to other machines...
+thisdir=$(dirname $thisfile) # go up to directory from filename...
+experiment_dir=$(dirname $thisdir) # go up to experiment directory...
+log_dir=${experiment_dir}/Output/Logs/
+
+echo $thisfile
+
+module load julia/1.9.3 openmpi/4.1.5 # do we need open mpi?
+# julia -e 'using Pkg; using MPIPreferences; use_system_binary()' # the new way to do this, see ` Warning: The JULIA_MPI_BINARY environment variable is no longer used to configure the MPI binary. Use MPIPreferences.use_system_binary() instead.`
+
+julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
+
+julia --project -p 11 ${thisdir}/calibrate.jl --config $config # Not sure how many processors I should go for... maybe at least 1 more than the batch size?
