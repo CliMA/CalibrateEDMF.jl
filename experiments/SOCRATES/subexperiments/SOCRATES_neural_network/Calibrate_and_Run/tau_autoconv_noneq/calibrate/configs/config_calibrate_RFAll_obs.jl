@@ -13,7 +13,7 @@ supersat_type = :neural_network
 calibration_setup = "tau_autoconv_noneq"
 # calibrate_to
 calibrate_to = "Atlas_LES" # "Atlas_LES" or "Flight_Observations"
-# SOCRATES setups
+# SOCRATES setups    x
 flight_numbers = [1,9,10,11,12,13]
 # pad flight number to two digit string if is 1 digit
 forcing_types  = [:obs_data]
@@ -32,21 +32,22 @@ t_bnds = (;obs_data = (0.0    , t_max), ERA5_data = (0.0    , t_max)) # shorter 
 r_0 = 20 * 1e-6 # 20 microns
 # ========================================================================================================================= #
 # setup stuff (needs to be here for ekp_par_calibration.sbatch to read), can read fine as long as is after "=" sign
-N_ens  = 150 # number of ensemble members (neede)
+N_ens  = 100 # number of ensemble members (neede)
 N_iter = 20 # number of iterations
 # ========================================================================================================================= #
 # NN stuff
 nn_path = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, "calibrate", "pretrained_NN.jld2")
 nn_pretrained_params, nn_pretrained_repr, nn_pretrained_x_0_characteristic = JLD2.load(nn_path, "params", "re", "x_0_characteristic")
 # ========================================================================================================================= #
+expanded_unconstrained_σ = FT(5.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)
 calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
     #
     "neural_microphysics_relaxation_network"   => Dict("prior_mean" => FT.(nn_pretrained_params)  , "constraints" => repeat([no_constraint()], length(nn_pretrained_params)) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing),  # have to use one FT throughout
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale"), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale"), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold"),
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold"),
+    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
+    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), 
+    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),
+    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),
     ) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
@@ -57,12 +58,15 @@ local_namelist = [ # things in namelist that otherwise wouldn't be...
     ("user_aux", "model_re_location", nn_path), # i think nn_pretrained_repr is not isbits() so we can't use it in the namelist, so we use the path instead
     ("user_aux", "model_x_0_characteristic", FT.(nn_pretrained_x_0_characteristic)), # have to convert to FT for going in params etc...
     #
-    ("user_aux", "min_τ_liq", FT(  3.)), # stability testing
-    ("user_aux", "min_τ_ice", FT(  3.)), # stability testing
+    # ("user_aux", "min_τ_liq", FT(  3.)), # stability testing
+    # ("user_aux", "min_τ_ice", FT(  3.)), # stability testing
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
+    # ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    #
+    ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
 ]
 @info("local_namelist:", local_namelist)
 

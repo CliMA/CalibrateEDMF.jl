@@ -10,7 +10,7 @@ export create_namelists_from_calibration_output,
     run_one_SCM
 
 
-using ..TurbulenceConvectionUtils
+using ..TurbulenceConvectionUtils # what do we use this for? it's redundant no? we at least get create_parameter_vectors()but that's exported
 using ..HelperFuncs
 using ..ReferenceModels # for data_directory
 import ..ReferenceModels: NameList
@@ -24,7 +24,8 @@ using ArgParse
 
 using TurbulenceConvection # also like TurbulenceConvectionUtils.jl to give us main1d
 tc = pkgdir(TurbulenceConvection)
-include(joinpath(tc, "driver", "main.jl")) # define the main.jl function... (overly broad, no? why doesn't TC just export this lol...)
+# include(joinpath(tc, "driver", "main.jl")) # define the main.jl function... (overly broad, no? why doesn't TC just export this lol...) this i think redundatnly defines the things in main.jl... how to get around that?
+main1d = TurbulenceConvectionUtils.main1d # do this bc we don't wanna redundantly import main.jl bc it's included in in TurbulenceConvectionUtils.jl
 
 # these don't seem to be working inside the @everywhere block? idk why... race condition bug?
 # using CalibrateEDMF
