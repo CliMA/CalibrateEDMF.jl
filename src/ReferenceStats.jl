@@ -113,6 +113,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
 
         for (i, m) in enumerate(RM)
             model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, time_shift[i]) : m
+            model = occursin("socrates", lowercase(m.case_name)) ? time_shift_reference_model(m, time_shift[i]) : m # if we use time shifts for SOCRATES cases ever, this will cover that - currently time_shift is 0.
             model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
             y_, y_var_, pool_var = get_obs(

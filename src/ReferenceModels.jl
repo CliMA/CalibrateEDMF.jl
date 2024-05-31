@@ -117,7 +117,7 @@ function ReferenceModel(
     namelist_args::OptVec{<:Tuple} = nothing,
     seed::OptInt = nothing,
 )
-    if case_name == "LES_driven_SCM"
+    if case_name == "LES_driven_SCM" || occursin("socrates", lowercase(case_name))
         @assert isa(y_type, LES) || isa(Σ_type, LES) "LES data must be used in the construction of LES_driven_SCM ReferenceModels."
     end
     les_dir = isa(y_type, LES) ? y_dir : Σ_dir
