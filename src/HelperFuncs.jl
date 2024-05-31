@@ -273,9 +273,11 @@ function vertical_interpolation(var_name::String, filename::String, z_scm::Vecto
     z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
     var_ = nc_fetch(filename, var_name)
     var_ = replace(var_, missing => NaN) # remove missing values and convert to Float64 NaN (still the covariances won't work lol)
+    # z_dim = findfirst(isequal("z"), dimnames(var_)  # should use something like this to get the dimension , see comment below (i dont know if other places in the code rely on this dimension order assumption but if so we should just transpose the input data or something somehow when we get it in rather than assuming that a file with the same dimesion has the same dimension order)
     if ndims(var_) == 2
         # Create interpolant
         nodes = (z_ref, 1:size(var_, 2)) # why are we assuming z is dimension 2? that's a harsh constraint on arbitrary input data when we can get the dimension number from the nc file and transpose if need be... I had to remake my truth files to accomodate this arbitrary assumption...
+        # @info "interpolating $(var_name) to $(z_scm) using $(nodes)"
         var_itp = extrapolate(interpolate(nodes, var_, (Gridded(Linear()), NoInterp())), Line())
         # Return interpolated vector
         return var_itp(z_scm, 1:size(var_, 2))
@@ -613,18 +615,32 @@ Output:
 """
 function compute_mse(g_arr::Vector{Vector{FT}}, y::Vector{FT})::Vector{FT} where {FT <: Real}
     diffs = [g - y for g in g_arr]
-    errors = map(x -> dot(x, x) / length(x), diffs)
+    errors = map(x -> dot(x, x) / length(x), diffs) # i think this is not NaN save (and if you don't trim data you'll always have some NaNs -- even if you do, if it's not a rectangular region there may be NaNs inside...)
     return errors
 end
 function compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT} where {FT <: Real}
     # Data are columns
     if size(g_mat, 1) == length(y)
         diffs = [g - y for g in eachcol(g_mat)]
-        return map(x -> dot(x, x) / length(x), diffs)
+        # we need to trim out NaN from reference_data after interpolating to z_scm to avoid NaNs in y... but that would mean we'd constatnly need to subset the TC runs...
+        # so here instead, when calculating MSE, we'll just filter out NaN values....... if everything is NaN, we'll just assume the error is 0 but that shouldn't happen too often?
+        function dot_avoid_NaN(x;y=y) # note if things legitimately crashed, we'd never know now , how to fix?
+            # x = x[.!isnan.(x)]
+            x = x[.!isnan.(y)] # filter out NaNs from y/truth as those are what force MSE to always be NaN, still allow for NaNs in g_mat
+            if length(x) > 0
+                return dot(x, x) / length(x)
+            else
+                return 0.0 # add no error if there's no data to compare to
+            end
+        end
+        return map(x -> dot_avoid_NaN(x), diffs)
+        # return map(x -> dot(x, x) / length(x), diffs)
+
         # Data are rows
     elseif size(g_mat, 2) == length(y)
         diffs = [g - y for g in eachrow(g_mat)]
-        return map(x -> dot(x, x) / length(x), diffs)
+        return map(x -> dot_avoid_NaN(x), diffs)
+        # return map(x -> dot(x, x) / length(x), diffs)
     else
         throw(BoundsError("Dimension mismatch between inputs to `compute_error`."))
     end
