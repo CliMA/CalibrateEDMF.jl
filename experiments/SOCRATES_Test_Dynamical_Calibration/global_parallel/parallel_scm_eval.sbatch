@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --time=1:00:00    # walltime
+#SBATCH --time=2:00:00    # walltime
 #SBATCH --nodes=1         # number of nodes
-#SBATCH --mem-per-cpu=60G # memory per CPU core (10G was what i was using, for 6 jobs parallel x6? idk...)
+#SBATCH --mem-per-cpu=15G # memory per CPU core (10G was what i was using, for 6 jobs parallel x6? idk...)  (reduced from 60G,... i think 10-15 should work, idk why it didnt work on the julia_parallel version... used to work when run separately... -- hopefully queues faster...
 #SBATCH -J "sct_run"      # job name
 
 module load julia/1.9.3 openmpi/4.1.5
@@ -17,6 +17,7 @@ version=$(head -"$run_num" $job_dir/"versions_"$iteration_".txt" | tail -1)
 echo $job_id
 echo $version
 echo $PWD
+echo $job_dir
 
 thisdir=/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Test_Dynamical_Calibration/global_parallel/ # can't figure out how to fool proof make this work w/ HPC even on interactive node which has a separate slurm id... this makes it however, not at all transporatable to other machines...
 
