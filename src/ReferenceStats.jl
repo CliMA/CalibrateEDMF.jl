@@ -7,6 +7,7 @@ using Statistics
 using Interpolations
 using LinearAlgebra
 using DocStringExtensions
+using NaNStatistics # to handle when we have NaNs in our data
 
 using ..AbstractTypes
 using ..ReferenceModels
@@ -480,6 +481,13 @@ function get_time_covariance(
         end
 
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
+
+        if any(isnan, var_)
+            @warn "NaNs in $var_name, switching to NaNStatistics"
+            mean = NaNStatistics.nanmean
+            var  = NaNStatistics.nanvar
+        end
+
         if ndims(var_) == 2
             # Store pooled variance
             pool_var[i] = var_factor * mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
@@ -501,6 +509,10 @@ function get_time_covariance(
             var_model_error = normalize ? model_error[i] : model_error[i] * pool_var[i]
             model_error_expanded = cat(model_error_expanded, repeat([var_model_error], size(ts_var_i, 1)), dims = 1)
         end
+    end
+    if any(isnan,ts_vec)
+        @warn "NaNs in ts_vec, switching to NaNStatistics"
+        cov = NaNStatistics.nancov
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
