@@ -57,7 +57,10 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
+    # ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    #
+    ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
 ]
 @info("local_namelist:", local_namelist)
 

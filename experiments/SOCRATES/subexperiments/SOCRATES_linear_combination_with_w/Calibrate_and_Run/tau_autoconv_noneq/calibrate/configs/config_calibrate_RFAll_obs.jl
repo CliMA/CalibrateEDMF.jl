@@ -78,8 +78,8 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     ("user_aux", "linear_combination_ice_c_4", calibration_parameters["linear_combination_ice_c_4"]["prior_mean"] ),
     # ("user_aux", "linear_combination_ice_c_5", calibration_parameters["linear_combination_ice_c_5"]["prior_mean"] ),
     #
-    ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
-    ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
