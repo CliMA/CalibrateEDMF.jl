@@ -224,11 +224,12 @@ function create_output_dir(
 ) where {FT <: Real, IT <: Integer}
     # Output path
     d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
-    now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM")
+    now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS")
     suffix = randstring(3)  # ensure output folder is unique
     outdir_path = joinpath(
         outdir_root,
-        "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
+        "results_$(now)_$(algo_name)__p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))__$(suffix)",  # changing so alphabetic sort is also chronological...
+        # "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
     @info "Name of outdir path for this EKP is: $outdir_path"
     mkpath(outdir_path)
