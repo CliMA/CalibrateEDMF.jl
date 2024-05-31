@@ -53,11 +53,7 @@ calibration_parameters_default = Dict( # The variables we wish to calibrate , th
     "linear_combination_ice_c_2"   => Dict("prior_mean" => FT(-0.6)                          , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Fletcher 1962 (values taken from Frostenberg 2022), same sign again I suppose...
     "linear_combination_ice_c_3"   => Dict("prior_mean" => FT(1)                             , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # should have τ down as q up, so start positive
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ), # unrealistically high upper bound
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),          # unrealistically high upper bound
-    ) # these aren't in the default_namelist so where should I put them?
+) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
 # global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
@@ -72,13 +68,15 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     ("user_aux", "linear_combination_ice_c_3", calibration_parameters["linear_combination_ice_c_3"]["prior_mean"] ),
     # ("user_aux", "linear_combination_ice_c_4", calibration_parameters["linear_combination_ice_c_4"]["prior_mean"] ), # do we need and offset?
     #
-    ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
-    ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
     # ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
-    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    # ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style) ), # testing if this improves stability...
+
     #
     ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
 ]

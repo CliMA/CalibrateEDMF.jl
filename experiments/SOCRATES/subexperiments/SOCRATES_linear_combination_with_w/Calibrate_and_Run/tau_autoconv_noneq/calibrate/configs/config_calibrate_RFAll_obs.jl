@@ -23,8 +23,10 @@ experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES", "subexperiments", 
 # tmax
 # t_max = 14*3600.0 # 14 hours
 # t_bnds = (;obs_data = missing, ERA5_data = missing) # normal full length
-t_max = 2*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
-t_bnds = (;obs_data = (0.0    , t_max), ERA5_data = (0.0    , t_max)) # shorter for testing
+t_max = 7*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
+# t_bnds = (;obs_data = (0.0    , t_max), ERA5_data = (0.0    , t_max)) # shorter for testing
+t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing
+
 # ========================================================================================================================= #
 # constants we use here
 ρ_l = FT(1000.) # density of ice, default from ClimaParameters
@@ -42,7 +44,7 @@ D = D_ref
 N_ens  = 50 # number of ensemble members
 N_iter = 15 # number of iterations
 # ========================================================================================================================= #
-expanded_unconstrained_σ = FT(5.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)
+expanded_unconstrained_σ = FT(50.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain) worked but also didn't go to lowest mse.... so widening... TESTING 50 HERE!!!!
 calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
     # we should log space some of these but if we don't know their sign... it's hard to do that... also idk the right order of mangitudes for the priors... bounded_below/bounded_above mapping means the variance seems to be mostly 1:1 in log space... let's just assume bc it's exponential that the exponenet can't be thaaat big given q,T(C),w aren't that big
     "linear_combination_liq_c_1"   => Dict("prior_mean" => FT(N_l * r_0)                     , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # I think at q=0, we need c_1 from linear = c_1 from geometric...
@@ -57,11 +59,7 @@ calibration_parameters_default = Dict( # The variables we wish to calibrate , th
     "linear_combination_ice_c_3"   => Dict("prior_mean" => FT(1)                             , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # should have τ down as q up, so start positive
     "linear_combination_ice_c_4"   => Dict("prior_mean" => FT(1)                             , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), #  w up should lead to τ down, so coefficient is positive
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ), # unrealistically high upper bound
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),          # unrealistically high upper bound
-    ) # these aren't in the default_namelist so where should I put them?
+) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
 # global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
@@ -90,8 +88,14 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
 ]
 @info("local_namelist:", local_namelist)
 
-calibration_vars = ["temperature_mean", "ql_mean","qi_mean"]
+# calibration_vars = ["temperature_mean", "ql_mean","qi_mean"]
 # calibration_vars = ["temperature_mean", "qt_mean"] # qt instead of ql or qi because we don't care about phase just yet, temperature_mean to make sure other stuff doesn't get out of hand.
+calibration_vars = ["ql_mean","qi_mean"]
+
+# ========================================================================================================================= #
+# ========================================================================================================================= #
+
+obs_var_additional_uncertainty_factor = 0.3 # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
 
 # ========================================================================================================================= #
 # ========================================================================================================================= #
