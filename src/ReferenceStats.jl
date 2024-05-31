@@ -1,6 +1,6 @@
 module ReferenceStats
 
-export ReferenceStatistics, pca_length, full_length, get_obs, get_profile, obs_PCA, pca, pca_inds, full_inds
+export ReferenceStatistics, pca_length, full_length, get_obs, get_profile, obs_PCA, pca, pca_inds, full_inds, get_ref_stats_kwargs
 
 using SparseArrays
 using Statistics
@@ -498,6 +498,28 @@ function get_time_covariance(
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
     return cov_mat, pool_var
+end
+
+# The original get_ref_stats_kwargs(), moved here from Pipeline.jl cause it makes more sense here I think...
+function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any}) # we need to edit this to be more like get_ref_model_kwargs in ReferenceModels.jl, to allow for different time_shifts...
+    model_errors = get_entry(ref_config, "model_errors", nothing)
+    time_shift = get_entry(ref_config, "time_shift", 6.0 * 3600.0)
+    perform_PCA = get_entry(reg_config, "perform_PCA", true)
+    variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
+    normalize = get_entry(reg_config, "normalize", true)
+    tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
+    tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
+    dim_scaling = get_entry(reg_config, "dim_scaling", true)
+    return Dict(
+        :perform_PCA => perform_PCA,
+        :normalize => normalize,
+        :variance_loss => variance_loss,
+        :tikhonov_noise => tikhonov_noise,
+        :tikhonov_mode => tikhonov_mode,
+        :dim_scaling => dim_scaling,
+        :model_errors => model_errors,
+        :time_shift => time_shift,
+    )
 end
 
 end # module
