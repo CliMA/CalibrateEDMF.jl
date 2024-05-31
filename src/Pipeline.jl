@@ -106,18 +106,21 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         batch_indices = nothing
     end
 
-    outdir_path = create_output_dir(
-        ref_stats,
-        outdir_root,
-        algo_name,
-        n_param,
-        N_ens,
-        N_iter,
-        batch_size,
-        config_path,
-        y_ref_type;
-        use_outdir_root_as_outdir_path = ("use_outdir_root_as_outdir_path" in keys(out_config) && (out_config["use_outdir_root_as_outdir_path"] == true)) ? true : false # if specified in output config, just use the outdir_root as the outdir_path
-    )
+    if "use_outdir_root_as_outdir_path" in keys(out_config) && (out_config["use_outdir_root_as_outdir_path"] == true)
+        outdir_path = outdir_root # just keep the outdir_root as the root directory and don't create another inside of it using create_output_dir()
+    else
+        outdir_path = create_output_dir(
+            ref_stats,
+            outdir_root,
+            algo_name,
+            n_param,
+            N_ens,
+            N_iter,
+            batch_size,
+            config_path,
+            y_ref_type,
+        )
+    end
 
     if !isnothing(prior_μ)
         @assert keys_ordered(params) == keys_ordered(prior_μ)
@@ -218,21 +221,27 @@ function create_output_dir(
     algo_name::String,
     n_param::IT,
     N_ens::IT,
-    N_iter::IT,
+    y_ref_type;
+    use_outdir_root_as_outdir_path::Bool = false, # whether to create a subdir or just use 
     batch_size::Opt{IT},
-    config_path::OptString,
-    y_ref_type,
-) where {FT <: Real, IT <: Integer}
-    # Output path
-    d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
-    now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS")
-    suffix = randstring(3)  # ensure output folder is unique
-    outdir_path = joinpath(
-        outdir_root,
+    if !use_outdir_root_as_outdir_path
+        # Output path
+        d = isnothing(batch_size) ? "d$(pca_length(ref_stats))" : "mb"
+        now = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS")
+        suffix = randstring(3)  # ensure output folder is unique
+        outdir_path = joinpath(
+            outdir_root,
+            "results_$(now)_$(algo_name)__p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))__$(suffix)",  # changing so alphabetic sort is also chronological...
+            # "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
+        )
+    else
+        outdir_path = outdir_root
+    end
+
         "results_$(now)_$(algo_name)__p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))__$(suffix)",  # changing so alphabetic sort is also chronological...
         # "results_$(algo_name)_p$(n_param)_e$(N_ens)_i$(N_iter)_$(d)_$(typeof(y_ref_type))_$(now)_$(suffix)",
     )
-    @info "Name of outdir path for this EKP is: $outdir_path"
+        cp(config_path, joinpath(outdir_path, "config.jl"); force=true) # force to allow overwrites say to keep a consistent output directory
     mkpath(outdir_path)
     if !isnothing(config_path)
         cp(config_path, joinpath(outdir_path, "config.jl"))
