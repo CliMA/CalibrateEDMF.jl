@@ -27,4 +27,4 @@ module purge
 # module load julia/1.8.5 # hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # do we need these then? costa amde it seem like we don't anymore (doesn't work on sampo anyway... and we should have julia loaded already -- might need on clima idk, it's in my bashrc)
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
-julia --project -p 11 ${thisdir}/calibrate.jl --config $config # Not sure how many processors I should go for... maybe at least 1 more than the batch size?
+julia --project -p 10 ${thisdir}/calibrate.jl --config $config # Not sure how many processors I should go for... maybe at least 1 more than the batch size?
