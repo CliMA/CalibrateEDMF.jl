@@ -49,6 +49,20 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
 
     out_config = config["output"]
+
+    # clear out old files if we are restarting in an existing lcoation (but not if we didn't specify output to acciddentally delete whatever is in pwd())
+    # we match file types just in case we accidentally speicied an output directory somewhere we shouldn't have...
+    if haskey(out_config, "outdir_root")
+        # outdir_root = out_config["outdir_root"]
+        # delete ekobj_iter_#.jld2 files
+        # delete prior.jld2 files
+        # delete .txt files
+        # delete scm_initializer files
+        # delte scm_output_files
+        # delete versions_#.txt files
+        @warn("Have not implemented cleaning up old files, but will do -- will make restarts in the same folder much easier...")
+    end
+
     outdir_root = get_entry(out_config, "outdir_root", pwd())
 
     proc_config = config["process"]
@@ -96,10 +110,22 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         # io_ref_stats = construct_reference_statistics(global_ref_models; kwargs_ref_stats...) 
         io_ref_models = global_ref_models
     else
-        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         ref_models = construct_reference_models(kwargs_ref_model)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
-        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
+
+        # We'd soon like to add the option to pre-specify the reference statistics, but this is not yet supported
+        # if isnothing(ref_config["reference_mean"]) && isnothing(ref_config["reference_cov"])
+        #     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        # elseif !isnothing(ref_config["reference_mean"]) && isnothing(ref_config["reference_cov"]) # we have a pre-specified mean but no cov
+        #     @info "Using pre-specified reference means."
+        #     error("Unsupported because I haven't figured out how to solve the nan problem, and I haven't worked out how to do the normalization and pooling for this yet, which would be necessary before passing these as the means.")
+        # elseif isnothing(ref_config["reference_mean"]) && !isnothing(ref_config["reference_cov"]) # we have a pre-specified cov but no mean
+        #     @info "Using pre-specified reference covariances."
+        #     @error("Unsupported because I still need to figure out how to do the normalization and pooling for this yet, which would be necessary before passing these as the covariances, and you'd also need to interpolate to the scm_z and handle NaNs")
+        # else  # both mean and cov are pre-specified
+        #     @info "Using pre-specified reference means and covariances."
+        #     @error("Unsupported because I still need to figure out how to do the normalization and pooling for this yet, which would be necessary before passing these as the covariances, and you'd also need to interpolate to the scm_z and handle NaNs, and the means have the same problem")
+        # end
         io_ref_stats = ref_stats
         # The io_ref_stats is used in diagnostics stuff all over, so if we change it to be a vector of length matching ref_models, that's a lot of change that might have to happen. If time_shift is the only thing we need to change perhaps that's not essential?
         io_ref_models = ref_models
@@ -432,6 +458,8 @@ function ek_update(
         Δt ≈ 1.0 ? nothing : @warn "Ensemble Kalman Sampler does not accept a custom Δt."
         update_ensemble!(ekobj, g)
     end
+
+    
 
     # Diagnostics IO
     if !isnothing(val_config)
