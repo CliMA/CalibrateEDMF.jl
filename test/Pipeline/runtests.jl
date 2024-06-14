@@ -50,7 +50,7 @@ function generate_SCM_runs(scm_args, outdir_path, versions, priors; precondition
     batch_indices = scm_args["batch_indices"]
     model_evaluator = scm_args["model_evaluator"]
     if precondition_ek
-        model_evaluator = precondition(model_evaluator, priors)
+        model_evaluator, _ = precondition(model_evaluator, priors)
     end
     sim_dirs, g_scm_orig, g_scm_pca_orig = run_SCM(model_evaluator)
 
