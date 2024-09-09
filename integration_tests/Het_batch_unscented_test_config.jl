@@ -130,16 +130,16 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # diffusion parameters
-        "tke_ed_coeff" => [bounded(0.1, 1.0)],
-        "tke_diss_coeff" => [bounded(0.4, 1.0)],
-        "static_stab_coeff" => [bounded(0.5, 1.0)],
+        "tke_ed_coeff" => [bounded(0.05, 1.0)],
+        "tke_diss_coeff" => [bounded(0.05, 1.0)],
+        "static_stab_coeff" => [bounded(0.2, 1.0)],
     )
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # diffusion parameters
-        "tke_ed_coeff" => [0.6],
-        "tke_diss_coeff" => [0.75],
-        "static_stab_coeff" => [0.7],
+        "tke_ed_coeff" => [0.1],
+        "tke_diss_coeff" => [0.1],
+        "static_stab_coeff" => [0.4],
     )
 
     config["unconstrained_σ"] = 1.0
