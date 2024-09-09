@@ -4,7 +4,7 @@ env:
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
   BUILDKITE_COMMIT: "${BUILDKITE_COMMIT}"
   BUILDKITE_BRANCH: "${BUILDKITE_BRANCH}"
-  JULIA_DEPOT_PATH: "${BUILDKITE_BUILD_PATH}/${BUILDKITE_PIPELINE_SLUG}/depot/cpu"
+  JULIA_DEPOT_PATH: "${BUILDKITE_BUILD_PATH}/${BUILDKITE_PIPELINE_SLUG}/depot/default"
 
 agents:
   queue: new-central
@@ -15,7 +15,7 @@ steps:
   # # Clear depot
   # - label: "clear depot"
   #   command:
-  #     - "rm -rf /central/scratch/esm/slurm-buildkite/calibrateedmf-ci/depot/cpu"
+  #     - "rm -rf /central/scratch/esm/slurm-buildkite/calibrateedmf-ci/depot/default"
   #   agents:
   #     config: init
   #     queue: new-central
