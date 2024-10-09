@@ -45,11 +45,13 @@ else
     module purge
     export MODULEPATH="/groups/esm/modules:$MODULEPATH" # see https://github.com/CliMA/ClimaModules, provides julia, julia-preferences, mpiwrapper
     export MODULEPATH="/central/software9/Modules/linux-rhel9-x86_64:/central/software9/Modules/linux-rhel9-broadwell:/central/software9/Modules/linux-rhel9-skylake_avx512:/central/software9/Modules/external/modulefiles:$MODULEPATH" # for some reason these aren't getting loaded ... idk why... it's some weird mix of expansion and regular modules  but only the regular centos7 are getting loaded by sbatch idk but not the rhel9 ones..., plus /central/software9/Modules/external/modulefiles for nsight_systems for climacommon
-    # module load climacommon # doesnt work bc of nsys
+    # # module load climacommon
+    # module load climacommon/2024_10_08 # avoid julia 1.11 for now # doesnt work bc of nsys
     # module load julia/1.10.1 
     # module load julia-preferences/2024_02_20
     # module load mpiwrapper/2024_02_27 # is this all we need for mpi? the code still complained about libmpi not being found but it still ran? idk...
-    module load climacommon
+    # module load climacommon
+    module load climacommon/2024_10_08 # avoid julia 1.11 for now
 
     export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
     # export JULIA_MPI_BINARY=system # I think we don't need this anymore
