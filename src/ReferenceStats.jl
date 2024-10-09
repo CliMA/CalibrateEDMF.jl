@@ -164,6 +164,21 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         return new{FT, IT}(y, Γ, norm_vec, pca_vec, y_full, Γ_full, ndof_case, ndof_full_case, zdof)
     end
 
+    # # Framework for specifying mean and covariances a-priori: once we figure it out, we'll probably want something like:
+    # function ReferenceStatistics(
+    #     RM::Vector{ReferenceModel};
+    #     perform_PCA::Bool = true,
+    #     normalize::Bool = true,
+    #     variance_loss::FT = 0.1,
+    #     tikhonov_noise::FT = 0.0,
+    #     tikhonov_mode::String = "absolute",
+    #     dim_scaling::Bool = false,
+    #     time_shift::Union{FT, Vector{FT}} = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
+    #     model_errors::OptVec{T} = nothing,
+    #     reference_mean::Vector{Vector{Vector{{FT}}}}, # for each ReferenceModel, a mean profile for each variable
+    #     reference_covariance::Vector{Vector{Vector{FT}}}, # for each ReferenceModel, a covariance matrix for each variable ReferenceModels{Vars{Zs}}
+    # )
+
 end
 
 "Returns dimensionality of the ReferenceStatistics in low-dimensional latent space"
@@ -486,7 +501,13 @@ function get_time_covariance(
             @warn "NaNs in $var_name, switching to NaNStatistics"
             mean = NaNStatistics.nanmean
             var  = NaNStatistics.nanvar
+        else
+            mean = Statistics.mean # i think you haveto use this or else it fails...
+            var  = Statistics.var
         end
+
+        @info(mean)
+        @info(var)
 
         if ndims(var_) == 2
             # Store pooled variance
@@ -513,9 +534,13 @@ function get_time_covariance(
     if any(isnan,ts_vec)
         @warn "NaNs in ts_vec, switching to NaNStatistics"
         cov = NaNStatistics.nancov
+    else
+        cov = Statistics.cov # it keeps crashing if i dont put this, idk
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
+    # Although we may have trimmed our data, NaNs in the data could appear after interpolation, so we need to handle that.
+    cov_mat = replace(cov_mat, NaN => 0.0) # just like off diagonal blocks are 0, if we get a NaN out even after trimming, we'll just set it to 0. (if you did not trim your data) | ps, i think we get the same output if we don't trim? trimming might be worse bc it could allow the interpolant to work in areas that otherwise might have given NaN => 0.0
     return cov_mat, pool_var
 end
 
