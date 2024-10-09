@@ -22,6 +22,12 @@ last_iter=${last_ekobj%.*} # Remove trailing file format
 last_iter=${last_iter##*_} # Remove leading filename
 first_new_iter=$(($last_iter + 1))
 
+echo "output_dir: ${output_dir}"
+echo "job_id: ${job_id}"
+echo "last iteration: ${last_iter}"
+echo "last ekobj: ${last_ekobj}"
+echo "first new iteration: ${first_new_iter}"
+
 # Number of parallel processes for SCM evaluation, split evenly between train and validation
 n_proc_scm=10
 echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (grand total)."
@@ -38,7 +44,7 @@ julia -e 'using Pkg; using MPIPreferences; use_system_binary()' # the new way to
 julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
 julia --project -C skylake-avx512 -e 'using Pkg; Pkg.precompile()'
 
-thisfile=/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Test_Dynamical_Calibration/global_parallel/ekp_par_calibration.sbatch # can't figure out how to fool proof make this work w/ HPC even on interactive node which has a separate slurm id... this makes it however, not at all transporatable to other machines...
+thisfile=/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Test_Dynamical_Calibration/global_parallel/restart_ekp_par_calibration.sbatch # can't figure out how to fool proof make this work w/ HPC even on interactive node which has a separate slurm id... this makes it however, not at all transporatable to other machines...
 thisdir=$(dirname $thisfile) # go up to directory from filename...
 logdir=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES_Test_Dynamical_Calibration/global_parallel/slurm/
 
@@ -50,7 +56,7 @@ if [ "$it" = "$first_new_iter" ]; then
     # id_so=$(sbatch -o $logdir/%x-%j.out --parsable -A esm $thisdir/sysimage.sbatch)
     # Restart calibration
     # id_restart_ens=$(sbatch -o $logdir/%x-%j.out --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so $thisdir/restart.sbatch $output_dir $job_id)
-    id_restart_ens=$(sbatch -o $logdir/%x-%j.out --parsable -A esm $thisdir/restart.sbatch $output_dir $job_id) # turn off system image for now
+    id_restart_ens=$(sbatch -o $logdir/%x-%j.out --parsable                             -A esm                             $thisdir/restart.sbatch $output_dir $job_id) # turn off system image for now
     # Run ensemble of forward models
     id_ens_array=$(sbatch -o $logdir/%x-%j.out --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_restart_ens --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm)
 else

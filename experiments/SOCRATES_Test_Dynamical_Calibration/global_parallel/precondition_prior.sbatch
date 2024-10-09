@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=2:00:00    # walltime
+#SBATCH --time=6:00:00    # walltime
 #SBATCH --ntasks=1        # number of processor cores (i.e. tasks) # increase number of tasks ...
 #SBATCH --nodes=1         # number of nodes
 #SBATCH --mem-per-cpu=60G # memory per CPU core (10G was what i was using, for 6 jobs parallel x6? idk...)

@@ -2,7 +2,12 @@
 
 @everywhere begin
     using Pkg
-    Pkg.activate("../../..") # @__DIR__
+    thisdir = @__DIR__
+    @info("thisdir: $thisdir")
+    CEDMF_path = abspath(joinpath(thisdir, "..", "..", ".."))
+    @info("CEDMF_path: $CEDMF_path")
+    Pkg.activate(CEDMF_path)
+    # Pkg.activate("../../..") # @__DIR__
 end
 
 @everywhere begin
