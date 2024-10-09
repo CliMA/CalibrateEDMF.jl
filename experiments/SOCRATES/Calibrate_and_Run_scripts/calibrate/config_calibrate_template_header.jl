@@ -49,7 +49,6 @@ linear_entr_unc_sigma = repeat([5.0], Int(NUM_NN_PARAMS / 2))
 linear_detr_unc_sigma = repeat([5.0], Int(NUM_NN_PARAMS / 2))
 linear_entr_unc_sigma[end] = 0.5
 linear_detr_unc_sigma[end] = 0.5
-non_vec_sigma = 2.0 # costa's σ for non-vector parameters
 
 # entrainment setup things from costa
 linear_entr_prior_mean = 0.5 .* (rand(Int(NUM_NN_PARAMS / 2)) .- 0.5) .+ 1.0
@@ -61,20 +60,92 @@ linear_detr_prior_mean[end] = 0.01
 
 
 # ========================================================================================================================= #
-# Global Default Params
+# Global Default Params (anything shared across experiments/setups)
 # ========================================================================================================================= #
+
+non_vec_sigma = 2.0 # costa's σ for non-vector parameters
+expanded_unconstrained_σ = FT(2.5) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)  ## TESTING 100 HERE!!!! (seem to have some nan errors...) (bounded_below values are log spaced  so consider that)
+
+bounded_σ = FT(2.0) # bounded on both sides -- most of the log space is pressed up against the edges so not too big, assume it's closer to linear than log
+
+unbounded_σ = FT(5.0) # is in real space so... good luck lol
+expanded_unbounded_σ = FT(50.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain) 
+
+
+bounded_edge_σ = FT(3.0) # bounded on one side --  is in log space go crazy (10 orders of magnitude is pretty big though)
+expanded_bounded_edge_σ = FT(5.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)  ## TESTING 100 HERE!!!! (seem to have some nan errors...) (bounded_below values are log spaced  so consider that)
+
+
 global_param_defaults = Dict()
-global_param_defaults["τ_cond_evap"] = Dict("prior_μ" => FT(100.), "σ" => 2.5) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+
 
 
 r_r = FT(20 * 1e-6) # 20 microns
 ρ_l = FT(1000.)
-q_r_1 = FT((4/3) * π * r_r^3 * 1000) # mass of one raindrop, q = N q_r
-B = FT(100) # Hong and Lim 2006 [ Constant in raindrop freezing equation ]
-global_param_defaults["heterogeneous_ice_nuclation_coefficient"] = q_r_1/ρ_l * B # See the writeup
-global_param_defaults["heterogeneous_ice_nuclation_exponent"] = 0.66 # Hong & Lim 2006 [Constant in Biggs Freezing]
+
+ρ_l = FT(1000.) # density of ice, default from ClimaParameters
+ρ_i = FT(916.7) # density of ice, default from ClimaParameters
+r_r = FT(20 * 1e-6) # 20 microns
+r_0 = FT(.2 * 1e-6) # .2 micron base aerosol
+
+N_0   = FT(100*10^6)
+N_l   = FT(1e-5 / (4/3 * π * r_r^3 * ρ_l)) # estimated total N assuming reasonable q_liq.. (N = N_r in homogenous)
+N_i   = FT(1e-7 / (4/3 * π * r_r^3 * ρ_i)) # estimated total N assuming reasonable q_ice... (N = N_r + N_0)
+
+D_ref = FT(0.0000226)
+D = D_ref
+
 
 _max_area = FT(0.3)
+global_param_defaults["surface_area"] = Dict("prior_mean" =>  FT(default_params["surface_area"]["value"]), "constraints" => bounded(FT(0.0), _max_area),  "unconstrained_σ" => non_vec_sigma) # 0.3 is the max area we want to allow
+
+# --------------------------------------------------------------------------------------------- #
+global_param_defaults["pow_icenuc"] = Dict("prior_mean" => FT(default_params["pow_icenuc"]["value"]), "constraints" => bounded_below(0), "unconstrained_σ" => FT(1.0)) # pow_icenuc really shouldn't vary that far...
+
+global_param_defaults["τ_cond_evap"] = Dict("prior_mean" => FT(100.), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+
+# global_param_defaults["τ_sub_dep"] = Dict("prior_mean" => FT(default_params["τ_sub_dep"]["value"]), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+global_param_defaults["τ_sub_dep"] = Dict("prior_mean" => FT(1000.), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+
+global_param_defaults["geometric_liq_c_1"] = Dict("prior_mean" => FT(1/(4/3 * π * ρ_l * r_r^2)) , "consraints" => bounded_below(FT(0))      , "unconstrained_σ" => bounded_edge_σ)
+global_param_defaults["geometric_liq_c_2"] = Dict("prior_mean" => FT(2/3)                       , "consraints" => bounded(FT(1/3), FT(1))   , "unconstrained_σ" => bounded_σ)
+global_param_defaults["geometric_liq_c_3"] = Dict("prior_mean" => FT(N_l * r_0)                 , "consraints" => bounded_below(FT(0))      , "unconstrained_σ" => bounded_edge_σ)
+
+global_param_defaults["geometric_ice_c_1"] = Dict("prior_mean" => FT(1/(4/3 * π * ρ_i * r_r^2)) , "consraints" => bounded_below(FT(0))      , "unconstrained_σ" => bounded_edge_σ)
+global_param_defaults["geometric_ice_c_2"] = Dict("prior_mean" => FT(2/3)                       , "consraints" => bounded(FT(1/3), FT(1))   , "unconstrained_σ" => bounded_σ)
+global_param_defaults["geometric_ice_c_3"] = Dict("prior_mean" => FT(N_i * r_0)                 , "consraints" => bounded_below(FT(0))      , "unconstrained_σ" => bounded_edge_σ)
+
+
+global_param_defaults["exponential_T_scaling_ice_c_1"] = Dict("prior_mean" => FT(0.02)  , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_edge_σ)
+global_param_defaults["exponential_T_scaling_ice_c_2"] = Dict("prior_mean" => FT(-0.6)  , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_edge_σ)
+
+global_param_defaults["powerlaw_T_scaling_ice_c_1"] = Dict("prior_mean" => FT(10^-9)    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => FT(10)) # normalizing factor has a pretty large range, 10^0 to 10^20 is realistic perhaps, a lot can be made up with the exponent c_2
+global_param_defaults["powerlaw_T_scaling_ice_c_2"] = Dict("prior_mean" => FT(9)        , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => FT(1)) # exponent has small range 
+
+global_param_defaults["exponential_T_scaling_and_geometric_ice_c_1"] = Dict("prior_mean" => FT((4*π*D) * ((4/3 * π * ρ_i)^(-1/3)  * (N_i)^(2/3) * (0.02)^(2/3) + (N_i * r_0)))  , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_edge_σ) # Yeahhh.... idk for this one lol... just combined them serially from the homogenous case where c_3 is -1/3
+global_param_defaults["exponential_T_scaling_and_geometric_ice_c_2"] = Dict("prior_mean" => FT(2/3)                                                                             , "constraints" => bounded(1/3, 1)  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ)  # Halfway between 1/3 and 1 -- should this be the same as c_2g? It's the same mixing...
+global_param_defaults["exponential_T_scaling_and_geometric_ice_c_3"] = Dict("prior_mean" => FT((4*π*D) * r_0 * .02 )                                                            , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_edge_σ) #  Fletcher 1962 (values taken from Frostenberg 2022)
+global_param_defaults["exponential_T_scaling_and_geometric_ice_c_4"] = Dict("prior_mean" => FT(-0.6)                                                                            , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_edge_σ) # Fletcher 1962 (values taken from Frostenberg 2022), same sign again I suppose...
+
+global_param_defaults["linear_combination_liq_c_1"] = Dict("prior_mean" => FT(N_l * r_0), "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_bounded_edge_σ) # I think at q=0, we need c_1 from linear = c_1 from geometric...
+global_param_defaults["linear_combination_liq_c_2"] = Dict("prior_mean" => FT(0)        , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unbounded_σ) # T scaling on liq uncertain
+global_param_defaults["linear_combination_liq_c_3"] = Dict("prior_mean" => FT(1)        , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_bounded_edge_σ) # should have τ down as q up, so start positive
+global_param_defaults["linear_combination_liq_c_4"] = Dict("prior_mean" => FT(1)        , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unbounded_σ) # w up should lead to τ down, so coefficient is (probably) positive  # start away from 0 bc that's ∞ in unbounded space
+#
+global_param_defaults["linear_combination_ice_c_1"] = Dict("prior_mean" => FT(N_i * r_0), "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_bounded_edge_σ) # I think at q=0, we need c_1 from linear = c_1 from geometric...
+global_param_defaults["linear_combination_ice_c_2"] = Dict("prior_mean" => FT(-0.6)     , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_bounded_edge_σ) # Fletcher 1962 (values taken from Frostenberg 2022), same sign again I suppose...
+global_param_defaults["linear_combination_ice_c_3"] = Dict("prior_mean" => FT(1)        , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_bounded_edge_σ) # should have τ down as q up, so start positive
+global_param_defaults["linear_combination_ice_c_4"] = Dict("prior_mean" => FT(1)        , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ) #  w up should lead to τ down, so coefficient is positive
+# --------------------------------------------------------------------------------------------- #
+
+
+q_r_1 = FT((4/3) * π * r_r^3 * 1000) # mass of one raindrop, q = N q_r
+B = FT(100) # Hong and Lim 2006 [ Constant in raindrop freezing equation ]
+global_param_defaults["heterogeneous_ice_nuclation_coefficient"] = Dict("prior_mean" => q_r_1/ρ_l * B , "constraints" => nothing, "unconstrained_σ" => NaN) # See the writeup
+global_param_defaults["heterogeneous_ice_nuclation_exponent"]    = Dict("prior_mean" => FT(0.66)      , "constraints" => nothing, "unconstrained_σ" => NaN) # Hong & Lim 2006 [Constant in Biggs Freezing]
+
+# global_param_defaults["r_ice_snow"] = Dict("prior_mean" => FT(62.5e-6), "constraints" => bounded(0, 1e-3), "unconstrained_σ" => bounded_σ) # 62.5 microns is the default from ClimaParameters
+global_param_defaults["r_ice_snow"] = Dict("prior_mean" => default_params["r_ice_snow"]["value"], "constraints" => bounded(0, 1e-3), "unconstrained_σ" => bounded_σ) # 62.5 microns is the default from ClimaParameters
 
 # ========================================================================================================================= #
 # ========================================================================================================================= #
@@ -124,7 +195,6 @@ autoconversion_calibration_parameters = Dict(
 
 ice_sedimentation_parameters = Dict(
     "ice_sedimentation_scaling_factor" => Dict("prior_mean" => FT(0.1) , "constraints" => bounded(0,5) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ), # testing
-    "τ_ice_scaling_factor" => Dict("prior_mean" => FT(1.0) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => FT(1)), # .1 to 10 should be reasonable lol
 )
 
 
@@ -151,9 +221,11 @@ default_calibration_parameters = Dict(
     # "min_area_limiter_scale" => Dict("prior_mean" => FT(2.0), "constraints" => bounded(1.0, 100.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "min_area_limiter_scale", "unconstrained_σ" => 1.0 ),
     # "min_area_limiter_power" => Dict("prior_mean" => FT(2000.0), "constraints" => bounded(1000.0, 5000.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "min_area_limiter_power", "unconstrained_σ" => 1.0 ),
     # surface area (important for updraft evolution? -- should this be bounded by max_area?
-    "surface_area" => Dict("prior_mean" => FT(default_params["surface_area"]["value"]), "constraints" => bounded(0.0, _max_area), "l2_reg" => nothing, "CLIMAParameters_longname" => "surface_area", "unconstrained_σ" => non_vec_sigma),
+    "surface_area" => Dict("prior_mean" => global_param_defaults["surface_area"]["prior_mean"], "constraints" => global_param_defaults["surface_area"]["constraints"], "l2_reg" => nothing, "CLIMAParameters_longname" => "surface_area", "unconstrained_σ" => global_param_defaults["surface_area"]["unconstrained_σ"]),
     #
-    # "r_ice_snow" => Dict("prior_mean" => FT(62.5e-6)    , "constraints" => bounded(0, 1e-3) , "l2_reg" => nothing, "CLIMAParameters_longname" => "r_ice_snow", "unconstrained_σ" => bounded_σ),
+    "r_ice_snow" => Dict("prior_mean" => global_param_defaults["r_ice_snow"]["prior_mean"]    , "constraints" => global_param_defaults["r_ice_snow"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => "r_ice_snow", "unconstrained_σ" => global_param_defaults["r_ice_snow"]["unconstrained_σ"]),
+    # "adjusted_ice_N_scaling_factor" => Dict("prior_mean" => FT(1.0) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => FT(1)), # .1 to 10 should be reasonable lol
+
 )
 
 
@@ -168,7 +240,7 @@ default_namelist_args = [ # from Costa, i think just starting here is fine and i
     # ("stats_io", "frequency", 60.0),
     # ("time_stepping", "t_max", 3600.0 * SCM_RUN_TIME_HR),
     # ("t_interval_from_end_s", 3600.0 * SCM_RUN_TIME_HR),
-    # ("thermodynamics", "sgs", "quadrature"), # doesnt work w/ noneq
+    ("thermodynamics", "sgs", "mean"), # quadrature doesn't work w/ noneq
     # ("turbulence", "EDMF_PrognosticTKE", "surface_area_bc", "Prognostic"), # Doesn't work w/ -ΔT from socratessummary
     # ("turbulence", "EDMF_PrognosticTKE", "surface_area_bc", "Fixed"),
     # Add namelist_args defining entrainment closure, e.g.
@@ -196,7 +268,7 @@ default_namelist_args = [ # from Costa, i think just starting here is fine and i
     # ("stats_io", "frequency", 60.0),
     # ("time_stepping", "t_max", 3600.0 * SCM_RUN_TIME_HR),
     # ("t_interval_from_end_s", 3600.0 * SCM_RUN_TIME_HR),
-    # ("thermodynamics", "sgs", "quadrature"), # doesnt work w/ noneq
+    ("thermodynamics", "sgs", "mean"), # quadrature doesnt work w/ noneq
     # ("turbulence", "EDMF_PrognosticTKE", "surface_area_bc", "Prognostic"), # try turning this off (is more stable now, don't think it's causing the lack of convergence problems either...)  # Doesn't work w/ -ΔT from socratessummary
     # ("turbulence", "EDMF_PrognosticTKE", "surface_area_bc", "Fixed"),
     # Add namelist_args defining entrainment closure, e.g.
@@ -218,9 +290,9 @@ default_namelist_args = [ # from Costa, i think just starting here is fine and i
     ("turbulence", "EDMF_PrognosticTKE", "linear_ent_biases", true),
     #
     ("user_aux", "adjust_ice_N", true),
-    # ("microphysics", "r_ice_snow", calibration_parameters["r_ice_snow"]["prior_mean"] ),
-    ("user_aux", "ice_sedimentation_scaling_factor", ice_sedimentation_parameters["ice_sedimentation_scaling_factor"]["prior_mean"] ),
-    ("user_aux", "τ_ice_scaling_factor", ice_sedimentation_parameters["τ_ice_scaling_factor"]["prior_mean"] ),
+    ("microphysics", "r_ice_snow", default_calibration_parameters["r_ice_snow"]["prior_mean"] ),
+    ("user_aux", "ice_sedimentation_scaling_factor", default_calibration_parameters["ice_sedimentation_scaling_factor"]["prior_mean"] ),
+    # ("user_aux", "adjusted_ice_N_scaling_factor", default_calibration_parameters["adjusted_ice_N_scaling_factor"]["prior_mean"] ), # this should just be constants in the thing right
     ("user_aux", "ice_sedimentation_Dmax", FT(Inf)), # 62.5 microns cutoff from CM
     
     
@@ -229,7 +301,7 @@ default_namelist_args = [ # from Costa, i think just starting here is fine and i
 default_namelist_args = [Costa_SOTA_namelist_args; default_namelist_args] # add the Costa SOTA namelist args to the default ones
 
 # ========================================================================================================================= #
-# can we add a default user_args that we add to/merge with later in _body.jl? yes, it's in _body.jl
+# can we add a default user_args that we add to/merge with later in _footer.jl? yes, it's in _footer.jl
 # ========================================================================================================================= #
 # ========================================================================================================================= #
 
@@ -255,6 +327,7 @@ obs_var_additional_uncertainty_factor = Dict( # I hope this is in scaled space l
     "qi_mean"          => obs_var_additional_uncertainty_factor,
     "qr_mean"          => obs_var_additional_uncertainty_factor,
     "qs_mean"          => obs_var_additional_uncertainty_factor,
+    "qip_mean"         => obs_var_additional_uncertainty_factor,
     "ql_all_mean"      => obs_var_additional_uncertainty_factor,
     "qi_all_mean"      => obs_var_additional_uncertainty_factor,
     "qt_mean"          => obs_var_additional_uncertainty_factor,
@@ -268,6 +341,7 @@ calibration_vars_characteristic_values = Dict(
     "qi_mean"          => FT(1e-8), # 1e-3 kg/kg
     "qr_mean"          => FT(1e-2), # 1e-3 kg/kg
     "qs_mean"          => FT(1e-3), # 1e-3 kg/kg
+    "qip_mean"         => FT(1e-3), # 1e-3 kg/kg
     "ql_all_mean"      => FT(1e-3), # 1e-3 kg/kg
     "qi_all_mean"      => FT(1e-8), # 1e-3 kg/kg
     "qt_mean"          => FT(1e-3), # 1e-3 kg/kg
@@ -285,7 +359,9 @@ calibration_vars_characteristic_values = Dict(
 header_setup_choice = :default # can be overwritten in the exepriment script, currently have choices :default and :simple
 
 @warn("How is additive inflation (at least I think it is) changing the absolute scaling when using obs_var_scaling? do we actually need to add a 'normalize to' value?")
-additive_inflation = nothing # default to not using it
+# additive_inflation = nothing # default to not using it
+additive_inflation = 1e-8 # default to not using it
+
 Δt = 1.0
 
 perform_PCA = true
