@@ -142,6 +142,7 @@ function process_SOCRATES_Flight_Observations_Reference(;
     data_vars_rename::Dict{Tuple{String,String}, String} = default_data_vars_obs,
     truth_file::String = joinpath(this_dir, "Reference", "Flight_Observations", "RF_all__leg_types_U_D_min_time_120__2_mb_binning__binned_profiles_z.nc"),  # If you wanna rebin yourself, then you'd have to tie into my python routines w/ pycall or something...
     fake_time_axis::Bool = true, # if true, we will create a time axis from the profiles and set the time coordinates to linear space between t_start and t_end of the reference period
+    fake_time_bnds = "Atlas",
     out_dir::Union{String,Nothing} =  nothing,
     out_vars = nothing # if not nothing, we will only output these variables and drop any rows for which any of the varialbes are all nan or only one value (or the intersection between variables that is not nan has only one variable)
     )
@@ -244,18 +245,22 @@ function process_SOCRATES_Flight_Observations_Reference(;
             # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
 
             if fake_time_axis
-                # get our start and end time
-                if forcing_type == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
-                    t_start = 10 * 3600.
-                    t_end   = 12 * 3600.
-                elseif forcing_type == :ERA5_data # Use the start and end times from Table 2 in atlas, stored in SOCRATES_summary.nc that we created w/ a Python Jupyter notebook
-                    NC.Dataset(joinpath(this_dir, "Reference", "SOCRATES_summary.nc"),"r") do SOCRATES_summary
-                        _sum = NC.@select(SOCRATES_summary, flight_number == $flight_number)
-                        t_start, t_end = _sum["time_bnds"]
-                        t_ref =  _sum["reference_time"][1] # we know this is hour 12
-                        t_start, t_end = map( x-> x.value, Dates.Second.([t_start,t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
-                    end
-                end # SOCRATES_summary is closed
+                if fake_time_bnds == "Atlas"
+                    # get our start and end time
+                    if forcing_type == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
+                        t_start = 10 * 3600.
+                        t_end   = 12 * 3600.
+                    elseif forcing_type == :ERA5_data # Use the start and end times from Table 2 in atlas, stored in SOCRATES_summary.nc that we created w/ a Python Jupyter notebook
+                        NC.Dataset(joinpath(this_dir, "Reference", "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+                            _sum = NC.@select(SOCRATES_summary, flight_number == $flight_number)
+                            t_start, t_end = _sum["time_bnds"]
+                            t_ref =  _sum["reference_time"][1] # we know this is hour 12
+                            t_start, t_end = map( x-> x.value, Dates.Second.([t_start,t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
+                        end
+                    end # SOCRATES_summary is closed
+                else
+                    t_start, t_end = fake_time_bnds # allow us to fake a different time range, e.g. for testing shorter simulations
+                end
 
                 t = collect(range(t_start, t_end, length=new_data.dim["profile"]))
                 NC.renameDim(new_data, "profile", "t")  # renmae profiles to "t" undocumented, see https://github.com/Alexander-Barth/NCDatasets.jl/blob/master/src/dimensions.jl
