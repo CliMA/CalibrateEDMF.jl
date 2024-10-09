@@ -272,9 +272,10 @@ Output:
 function vertical_interpolation(var_name::String, filename::String, z_scm::Vector{FT};) where {FT <: AbstractFloat}
     z_ref = get_height(filename, get_faces = is_face_variable(filename, var_name))
     var_ = nc_fetch(filename, var_name)
+    var_ = replace(var_, missing => NaN) # remove missing values and convert to Float64 NaN (still the covariances won't work lol)
     if ndims(var_) == 2
         # Create interpolant
-        nodes = (z_ref, 1:size(var_, 2))
+        nodes = (z_ref, 1:size(var_, 2)) # why are we assuming z is dimension 2? that's a harsh constraint on arbitrary input data when we can get the dimension number from the nc file and transpose if need be... I had to remake my truth files to accomodate this arbitrary assumption...
         var_itp = extrapolate(interpolate(nodes, var_, (Gridded(Linear()), NoInterp())), Line())
         # Return interpolated vector
         return var_itp(z_scm, 1:size(var_, 2))
