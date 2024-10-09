@@ -49,23 +49,25 @@ thisdir = dirname(@__FILE__)
 #     return exp10(log_τ_liq), exp10(log_τ_ice)
 # end
 
-include("/home/jbenjami/Research_Schneider/CliMa/TurbulenceConvection.jl/src/closures/neural_microphysics_relaxation_timescales.jl") # see definitions there...
+include(
+    "/home/jbenjami/Research_Schneider/CliMa/TurbulenceConvection.jl/src/closures/neural_microphysics_relaxation_timescales.jl",
+) # see definitions there...
 
 # ========================================================================================================================= #
 
 function τ_neural_network(L) # this could actually go anywhere, including in calibrate edmf since we just need to pass the repr location...
     # pretrain towards the correct τ or something (default or maybe the simple one.)
     NN = Flux.Chain(
-        Flux.Dense(L  => 10, Flux.relu, bias=true), # relu requires very short timesteps in Descent
-        Flux.Dense(10 =>  8, Flux.relu, bias=true),
-        Flux.Dense( 8 =>  4, Flux.relu, bias=true),
-        Flux.Dense( 4 =>  2, bias=false),
-        Flux.Dense( 2 =>  2, bias=true), # no activation, allow negative outputs... it should work in log space...
+        Flux.Dense(L => 10, Flux.relu, bias = true), # relu requires very short timesteps in Descent
+        Flux.Dense(10 => 8, Flux.relu, bias = true),
+        Flux.Dense(8 => 4, Flux.relu, bias = true),
+        Flux.Dense(4 => 2, bias = false),
+        Flux.Dense(2 => 2, bias = true), # no activation, allow negative outputs... it should work in log space...
 
         # Flux.Dense( 8 =>  8, Flux.tanh, bias=true),
         # Flux.Dense( 8 =>  2, bias=true), # no activation, allow negative outputs... it should work in log space...
         # Exponential() # hard to calibrate with
-        )
+    )
     return NN
 end
 
@@ -96,15 +98,15 @@ if use_LES_inferred_data
     LES_inferred_datafile = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/Reference/Output_Inferred_Data/SOCRATES_Atlas_LES_inferred_timescales.nc"
     LES_inferred_data = NCDatasets.Dataset(LES_inferred_datafile, "r")
 
-    T     = vec(nomissing(LES_inferred_data["T"][:], NaN))
+    T = vec(nomissing(LES_inferred_data["T"][:], NaN))
     q_liq = vec(nomissing(LES_inferred_data["q_liq"][:], NaN))
     q_ice = vec(nomissing(LES_inferred_data["q_ice"][:], NaN))
     τ_liq = vec(nomissing(LES_inferred_data["τ_cond_evap"][:], NaN)) # this is broken bc PCC (cond/evap) seems to be broken in Atlas output files...
     τ_ice = vec(nomissing(LES_inferred_data["τ_sub_dep"][:], NaN))
-    p     = vec(nomissing(LES_inferred_data["p"][:], NaN))
-    ρ     = vec(nomissing(LES_inferred_data["ρ"][:], NaN))
+    p = vec(nomissing(LES_inferred_data["p"][:], NaN))
+    ρ = vec(nomissing(LES_inferred_data["ρ"][:], NaN))
     # Ni    = nomissing(LES_inferred_data["ni_mean"][:], NaN)
-    w = zeros(FT, size(T)) .+ ( (rand(FT,length(T)) .- FT(0.5)) .* FT(1e-2) ) # 0 plus a little jitter (we don't have w in the LES data since it'e the entire mean area
+    w = zeros(FT, size(T)) .+ ((rand(FT, length(T)) .- FT(0.5)) .* FT(1e-2)) # 0 plus a little jitter (we don't have w in the LES data since it'e the entire mean area
 
 
     valid = (isfinite.(τ_liq) .& isfinite.(τ_ice)) # should this be some kind of threshold?
@@ -121,7 +123,7 @@ if use_LES_inferred_data
 
     # We have too much data and a lot of it is similar, so we can subsample it to make training faster
     N_subset = Int(1e4)
-    random_indices = StatsBase.sample(1:length(T), N_subset, replace=false)
+    random_indices = StatsBase.sample(1:length(T), N_subset, replace = false)
 
     T = T[random_indices]
     q_liq = q_liq[random_indices]
@@ -137,19 +139,22 @@ else
 
     # many samples (to avoid overfitting)
     n = 250
-    ρ = FT.(1. .-  (rand(n).-.1))
-    T = FT.((273.15) .+ 100 .* (rand(n).-0.5))
+    ρ = FT.(1.0 .- (rand(n) .- 0.1))
+    T = FT.((273.15) .+ 100 .* (rand(n) .- 0.5))
     q_liq = FT.(rand(n) / 1e3)
     q_ice = FT.(rand(n) / 1e4)
 
-    w = FT.(rand(n)/1e2) # max at 1e-2 (1 cm/s)
+    w = FT.(rand(n) / 1e2) # max at 1e-2 (1 cm/s)
     # τ_liq = FT.(maximum(q_liq) ./ q_liq * 1e1 .+ rand(n).*1e1) # random, fast for large q_liq
     # τ_ice = FT.(T ./ minimum(T) .*  maximum(q_ice) ./ q_ice  * 1e5 .+ rand(n).*1e5 ) # random, fast for large q_ice, slow for high T
 
     q_con_0 = 10 .^ -((rand(n)) * 6 .+ 2) # 6 orders of magniude, maxing at 1e-2
     q_con_0_log = log10.(q_con_0)
-    τ_liq = FT.(maximum(q_con_0) ./ q_con_0) |> x-> x + (x./2).*rand(n)  # random, fast for large q_li
-    τ_ice = FT.( ((T .- minimum(T)) ./ ( maximum(T) - minimum(T))).^1 ) .+  ((maximum(q_con_0_log).-minimum(q_con_0_log)) ./ (maximum(q_con_0_log).-q_con_0_log)  ).^-1  |> x-> x + (x./2).*rand(n)  # fast for either high q or low T. data is scaled 0 to 1 and then scaled back out afterwards. # we didnt add an offset so this wil be 0 if the min T and q overlap in index but that's very unlikely (and maybe wouldnt hurt training too much? idk...)
+    τ_liq = FT.(maximum(q_con_0) ./ q_con_0) |> x -> x + (x ./ 2) .* rand(n)  # random, fast for large q_li
+    τ_ice =
+        FT.(((T .- minimum(T)) ./ (maximum(T) - minimum(T))) .^ 1) .+
+        ((maximum(q_con_0_log) .- minimum(q_con_0_log)) ./ (maximum(q_con_0_log) .- q_con_0_log)) .^ -1 |>
+        x -> x + (x ./ 2) .* rand(n)  # fast for either high q or low T. data is scaled 0 to 1 and then scaled back out afterwards. # we didnt add an offset so this wil be 0 if the min T and q overlap in index but that's very unlikely (and maybe wouldnt hurt training too much? idk...)
     τ_ice = τ_ice .* 2 # scale from 0 to 3 to 0 to 6 (noise scaled up from 0 ->(1+1=2) to to 0->(2+ 2/2 = 3)
     τ_ice = 10 .^ τ_ice # scale from 0 to 6 to 1e0 to 1e6
 
@@ -183,24 +188,25 @@ NN = τ_neural_network(length(x_0_characteristic))
 #     end
 #     return sum(penalty) / λ
 # end
-    # sum( [sum(abs2, x) for x in Flux.params(model)] ) # L2 penalty (very slow...)
-penalty(model) = FT(0.) # no penalty, hope the noise and small model preclude overfitting...e
+# sum( [sum(abs2, x) for x in Flux.params(model)] ) # L2 penalty (very slow...)
+penalty(model) = FT(0.0) # no penalty, hope the noise and small model preclude overfitting...e
 
 
 # speed = 1e-5
 speed = 1e-3
 opt = Descent(speed)
-loss_func(func) = (model,x, y) -> func(model(x), y) + penalty(model)
+loss_func(func) = (model, x, y) -> func(model(x), y) + penalty(model)
 # loss_func(func) = (model,x, y) -> func(model(x), log10.(y))
 
 if retrain
-    @showprogress for epoch in 1:round(Int,1.5/speed)
-        Flux.train!( loss_func(Flux.Losses.mse), NN, data, opt)
+    @showprogress for epoch in 1:round(Int, 1.5 / speed)
+        Flux.train!(loss_func(Flux.Losses.mse), NN, data, opt)
     end
 else
     # load pretrained model
     nn_path = joinpath(thisdir, "pretrained_NN.jld2")
-    nn_pretrained_params, nn_pretrained_repr, nn_pretrained_x_0_characteristic = JLD2.load(nn_path, "params", "re", "x_0_characteristic")
+    nn_pretrained_params, nn_pretrained_repr, nn_pretrained_x_0_characteristic =
+        JLD2.load(nn_path, "params", "re", "x_0_characteristic")
     NN = vec_to_NN(nn_pretrained_params, nn_pretrained_repr)
     # x_0_characteristic = nn_pretrained_x_0_characteristic
 end
@@ -209,18 +215,17 @@ end
 # info
 prediction = NN(input')
 @info("model vs. truth", prediction, truth')
-@info("stats", cor( prediction', truth''), loss_func(Flux.Losses.mse)(NN, input', truth') )
+@info("stats", cor(prediction', truth''), loss_func(Flux.Losses.mse)(NN, input', truth'))
 
 # save to disk...
 if retrain
     savepath = "pretrained_NN.jld2"
     @info("INFO", "saving to $savepath")
     params, repr = Flux.destructure(NN)
-    JLD2.save( joinpath(thisdir, savepath), Dict("params"=>params, "re"=>repr, "x_0_characteristic" => x_0_characteristic))
+    JLD2.save(
+        joinpath(thisdir, savepath),
+        Dict("params" => params, "re" => repr, "x_0_characteristic" => x_0_characteristic),
+    )
 end
 # flux train and save output
 # p1 = UnicodePlots.scatterplot(truth'[1,:], prediction[1,:],); p2 = UnicodePlots.scatterplot(truth'[2,:], prediction[2,:],); UnicodePlots.lineplot!(p1, 1:n, 1:n), UnicodePlots.lineplot!(p2, 1:n,  1:n) # if you use unicode plots, you can vizualize the correlation between the truth and the prediction
-
-
-
-

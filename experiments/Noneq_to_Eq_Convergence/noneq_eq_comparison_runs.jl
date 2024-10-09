@@ -141,7 +141,12 @@ for flight_number in flight_numbers
         supersat_type = :geometric_liq__powerlaw_T_scaling_ice
         # namelist["microphysics"]["τ_sub_dep"] = 100000.0
         # namelist["microphysics"]["τ_cond_evap"] = 1.0
-        namelist["user_args"] = (; use_supersat = supersat_type, τ_use = :morrison_milbrandt_2015_style, use_sedimentation = false, grid_mean_sedimentation = false)
+        namelist["user_args"] = (;
+            use_supersat = supersat_type,
+            τ_use = :morrison_milbrandt_2015_style,
+            use_sedimentation = false,
+            grid_mean_sedimentation = false,
+        )
         # namelist["user_args"] = (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) 
         # namelist["user_args"] = (;use_supersat=supersat_type, τ_use=:standard) 
 
@@ -200,9 +205,9 @@ for flight_number in flight_numbers
         namelist["microphysics"]["τ_acnv_sno"] = 10000.0
         namelist["microphysics"]["q_liq_threshold"] = 1e-4
         namelist["microphysics"]["q_ice_threshold"] = 1e-5
-    
-    # ========================================================================================================================= #
-    # ========================================================================================================================= #
+
+        # ========================================================================================================================= #
+        # ========================================================================================================================= #
 
         # supersat_type = :exponential_T_scaling_ice
         supersat_type = :Base
@@ -226,23 +231,23 @@ for flight_number in flight_numbers
 
         # namelist["user_aux"]["powerlaw_T_scaling_ice_c_1"] = -2.933615846075211 
         # namelist["user_aux"]["powerlaw_T_scaling_ice_c_2"] = 5.358678935403965
-        namelist["user_aux"]["powerlaw_T_scaling_ice_c_1"] = -9.
-        namelist["user_aux"]["powerlaw_T_scaling_ice_c_2"] = 9.
-        namelist["user_aux"]["ice_sedimentation_scaling_factor"] = 3.2942321652880064 
-        namelist["user_aux"]["rain_sedimentation_scaling_factor"] = 1.0813243749787707 
-        namelist["user_aux"]["snow_sedimentation_scaling_factor"] = 1.030624346659287 
+        namelist["user_aux"]["powerlaw_T_scaling_ice_c_1"] = -9.0
+        namelist["user_aux"]["powerlaw_T_scaling_ice_c_2"] = 9.0
+        namelist["user_aux"]["ice_sedimentation_scaling_factor"] = 3.2942321652880064
+        namelist["user_aux"]["rain_sedimentation_scaling_factor"] = 1.0813243749787707
+        namelist["user_aux"]["snow_sedimentation_scaling_factor"] = 1.030624346659287
 
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["area_limiter_power"] = 35.52149505301267 
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["area_limiter_scale"] = 0.20274259096885316 
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["surface_area"] =  0.03176056443055847 
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["area_limiter_power"] = 35.52149505301267
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["area_limiter_scale"] = 0.20274259096885316
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["surface_area"] = 0.03176056443055847
 
-        namelist["microphysics"]["τ_acnv_rai"] = 16.44967299681959 
-        namelist["microphysics"]["τ_acnv_sno"] = 31.87217008160495 
-        namelist["microphysics"]["q_liq_threshold"] = 4.273820398645035e-8 
-        namelist["microphysics"]["q_ice_threshold"] = 1.6602807618941017e-6 
-        namelist["microphysics"]["τ_cond_evap"]  = 5.684678316404151 
-    
-        
+        namelist["microphysics"]["τ_acnv_rai"] = 16.44967299681959
+        namelist["microphysics"]["τ_acnv_sno"] = 31.87217008160495
+        namelist["microphysics"]["q_liq_threshold"] = 4.273820398645035e-8
+        namelist["microphysics"]["q_ice_threshold"] = 1.6602807618941017e-6
+        namelist["microphysics"]["τ_cond_evap"] = 5.684678316404151
+
+
 
         # supersat_type = :powerlaw_T_scaling_ice
         namelist["user_aux"]["T_scaling_ice_c_1"] = 2e-6 * 4
@@ -250,9 +255,10 @@ for flight_number in flight_numbers
 
         # sedimentation_integration_method = :upwinding # leads to spike at bottom but...
         sedimentation_integration_method = :right_biased
-        namelist["user_args"] = (; use_supersat = supersat_type,
+        namelist["user_args"] = (;
+            use_supersat = supersat_type,
             τ_use = :morrison_milbrandt_2015_style,
-            use_sedimentation = true, 
+            use_sedimentation = true,
             grid_mean_sedimentation = false,
             sedimentation_integration_method = sedimentation_integration_method,
             use_heterogeneous_ice_nucleation = false,
@@ -262,14 +268,14 @@ for flight_number in flight_numbers
             ice_velo_scheme = :Chen2022Vel,
             rain_velo_scheme = :Chen2022Vel,
             snow_velo_scheme = :Chen2022Vel,
-            )
+        )
 
-            
+
 
         namelist["user_aux"]["ice_sedimentation_Dmax"] = 62.5e-6 # 62.5 microns cutoff from CM
 
         namelist["user_aux"]["ice_sedimentation_Dmax"] = Inf # 62.5 microns cutoff from CM
-        
+
         namelist["user_aux"]["adjust_ice_N"] = true
         namelist["microphysics"]["r_ice_snow"] = 62.5e-6
 
@@ -304,15 +310,18 @@ for flight_number in flight_numbers
         namelist["turbulence"]["EDMF_PrognosticTKE"]["Prandtl_number_0"] = Costa_SOTA["Prandtl_number_0"]
 
         # Momentum Exchange parameters
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_adv_coeff"] = Costa_SOTA["pressure_normalmode_adv_coeff"]
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_buoy_coeff1"] = Costa_SOTA["pressure_normalmode_buoy_coeff1"]
-        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_drag_coeff"] = Costa_SOTA["pressure_normalmode_drag_coeff"]
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_adv_coeff"] =
+            Costa_SOTA["pressure_normalmode_adv_coeff"]
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_buoy_coeff1"] =
+            Costa_SOTA["pressure_normalmode_buoy_coeff1"]
+        namelist["turbulence"]["EDMF_PrognosticTKE"]["pressure_normalmode_drag_coeff"] =
+            Costa_SOTA["pressure_normalmode_drag_coeff"]
 
         # Area Limiters
         namelist["turbulence"]["EDMF_PrognosticTKE"]["min_area_limiter_scale"] = Costa_SOTA["min_area_limiter_scale"]
         namelist["turbulence"]["EDMF_PrognosticTKE"]["min_area_limiter_power"] = Costa_SOTA["min_area_limiter_power"]
         # ========================================================================================================================= #
-    # ========================================================================================================================= #
+        # ========================================================================================================================= #
 
 
 
@@ -341,7 +350,7 @@ for flight_number in flight_numbers
 
     end
 
-    
+
     run_simulation = true
     if run_simulation
         @info("Namelist: ", namelist)
@@ -1431,7 +1440,9 @@ for flight_number in flight_numbers
 
         # --------------------------------------------------------------------------------------------- #
         # ql + qr
-        data_simul_lr = simul_data.group["profiles"]["ql_mean"][:, simul_ind] + simul_data.group["profiles"]["qr_mean"][:, simul_ind]
+        data_simul_lr =
+            simul_data.group["profiles"]["ql_mean"][:, simul_ind] +
+            simul_data.group["profiles"]["qr_mean"][:, simul_ind]
         data_truth_lr = truth_data["QCL"][:, truth_ind] ./ 1000 + truth_data["QR"][:, truth_ind] ./ 1000
 
         p_t = plot(
@@ -1452,7 +1463,9 @@ for flight_number in flight_numbers
 
         # --------------------------------------------------------------------------------------------- #
         # qi + qs
-        data_simul_is = simul_data.group["profiles"]["qi_mean"][:, simul_ind] + simul_data.group["profiles"]["qs_mean"][:, simul_ind]
+        data_simul_is =
+            simul_data.group["profiles"]["qi_mean"][:, simul_ind] +
+            simul_data.group["profiles"]["qs_mean"][:, simul_ind]
         data_truth_is = truth_data["QCI"][:, truth_ind] ./ 1000 + truth_data["QS"][:, truth_ind] ./ 1000
 
         p_t = plot(

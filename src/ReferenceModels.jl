@@ -119,8 +119,8 @@ function ReferenceModel(
     n_obs::OptInt = nothing,
     namelist_args::OptVec{<:Tuple} = nothing,
     seed::OptInt = nothing,
-    z_rectifier::Union{Function, NTuple{2,FT2}, Vector{FT2}, Nothing} = nothing
-    ) where {FT2 <: Real}
+    z_rectifier::Union{Function, NTuple{2, FT2}, Vector{FT2}, Nothing} = nothing,
+) where {FT2 <: Real}
     if case_name == "LES_driven_SCM" || occursin("socrates", lowercase(case_name))
         @assert isa(y_type, LES) || isa(Σ_type, LES) "LES data must be used in the construction of LES_driven_SCM ReferenceModels."
     end
@@ -137,7 +137,7 @@ function ReferenceModel(
             z_rectified_obs = z_rectifier
         elseif isa(z_rectifier, Function)
             z_rectified_obs = z_rectifier(z_obs) # apply some func
-        elseif isa(z_rectifier, NTuple{2,FT2}) # select only z between z_rectifier[1] and z_rectifier[2]
+        elseif isa(z_rectifier, NTuple{2, FT2}) # select only z between z_rectifier[1] and z_rectifier[2]
             z_rectified_obs = z_obs[(z_obs .>= z_rectifier[1]) .& (z_obs .<= z_rectifier[2])]
         else
             throw(ArgumentError("z_rectifiers must be a function, a tuple of two floats, or a vector of floats."))
@@ -286,7 +286,7 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:T
         :namelist_args => namelist_args,
         :y_type => y_type,
         :Σ_type => Σ_type,
-        :z_rectifiers => z_rectifiers
+        :z_rectifiers => z_rectifiers,
     )
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)

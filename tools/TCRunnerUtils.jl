@@ -52,18 +52,18 @@ currently even merging dicts normally doesnt work bc stuff like config["turbulen
 function run_TCs(
     # namelists::Vector{Dict{<:Any, <:Any}}; # not sure how to specify vector of dicts... Vector{Dict} doesn't work, neihter does Vector{Dict{Any,Any}}
     namelists::Vector; # not sure how to specify vector of dicts... Vector{Dict} doesn't work, neihter does Vector{Dict{Any,Any}}
-    tc_output_dir::Union{Nothing,String}="./", # the parent output dir for all the cases we run
+    tc_output_dir::Union{Nothing, String} = "./", # the parent output dir for all the cases we run
     # config::Dict,
     # run_cases::Dict;
     # method::String = "best_nn_particle_mean",
     # metric::String = "mse_full",
     # n_ens::Int = 1,
-)    
+)
     # currently it's just one tc_output_dir but I gues youc ould expand that later... idk...
 
 
     @info "Preparing to run $(length(namelists)) forward model evaluations at $(Dates.now())"
-    pmap(x->run_one_SCM(x; tc_output_dir=tc_output_dir), namelists) # seems not to get defined somehow... idk... maybe it's same problem as above w/ DiagnosticsTools.jl
+    pmap(x -> run_one_SCM(x; tc_output_dir = tc_output_dir), namelists) # seems not to get defined somehow... idk... maybe it's same problem as above w/ DiagnosticsTools.jl
     @info "Finished. Current time: $(Dates.now())"
 
 end

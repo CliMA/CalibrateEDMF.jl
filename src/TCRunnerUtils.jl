@@ -132,7 +132,7 @@ function create_namelists_from_calibration_output(
         end
 
         # LES handler from TurbulenceConvectionUtils.jl run_SCM_handler()
-        if case_name == "LES_driven_SCM" 
+        if case_name == "LES_driven_SCM"
             if isnothing(les)
                 error("les path or keywords required for LES_driven_SCM case!")
             elseif isa(les, NamedTuple)
@@ -209,7 +209,7 @@ function get_calibrated_parameters(
         u_names, u = create_parameter_vectors(u_names, u, param_map, namelist)
         calibrated_param_set = Dict(u_names .=> u)
         @info(calibrated_param_set)
-        append!( calibrated_param_sets, [calibrated_param_set] )
+        append!(calibrated_param_sets, [calibrated_param_set])
     end
 
     return calibrated_param_sets
@@ -221,15 +221,15 @@ Recursively merge dictionaries so we can merge namelists...
 Need to add some sort of conflict handler though (maybe it already fails on conflicts?
  -- update it does fail on conflicts, but it doesn't tell you where the conflicts are)
 """
-function recursive_merge(x::AbstractDict...; resolve_conflict=false)
-    merger = (x...) -> recursive_merge(x...;resolve_conflict=resolve_conflict)
+function recursive_merge(x::AbstractDict...; resolve_conflict = false)
+    merger = (x...) -> recursive_merge(x...; resolve_conflict = resolve_conflict)
     return mergewith(merger, x...;) # https://discourse.julialang.org/t/multi-layer-dict-merge/27261/2 
 end
 
 """
 Handles the leaves of the recursive merge, to see if there's any conflicts. defaults to taking the value from the last dict
 """
-function recursive_merge(x...; resolve_conflict=true)
+function recursive_merge(x...; resolve_conflict = true)
     if resolve_conflict || allequal([x...]) # if we want to resolve conflicts, or if all the leaves are equal and there is no conflict
         x[end]
     elseif resolve_conflict
@@ -242,13 +242,19 @@ end
 
 function run_one_SCM( # this needs to get defined everywhere with @everywhere... might move it to TC module...
     namelist::Dict;
-    tc_output_dir::Union{Nothing,String}=nothing,
-    )
+    tc_output_dir::Union{Nothing, String} = nothing,
+)
 
     if isnothing(tc_output_dir)
-        @info("tc_output_dir not specified; run using its default namelist[\"output\"][\"output_root\"]: " * namelist["output"]["output_root"])
+        @info(
+            "tc_output_dir not specified; run using its default namelist[\"output\"][\"output_root\"]: " *
+            namelist["output"]["output_root"]
+        )
     else
-        @info("Overwriting output root in namelist[\"output\"][\"output_root\"] with specified tc_output_dir: " * tc_output_dir)
+        @info(
+            "Overwriting output root in namelist[\"output\"][\"output_root\"] with specified tc_output_dir: " *
+            tc_output_dir
+        )
         namelist["output"]["output_root"] = tc_output_dir # by default this is nothing, and the default in each namelist should prevail (usually is "./")
     end
 
@@ -266,7 +272,7 @@ function run_one_SCM( # this needs to get defined everywhere with @everywhere...
         catch e
             @warn e
             ret_code = :failure
-            return nothing,nothing,ret_code # return ret_code, skip others...
+            return nothing, nothing, ret_code # return ret_code, skip others...
         end
     end
     if ret_code ≠ :success
@@ -290,10 +296,7 @@ we might also need a list of case_names? to generate the base namelist which we'
 Also the base namelist needs stuff like t_max and stuff.... etc... now sure how to handle that... we're not pulling it from config here so idk.... maybe just a list of base_namelists? or namelist_args?
 """
 
-function run_requested_parameters(
-    requested_param_sets::Vector{Dict{Any,Any}},
-    case_names::Vector{String},
-    )
+function run_requested_parameters(requested_param_sets::Vector{Dict{Any, Any}}, case_names::Vector{String})
     return
 end
 
@@ -301,20 +304,20 @@ end
 Given a dictionary, returns the first subdict that contains key
 Just recursively looks
 """
-function get_subdict_with_key(dict::Dict, key::String; queue=[])
+function get_subdict_with_key(dict::Dict, key::String; queue = [])
     # @info keys(dict)
-    for (k,v) in dict
+    for (k, v) in dict
         # @info(k)
         if k == key
             return dict
         elseif isa(v, Dict)
-            append!(queue,[v])
+            append!(queue, [v])
         end
     end
 
     if length(queue) > 0
         # @info queue
-        return get_subdict_with_key(popfirst!(queue), key; queue=queue)
+        return get_subdict_with_key(popfirst!(queue), key; queue = queue)
     else
         error("No subdict with value $key found in dict")
     end

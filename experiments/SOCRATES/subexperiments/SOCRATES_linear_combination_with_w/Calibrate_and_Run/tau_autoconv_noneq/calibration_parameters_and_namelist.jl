@@ -4,13 +4,13 @@ This file is meant to be included into a larger framework so intermediate variab
 
 # ========================================================================================================================= #
 # constants we use here
-ρ_l = FT(1000.) # density of ice, default from ClimaParameters
+ρ_l = FT(1000.0) # density of ice, default from ClimaParameters
 ρ_i = FT(916.7) # density of ice, default from ClimaParameters
 r_r = FT(20 * 1e-6) # 20 microns
-r_0 = FT(.2 * 1e-6) # .2 micron base aerosol
+r_0 = FT(0.2 * 1e-6) # .2 micron base aerosol
 
-N_l = FT(1e-5 / (4/3 * π * r_r^3 * ρ_l)) # estimated total N assuming reasonable q_liq.. (N = N_r in homogenous)
-N_i = FT(1e-7 / (4/3 * π * r_r^3 * ρ_i)) # estimated total N assuming reasonable q_ice... (N = N_r + N_0)
+N_l = FT(1e-5 / (4 / 3 * π * r_r^3 * ρ_l)) # estimated total N assuming reasonable q_liq.. (N = N_r in homogenous)
+N_i = FT(1e-7 / (4 / 3 * π * r_r^3 * ρ_i)) # estimated total N assuming reasonable q_ice... (N = N_r + N_0)
 
 D_ref = FT(0.0000226)
 D = D_ref
@@ -24,31 +24,111 @@ expanded_unconstrained_σ = FT(50.0) # alternate for unconstrained_σ when we tr
 
 calibration_parameters__experiment_setup = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
     # we should log space some of these but if we don't know their sign... it's hard to do that... also idk the right order of mangitudes for the priors... bounded_below/bounded_above mapping means the variance seems to be mostly 1:1 in log space... let's just assume bc it's exponential that the exponenet can't be thaaat big given q,T(C),w aren't that big
-   #
-   "linear_combination_liq_c_1" => Dict("prior_mean" => global_param_defaults["linear_combination_liq_c_1"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_liq_c_1"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_1"]["unconstrained_σ"]),
-   "linear_combination_liq_c_2" => Dict("prior_mean" => global_param_defaults["linear_combination_liq_c_2"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_liq_c_2"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_2"]["unconstrained_σ"]),
-   "linear_combination_liq_c_3" => Dict("prior_mean" => global_param_defaults["linear_combination_liq_c_3"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_liq_c_3"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_3"]["unconstrained_σ"]),
-   "linear_combination_liq_c_4" => Dict("prior_mean" => global_param_defaults["linear_combination_liq_c_4"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_liq_c_4"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_4"]["unconstrained_σ"]),
+    #
+    "linear_combination_liq_c_1" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_liq_c_1"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_liq_c_1"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_1"]["unconstrained_σ"],
+    ),
+    "linear_combination_liq_c_2" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_liq_c_2"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_liq_c_2"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_2"]["unconstrained_σ"],
+    ),
+    "linear_combination_liq_c_3" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_liq_c_3"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_liq_c_3"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_3"]["unconstrained_σ"],
+    ),
+    "linear_combination_liq_c_4" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_liq_c_4"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_liq_c_4"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_liq_c_4"]["unconstrained_σ"],
+    ),
     # seomthing can considers q_l, q_i ratio?
     # an offset?
     #
-    "linear_combination_ice_c_1" => Dict("prior_mean" => global_param_defaults["linear_combination_ice_c_1"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_ice_c_1"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_1"]["unconstrained_σ"]),
-    "linear_combination_ice_c_2" => Dict("prior_mean" => global_param_defaults["linear_combination_ice_c_2"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_ice_c_2"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_2"]["unconstrained_σ"]),
-    "linear_combination_ice_c_3" => Dict("prior_mean" => global_param_defaults["linear_combination_ice_c_3"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_ice_c_3"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_3"]["unconstrained_σ"]),
-    "linear_combination_ice_c_4" => Dict("prior_mean" => global_param_defaults["linear_combination_ice_c_4"]["prior_mean"], "constraints" => global_param_defaults["linear_combination_ice_c_4"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_4"]["unconstrained_σ"]),
+    "linear_combination_ice_c_1" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_ice_c_1"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_ice_c_1"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_1"]["unconstrained_σ"],
+    ),
+    "linear_combination_ice_c_2" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_ice_c_2"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_ice_c_2"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_2"]["unconstrained_σ"],
+    ),
+    "linear_combination_ice_c_3" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_ice_c_3"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_ice_c_3"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_3"]["unconstrained_σ"],
+    ),
+    "linear_combination_ice_c_4" => Dict(
+        "prior_mean" => global_param_defaults["linear_combination_ice_c_4"]["prior_mean"],
+        "constraints" => global_param_defaults["linear_combination_ice_c_4"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => global_param_defaults["linear_combination_ice_c_4"]["unconstrained_σ"],
+    ),
     #
-) 
+)
 
 local_namelist__experiment_setup = [ # things in namelist that otherwise wouldn't be... (both random parameters and parameters we want to calibrate that we added ourselves that generate_namelist doesn't insert...)
-    ("user_aux", "linear_combination_liq_c_1", calibration_parameters__experiment_setup["linear_combination_liq_c_1"]["prior_mean"] ),
-    ("user_aux", "linear_combination_liq_c_2", calibration_parameters__experiment_setup["linear_combination_liq_c_2"]["prior_mean"] ),
-    ("user_aux", "linear_combination_liq_c_3", calibration_parameters__experiment_setup["linear_combination_liq_c_3"]["prior_mean"] ),
-    ("user_aux", "linear_combination_liq_c_4", calibration_parameters__experiment_setup["linear_combination_liq_c_4"]["prior_mean"] ),
+    (
+        "user_aux",
+        "linear_combination_liq_c_1",
+        calibration_parameters__experiment_setup["linear_combination_liq_c_1"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_liq_c_2",
+        calibration_parameters__experiment_setup["linear_combination_liq_c_2"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_liq_c_3",
+        calibration_parameters__experiment_setup["linear_combination_liq_c_3"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_liq_c_4",
+        calibration_parameters__experiment_setup["linear_combination_liq_c_4"]["prior_mean"],
+    ),
     # ("user_aux", "linear_combination_liq_c_5", calibration_parameters__experiment_setup["linear_combination_liq_c_5"]["prior_mean"] ),
     #
-    ("user_aux", "linear_combination_ice_c_1", calibration_parameters__experiment_setup["linear_combination_ice_c_1"]["prior_mean"] ),
-    ("user_aux", "linear_combination_ice_c_2", calibration_parameters__experiment_setup["linear_combination_ice_c_2"]["prior_mean"] ),
-    ("user_aux", "linear_combination_ice_c_3", calibration_parameters__experiment_setup["linear_combination_ice_c_3"]["prior_mean"] ),
-    ("user_aux", "linear_combination_ice_c_4", calibration_parameters__experiment_setup["linear_combination_ice_c_4"]["prior_mean"] ),
+    (
+        "user_aux",
+        "linear_combination_ice_c_1",
+        calibration_parameters__experiment_setup["linear_combination_ice_c_1"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_ice_c_2",
+        calibration_parameters__experiment_setup["linear_combination_ice_c_2"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_ice_c_3",
+        calibration_parameters__experiment_setup["linear_combination_ice_c_3"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "linear_combination_ice_c_4",
+        calibration_parameters__experiment_setup["linear_combination_ice_c_4"]["prior_mean"],
+    ),
     # ("user_aux", "linear_combination_ice_c_5", calibration_parameters__experiment_setup["linear_combination_ice_c_5"]["prior_mean"] ),
 ]

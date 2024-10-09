@@ -6,13 +6,10 @@ Helper functions for SOCRATES data processing
 
 package_dir = dirname(@__DIR__) # parent of parent...
 
-function get_socrates_dir(
-    flight_number::Integer,
-    forcing_tupe::String;
-    )
+function get_socrates_dir(flight_number::Integer, forcing_tupe::String;)
 
-    case_name = "RF"*string(flight_number,pad=2)*"_"*forcing_type # folder name where were stored the data
-    return joinpath(package_dir , "experiments" , "SOCRATES_Test_Dynamical_Calibration" , "Truth" , case_name , "stats.nc" ) # the total path, stats.nc is the name expected here in CEDMF.jl
+    case_name = "RF" * string(flight_number, pad = 2) * "_" * forcing_type # folder name where were stored the data
+    return joinpath(package_dir, "experiments", "SOCRATES_Test_Dynamical_Calibration", "Truth", case_name, "stats.nc") # the total path, stats.nc is the name expected here in CEDMF.jl
 
 
 

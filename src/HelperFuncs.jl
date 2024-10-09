@@ -628,7 +628,7 @@ function compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT} where {FT <: 
         diffs = [g - y for g in eachcol(g_mat)]
         # we need to trim out NaN from reference_data after interpolating to z_scm to avoid NaNs in y... but that would mean we'd constatnly need to subset the TC runs...
         # so here instead, when calculating MSE, we'll just filter out NaN values....... if everything is NaN, we'll just assume the error is 0 but that shouldn't happen too often?
-        function dot_avoid_NaN(x;y=y) # note if things legitimately crashed, we'd never know now , how to fix?
+        function dot_avoid_NaN(x; y = y) # note if things legitimately crashed, we'd never know now , how to fix?
             # x = x[.!isnan.(x)]
             x = x[.!isnan.(y)] # filter out NaNs from y/truth as those are what force MSE to always be NaN, still allow for NaNs in g_mat
             if length(x) > 0
@@ -743,11 +743,11 @@ function values_ordered(dict::Dict)
 end
 
 "Returns the N-vector stored in `dict[key]`, or an N-vector of `default`. Additionally, expand scalars to N-vector"
-function expand_dict_entry(dict, key, N; default=nothing)
+function expand_dict_entry(dict, key, N; default = nothing)
     val = get(dict, key, nothing)
     r = isnothing(val) ? repeat([default], N) : val
     if isa(r, Array)
-    @assert length(r) == N
+        @assert length(r) == N
     else
         r = repeat([r], N) # expand to a vector if we're given a scalar
     end
@@ -780,8 +780,8 @@ Inputs:
 """
 function change_entry!(dict, keys_and_value)
     # Unpack
-    value_value  = keys_and_value[end]
-    value_key    = keys_and_value[end-1]
+    value_value = keys_and_value[end]
+    value_key = keys_and_value[end - 1]
     subdict_keys = keys_and_value[1:(end - 2)]
     # Modify entry
     last_dict = get_last_nested_dict(dict, subdict_keys)
@@ -812,9 +812,9 @@ end
 
 function realpath_resolve_symlinks(
     path::AbstractString;
-    starting_point::AbstractString="", # the path we start from, if empty is assumed to just be pwd(), not symlinks up the the starting point won't be resolved.
-    use_shell=false, # add a shell method that uses run() since that works always
-    )
+    starting_point::AbstractString = "", # the path we start from, if empty is assumed to just be pwd(), not symlinks up the the starting point won't be resolved.
+    use_shell = false, # add a shell method that uses run() since that works always
+)
     """
     Iterates along path, converting symlinks to absolute paths as you go since readlink chockes on symlinks that don't exist yet
     See https://github.com/JuliaLang/julia/issues/34135
@@ -823,7 +823,7 @@ function realpath_resolve_symlinks(
     """
 
     if use_shell # note this will crash if at any point the path doesn't exist (though it can handle a final broken pointer to nowhere)
-        return readchomp(`realpath $(joinpath(starting_point, path))`) 
+        return readchomp(`realpath $(joinpath(starting_point, path))`)
     end
 
     split_path = splitpath(path)
@@ -860,7 +860,7 @@ function realpath_resolve_symlinks(
     if isempty(tail) # we've covered the whole path
         return head
     else # recurse
-        tail = realpath_resolve_symlinks(tail, starting_point=head, use_shell=use_shell)
+        tail = realpath_resolve_symlinks(tail, starting_point = head, use_shell = use_shell)
         return abspath(joinpath(head, tail))
     end
 end
@@ -870,13 +870,13 @@ function mean_nonzero_elements(
     arr::AbstractArray{FT, N};
     dims::Union{Int, Vector{Int}, Nothing} = nothing,
     all_zero::Union{Symbol, FT} = 0.0,
-    ) where {FT, N}
+) where {FT, N}
     """
     Compute the mean of the nonzero elements of an array along a given axis.
     If all elements are zero, return 0. or throw an error.
 
     We are using this for an alternate variance form that doesn't rely on pooled variance but allows normalizing the mean of all-nonzero elements to be 1.
-    
+
     """
 
     return_scalar = false
@@ -887,9 +887,9 @@ function mean_nonzero_elements(
         return_scalar = true # here we just return a scalar and assume mean meant to work over all variables
     end
 
-    n_nonzero = count(!iszero, arr, dims=dims) # has same size as output should
+    n_nonzero = count(!iszero, arr, dims = dims) # has same size as output should
 
-    out =  sum(arr, dims=dims) ./ count(!iszero, arr, dims=dims)
+    out = sum(arr, dims = dims) ./ count(!iszero, arr, dims = dims)
 
     # replace indices with all zero with all_zero value
     if any(iszero, n_nonzero)
@@ -905,7 +905,7 @@ function mean_nonzero_elements(
     else
         return out
     end
-    
+
 end
 
 end # module

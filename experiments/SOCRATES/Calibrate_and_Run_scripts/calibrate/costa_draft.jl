@@ -47,7 +47,7 @@ namelist_args = [
     ("turbulence", "EDMF_PrognosticTKE", "detr_dim_scale", "mf_grad"),
     ("turbulence", "EDMF_PrognosticTKE", "turbulent_entrainment_factor", 0.0),
     ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
-    ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "Linear"), 
+    ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "Linear"),
     ("turbulence", "EDMF_PrognosticTKE", "min_area", 1e-10),
     ("turbulence", "EDMF_PrognosticTKE", "limit_min_area", false),
     ("turbulence", "EDMF_PrognosticTKE", "area_limiter_scale", 0.0), # if having problems with area limiter, try removing this line
@@ -91,7 +91,7 @@ function get_regularization_config()
     config["tikhonov_noise"] = 1.0e-6 # Tikhonov regularization
     config["dim_scaling"] = true # Dimensional scaling of the loss
 
-    config["obs_var_scaling"] = Dict("ql_mean" => 0.1,  "total_flux_s" => 0.1, "total_flux_qt"=> 0.1)
+    config["obs_var_scaling"] = Dict("ql_mean" => 0.1, "total_flux_s" => 0.1, "total_flux_qt" => 0.1)
 
     return config
 end
@@ -209,7 +209,7 @@ function get_prior_config()
 
         # "area_limiter_scale" => [3.0],
         # "area_limiter_power" => [15.0],
-    
+
         # "min_area_limiter_scale" => [2.0],
         # "min_area_limiter_power" => [2000.0],
     )

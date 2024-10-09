@@ -56,26 +56,33 @@ for (experiment, setup) in run_setups
 
         # we will have list of these so that we can use a slurm job array -- you'll take your index i and read the jld file
 
-        methods = [
-            "best_particle",
-            "best_nn_particle_mean",
-            "best_particle_final",
-            "mean_best_ensemble",
-            "mean_final_ensemble",
-            ("best_ensemble_mean_$(i)" for i in 1:ensemble_size)...,
+            methods = [
+                "best_particle",
+                "best_nn_particle_mean",
+                "best_particle_final",
+                "mean_best_ensemble",
+                "mean_final_ensemble",
+                ("best_ensemble_mean_$(i)" for i in 1:ensemble_size)...,
             ]
 
-        
 
-        out_paths = [joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, method) for method in methods]
-        map(out_path -> mkdir(out_path, force=true), out_paths)
-        mkdir(joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "best_ensemble_mean")) # this directory wont have a run in it per se, but mean of the best_ensemble_mean_$(i) runs would go here...
+
+        out_paths = [
+            joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, method) for
+            method in methods
+        ]
+        map(out_path -> mkdir(out_path, force = true), out_paths)
+        mkdir(
+            joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "best_ensemble_mean"),
+        ) # this directory wont have a run in it per se, but mean of the best_ensemble_mean_$(i) runs would go here...
 
         namelist_paths = [joinpath(out_path, "namelist.in") for out_path in out_paths]
 
 
-        namelist_paths_file = joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "namelist_paths.jld2")
-        out_paths_file = joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "out_paths.jld2")
+        namelist_paths_file =
+            joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "namelist_paths.jld2")
+        out_paths_file =
+            joinpath(postprocess_dir, "subexperiments", experiment, setup, calibration_vars_str, "out_paths.jld2")
 
         # ============================================================================ #
         #= NOTE: Honestly, the otherway is probably better bc we can use optimal_parameters(), otherwise I need to figure out how to get optimal_parameters into a namelist file for this one =#
@@ -110,13 +117,16 @@ for (experiment, setup) in run_setups
         # then another that does the time averaging we need...
         # ============================================================================ #
 
-        
+
         # run the postprocessing runs w/ TC runner (can we collect them all up into a list of sbatch commands and then submit them?)
         # run(`sbatch -p expansion /a/b/script_path.sh $diagnostics_path $out_dir`) #
 
-        run(`id_launch_runs=\$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --array=1-$n /a/b/script_path.sh $namelist_paths_file $out_paths_file)`) # this script needs to take its run_num=${SLURM_ARRAY_TASK_ID} and read namelist_paths_file and out_paths_file to get the correct paths to the namelist and out files
-        run(`id_postprocess_runs=\$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_launch_runs --array=1-$n /a/b/script_path.sh $namelist_paths_file $out_paths_file)`) # this script needs to take its run_num=${SLURM_ARRAY_TASK_ID} and read namelist_paths_file and out_paths_file to get the correct paths to the namelist and out files
+        run(
+            `id_launch_runs=\$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --array=1-$n /a/b/script_path.sh $namelist_paths_file $out_paths_file)`,
+        ) # this script needs to take its run_num=${SLURM_ARRAY_TASK_ID} and read namelist_paths_file and out_paths_file to get the correct paths to the namelist and out files
+        run(
+            `id_postprocess_runs=\$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_launch_runs --array=1-$n /a/b/script_path.sh $namelist_paths_file $out_paths_file)`,
+        ) # this script needs to take its run_num=${SLURM_ARRAY_TASK_ID} and read namelist_paths_file and out_paths_file to get the correct paths to the namelist and out files
 
     end
 end
-

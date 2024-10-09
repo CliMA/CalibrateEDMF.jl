@@ -14,7 +14,7 @@ if calibrate_to == "Atlas_LES"
 elseif calibrate_to == "Flight_Observations"
     @info("Calibrating to Flight_Observations")
     truth_dir = joinpath(main_experiment_dir, "Reference", "Flight_Observations", "Faked_Profiles_to_Time") # the folder where we store our truth (Atlas LES Data)
-    # based on calibration_vars we need to drop empty slices so the covariance matrix can be calculated without nans so it can still have eigenvalues (we actually need more than one value left over in each row , and in each pair of rows for cov to work)
+# based on calibration_vars we need to drop empty slices so the covariance matrix can be calculated without nans so it can still have eigenvalues (we actually need more than one value left over in each row , and in each pair of rows for cov to work)
 else
     error("invalid calibrate_to: ", calibrate_to)
 end
@@ -26,8 +26,8 @@ Train_forcing_types = forcing_types
 Val_flight_numbers = flight_numbers
 Val_forcing_types = forcing_types
 
-flight_string  = flight_numbers == [1,9,10,11,12,13] ? "All" : join(string.(flight_numbers, pad=2), "_")
-forcing_types_str = join((x->split(string(x),"_")[1]).(forcing_types), "_")
+flight_string = flight_numbers == [1, 9, 10, 11, 12, 13] ? "All" : join(string.(flight_numbers, pad = 2), "_")
+forcing_types_str = join((x -> split(string(x), "_")[1]).(forcing_types), "_")
 
 # join our defaults to the rest of the namelist
 
@@ -47,9 +47,9 @@ calibration_vars_str = join(sort(calibration_vars), "__")
 # ========================================================================================================================= #
 
 default_user_args = (;
-    use_supersat=supersat_type,
-    τ_use=:morrison_milbrandt_2015_style,
-    use_sedimentation = true, 
+    use_supersat = supersat_type,
+    τ_use = :morrison_milbrandt_2015_style,
+    use_sedimentation = true,
     grid_mean_sedimentation = false,
     sedimentation_integration_method = :upwinding,
     use_heterogeneous_ice_nucleation = false,
@@ -58,7 +58,8 @@ default_user_args = (;
     liq_velo_scheme = :Chen2022Vel,
     ice_velo_scheme = :Chen2022Vel,
     rain_velo_scheme = :Chen2022Vel,
-    snow_velo_scheme = :Chen2022Vel,)
+    snow_velo_scheme = :Chen2022Vel,
+)
 
 added_user_args::Bool = false
 @info("added_user_args", added_user_args)
@@ -66,14 +67,14 @@ for (i_i, item) in enumerate(local_namelist)
     if item[1] == "user_args"
         @info("user_args found in local_namelist, merging with default values")
         local_namelist[i_i] = (item[1], merge(default_user_args, item[2])) # i think 2nd means local will overwite default
-        global added_user_args = true        
+        global added_user_args = true
     end
 end
 @info("added_user_args after is ", added_user_args)
 if !added_user_args
     @info("`user_args` not found in local_namelist, adding some default values now")
     local_namelist = [local_namelist; ("user_args", default_user_args)] # shouldn't break anything, add to end (can't use push! bc of type assumptions)
- end
+end
 
 if header_setup_choice == :default
     local_namelist = [default_namelist_args; local_namelist] # add the default namelist args to the local namelist
@@ -104,19 +105,32 @@ end
 # consider adding a flag to just get the paths without overwriting existing files
 reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?)
 include(joinpath(main_experiment_dir, "process_SOCRATES_reference.jl")) # process the truth data into a format we can use for calibration
-if calibrate_to == "Flight_Observations" 
+if calibrate_to == "Flight_Observations"
     if !ismissing(t_bnds.obs_data)
         @info("Creating trimmed observational obs_data-forced data for calibration")
-        _, obs_paths = process_SOCRATES_Flight_Observations_reference(out_vars=calibration_vars, fake_time_bnds = t_bnds.obs_data, out_dir=joinpath(experiment_dir, "Reference", "Flight_Observations"), truth_dir=truth_dir, overwrite=false) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
+        _, obs_paths = process_SOCRATES_Flight_Observations_reference(
+            out_vars = calibration_vars,
+            fake_time_bnds = t_bnds.obs_data,
+            out_dir = joinpath(experiment_dir, "Reference", "Flight_Observations"),
+            truth_dir = truth_dir,
+            overwrite = false,
+        ) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
     end
     if !ismissing(t_bnds.ERA5_data)
         @info("Creating trimmed observational ERA5_data-forced data for calibration")
-        _, ERA5_paths = process_SOCRATES_Flight_Observations_reference(out_vars=calibration_vars, fake_time_bnds = t_bnds.ERA5_data, out_dir=joinpath(experiment_dir, "Reference", "Flight_Observations"), truth_dir=truth_dir, overwrite=false) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
+        _, ERA5_paths = process_SOCRATES_Flight_Observations_reference(
+            out_vars = calibration_vars,
+            fake_time_bnds = t_bnds.ERA5_data,
+            out_dir = joinpath(experiment_dir, "Reference", "Flight_Observations"),
+            truth_dir = truth_dir,
+            overwrite = false,
+        ) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
     end
     # concatenate
     reference_paths = [obs_paths; ERA5_paths]
 else
-    reference_paths = process_SOCRATES_Atlas_LES_reference(;out_dir=truth_dir, truth_dir=truth_dir, overwrite=false)# the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
+    reference_paths =
+        process_SOCRATES_Atlas_LES_reference(; out_dir = truth_dir, truth_dir = truth_dir, overwrite = false)# the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
     # reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?)
     # is it time to switch this to just use reference_paths? i don't see why not, what is truth_dir doing otherwise?
 end
@@ -146,7 +160,17 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, dt_string, calibration_vars_str, "calibrate", "output", calibrate_to, "RF"*flight_string*"_"*forcing_types_str) # store them in the experiment folder here by default, organized by calibration vars
+    config["outdir_root"] = joinpath(
+        experiment_dir,
+        "Calibrate_and_Run",
+        calibration_setup,
+        dt_string,
+        calibration_vars_str,
+        "calibrate",
+        "output",
+        calibrate_to,
+        "RF" * flight_string * "_" * forcing_types_str,
+    ) # store them in the experiment folder here by default, organized by calibration vars
     config["use_outdir_root_as_outdir_path"] = true # use the outdir_root as the directory itself, otherwise it'll create a new directory inside the outdir_root with the calibration parameters
     return config
 end
@@ -190,7 +214,7 @@ function get_regularization_config()
 
     config["additive_inflation"] = additive_inflation # Additive inflation factor for the covariance matrix (ollie said try starting around here)
     # -- in principle we could put this in model_error as structural error right? but that gets added which isn't exactly what we want...
-    
+
     return config
 end
 
@@ -236,48 +260,48 @@ function get_reference_config(::SOCRATES_Train)
     setups = map(x -> Dict("flight_number" => x[1], "forcing_type" => x[2]), setups) # convert to list of dictionaries
     # add this here because it seems to be called?
     for setup in setups
-        name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
+        name = "RF" * string(setup["flight_number"], pad = 2) * "_" * string(setup["forcing_type"])
         if (setup["flight_number"], setup["forcing_type"]) in keys(reference_paths)
             datafile = reference_paths[(setup["flight_number"], setup["forcing_type"])] # use the trimmed data for calibration
         else
-            datafile = joinpath(truth_dir, name, "stats", name*".nc") # this would be unneeded if we just used refrerence_paths for everything
+            datafile = joinpath(truth_dir, name, "stats", name * ".nc") # this would be unneeded if we just used refrerence_paths for everything
         end
-       if !isnothing(datafile) && isfile(datafile) # this might not work for obs since we do have truth there existing but can't run socrates...
-           setup["datafile"] = datafile
-           setup["case_name"] = "SOCRATES_"*name
-       else
-           @warn("File $datafile does not exist")
-       end
+        if !isnothing(datafile) && isfile(datafile) # this might not work for obs since we do have truth there existing but can't run socrates...
+            setup["datafile"] = datafile
+            setup["case_name"] = "SOCRATES_" * name
+        else
+            @warn("File $datafile does not exist")
+        end
     end
-    setups = filter(d->haskey(d,"datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
+    setups = filter(d -> haskey(d, "datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
 
     # maybe add a filter based on if not truth_dir,  but atlasles dir has a forcing file there there since that's the real limitation, whether youre comparing to atlas les or obs you can't run TC w/o forcing data...
-    setups = [setup for setup in setups if  !(setup["flight_number"] == 11 && setup["forcing_type"] == :obs_data)] # remove 11 obs explicitly (testing)
+    setups = [setup for setup in setups if !(setup["flight_number"] == 11 && setup["forcing_type"] == :obs_data)] # remove 11 obs explicitly (testing)
 
     # filter out files where our trimming led to no data
 
-    NC.Dataset(joinpath(main_experiment_dir, "Reference", "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+    NC.Dataset(joinpath(main_experiment_dir, "Reference", "SOCRATES_summary.nc"), "r") do SOCRATES_summary
         for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
             if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
-                setup["t_start"] = ismissing(t_bnds.obs_data) ? 10 * 3600. : t_bnds.obs_data[1] # if we're using the shorter time bounds, use those instead
-                setup["t_end"]   = ismissing(t_bnds.obs_data) ? 12 * 3600. : t_bnds.obs_data[2] # if we're using the shorter time bounds, use those instead
+                setup["t_start"] = ismissing(t_bnds.obs_data) ? 10 * 3600.0 : t_bnds.obs_data[1] # if we're using the shorter time bounds, use those instead
+                setup["t_end"] = ismissing(t_bnds.obs_data) ? 12 * 3600.0 : t_bnds.obs_data[2] # if we're using the shorter time bounds, use those instead
             elseif setup["forcing_type"] == :ERA5_data # Use the start and end times from Table 2 in atlas, stored in SOCRATES_summary.nc that we created w/ a Python Jupyter notebook
                 _sum = NC.@select(SOCRATES_summary, flight_number == $setup["flight_number"])
                 t_start, t_end = _sum["time_bnds"]
-                t_ref =  _sum["reference_time"][1] # we know this is hour 12
-                t_start, t_end = map( x-> x.value, Dates.Second.([t_start,t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
+                t_ref = _sum["reference_time"][1] # we know this is hour 12
+                t_start, t_end = map(x -> x.value, Dates.Second.([t_start, t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
                 setup["t_start"] = ismissing(t_bnds.ERA5_data) ? t_start : t_bnds.ERA5_data[1] # if we're using the shorter time bounds, use those instead
-                setup["t_end"]   = ismissing(t_bnds.ERA5_data) ? t_end   : t_bnds.ERA5_data[2] # if we're using the shorter time bounds, use those instead
+                setup["t_end"] = ismissing(t_bnds.ERA5_data) ? t_end : t_bnds.ERA5_data[2] # if we're using the shorter time bounds, use those instead
             else
                 error("invalid forcing_type: ", setup["forcing_type"])
             end
         end
     end # SOCRATES_summary is closed
 
-    setups = filter(d -> haskey(d,"datafile"), setups) # filter out if datafile doesn't exist (11 :obsdata for example)
+    setups = filter(d -> haskey(d, "datafile"), setups) # filter out if datafile doesn't exist (11 :obsdata for example)
     n_repeat = length(setups)
     ref_dirs = [dirname(setup["datafile"]) for setup in setups]
-    
+
     # need reference dirs from wherever i put my truth, maybe add a SOCRATESUtils to match les_utils etc.
     n_repeat = length(ref_dirs)
     config["case_name"] = [setup["case_name"] for setup in setups]
@@ -294,15 +318,19 @@ function get_reference_config(::SOCRATES_Train)
     config["Σ_t_end"] = [setup["t_end"] for setup in setups]  #  use hours 11-13 for comparison
     # if we used our own t_end, use those  ( this doesn't work though for atlas les....)
     if calibrate_to == "Atlas_LES" # then the LES start/end time don't change
-        config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600. for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
+        config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600.0 : 14 * 3600.0 for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
     else # calibrating to obs, we need to match the time_bnds we set for those observations...
-        config["time_shift"] = [ismissing(t_bnds[setup["forcing_type"]]) ? (setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600.) : t_bnds[setup["forcing_type"]] for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
+        config["time_shift"] = [
+            ismissing(t_bnds[setup["forcing_type"]]) ?
+            (setup["forcing_type"] == :obs_data ? 12 * 3600.0 : 14 * 3600.0) : t_bnds[setup["forcing_type"]] for
+            setup in setups
+        ] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
     end
-    
+
     # config["batch_size"] = n_repeat # has to be some divisor of n_repeat, default is n_repeat == length(ref_dirs) == number of setups
     @info(calibration_vars)
     @info("local_namelist: ", local_namelist)
-    config["namelist_args"] = repeat([local_namelist],n_repeat) # list of tuples with specific namelist_args, separate from and superior to those from the global ones we use in get_scm_config())
+    config["namelist_args"] = repeat([local_namelist], n_repeat) # list of tuples with specific namelist_args, separate from and superior to those from the global ones we use in get_scm_config())
     config["write_full_stats"] = false
 
     # config["reference_mean"] = nothing # provide a list of one per case, so they can be concatented block-diagonally in ReferenceStats.jl, should be one vector/profile per y_name (i.e. calibration_var)
@@ -315,7 +343,7 @@ function get_reference_config(::SOCRATES_Train)
     @info(typeof(config["z_rectifiers"]))
 
     config["characteristic_values"] = calibration_vars_characteristic_values
-    
+
     return config
 end
 
@@ -330,21 +358,22 @@ function get_prior_config()
     # Don't forget to also update these in L2-reg (should we add a warning to check they all have the same keys or something?)
     config = Dict()
     # constraints on each variable
-    config["constraints"] = Dict(k=>[wrap(v["constraints"])...] for (k,v) in calibration_parameters) # costa said we don't need this
+    config["constraints"] = Dict(k => [wrap(v["constraints"])...] for (k, v) in calibration_parameters) # costa said we don't need this
     # TC.jl prior mean
-    config["prior_mean"] = Dict(k=>[wrap(v["prior_mean"])...] for (k,v) in calibration_parameters) # put in list if scalar (expand lists so doesnt become nested)
+    config["prior_mean"] = Dict(k => [wrap(v["prior_mean"])...] for (k, v) in calibration_parameters) # put in list if scalar (expand lists so doesnt become nested)
     # not sure yet what this is lol
     # config["unconstrained_σ"] = 1.0 # just leave everyting variance 
     # Tight initial prior for Unscented
     # config["unconstrained_σ"] = 0.25
     # Test defaulting to 1 but allowing for different values
-    config["unconstrained_σ"] = Dict(k=>[wrap(get(v,"unconstrained_σ", 1.0))...] for (k,v) in calibration_parameters)
+    config["unconstrained_σ"] =
+        Dict(k => [wrap(get(v, "unconstrained_σ", 1.0))...] for (k, v) in calibration_parameters)
 
     # Allow passing in scalars for vector parameter variances..., just gets repeated
-    n_repeats = Dict(k=> length(v["prior_mean"]) for (k,v) in calibration_parameters)
-    for (k,v) in config["unconstrained_σ"]
+    n_repeats = Dict(k => length(v["prior_mean"]) for (k, v) in calibration_parameters)
+    for (k, v) in config["unconstrained_σ"]
         if length(v) != n_repeats[k]
-            config["unconstrained_σ"][k] = repeat(config["unconstrained_σ"][k], n_repeats[k] ÷ length(v) )
+            config["unconstrained_σ"][k] = repeat(config["unconstrained_σ"][k], n_repeats[k] ÷ length(v))
         end
     end
 

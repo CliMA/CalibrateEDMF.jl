@@ -123,7 +123,7 @@ function get_regularization_config()
     config["tikhonov_noise"] = 1.0e-6 # Tikhonov regularization
     config["dim_scaling"] = true # Dimensional scaling of the loss
 
-    config["obs_var_scaling"] = Dict("ql_mean" => 0.1,  "total_flux_s" => 0.1, "total_flux_qt"=> 0.1)
+    config["obs_var_scaling"] = Dict("ql_mean" => 0.1, "total_flux_s" => 0.1, "total_flux_qt" => 0.1)
 
     return config
 end
@@ -227,7 +227,6 @@ function get_prior_config()
         "pressure_normalmode_adv_coeff" => [bounded(0.0, 100.0)],
         "pressure_normalmode_buoy_coeff1" => [bounded(0.0, 10.0)],
         "pressure_normalmode_drag_coeff" => [bounded(0.0, 50.0)],
-
         "min_area_limiter_scale" => [bounded(1.0, 100.0)],
         "min_area_limiter_power" => [bounded(1000.0, 5000.0)],
     )
@@ -259,10 +258,8 @@ function get_prior_config()
         "pressure_normalmode_adv_coeff" => [non_vec_sigma],
         "pressure_normalmode_buoy_coeff1" => [non_vec_sigma],
         "pressure_normalmode_drag_coeff" => [non_vec_sigma],
-
         "min_area_limiter_scale" => [1.0],
         "min_area_limiter_power" => [1.0],
-
     )
     return config
 end

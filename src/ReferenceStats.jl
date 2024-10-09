@@ -1,6 +1,7 @@
 module ReferenceStats
 
-export ReferenceStatistics, pca_length, full_length, get_obs, get_profile, obs_PCA, pca, pca_inds, full_inds, get_ref_stats_kwargs
+export ReferenceStatistics,
+    pca_length, full_length, get_obs, get_profile, obs_PCA, pca, pca_inds, full_inds, get_ref_stats_kwargs
 
 using SparseArrays
 using Statistics
@@ -129,7 +130,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
                 z_scm = z_scm, # trying here to allow for changing z_scm from what the reference was run with...
                 model_error = model_error,
                 obs_var_scaling = obs_var_scaling,
-                obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor
+                obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor,
             )
             push!(norm_vec, pool_var)
             if perform_PCA
@@ -289,7 +290,18 @@ function get_obs(
 ) where {FT <: Real}
     y_names = isa(m.y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(m.Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, normalization_type = normalization_type, characteristic_values = characteristic_values, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling, obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor)
+    get_obs(
+        m,
+        y_names,
+        Σ_names,
+        normalize,
+        normalization_type = normalization_type,
+        characteristic_values = characteristic_values,
+        z_scm = z_scm,
+        model_error = model_error,
+        obs_var_scaling = obs_var_scaling,
+        obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor,
+    )
 end
 
 """
@@ -454,7 +466,7 @@ function get_profile(
             var_mean = var_
             append!(is_profile, true) # it's just a z profile and we dont need to do anything else
         end
-        
+
         append!(y, var_mean)
     end
     return prof_ind ? (y, is_profile) : y
@@ -463,8 +475,25 @@ function get_profile(
 
 end
 
-function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false, penalized_value::FT = 1.0e5, verbose::Bool = true, has_time_dims::Union{Bool, Vector{Bool}} = true) where {T, FT}
-    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose, has_time_dims = has_time_dims) 
+function get_profile(
+    m::ReferenceModel,
+    filename::String;
+    z_scm::OptVec{T} = nothing,
+    prof_ind::Bool = false,
+    penalized_value::FT = 1.0e5,
+    verbose::Bool = true,
+    has_time_dims::Union{Bool, Vector{Bool}} = true,
+) where {T, FT}
+    get_profile(
+        m,
+        filename,
+        m.y_names,
+        z_scm = z_scm,
+        prof_ind = prof_ind,
+        penalized_value = penalized_value,
+        verbose = verbose,
+        has_time_dims = has_time_dims,
+    )
 end
 
 function get_profile(
@@ -475,9 +504,19 @@ function get_profile(
     prof_ind::Bool = false,
     penalized_value::FT = 1.0e5, # this was the default for training from Ignacio/Costa, but in other cases you may want other values, e.g. NaN
     verbose::Bool = true,
-    has_time_dims::Union{Bool, Vector{Bool}} = true
+    has_time_dims::Union{Bool, Vector{Bool}} = true,
 ) where {T, FT}
-    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose, has_time_dims = has_time_dims)
+    get_profile(
+        filename,
+        y_names,
+        ti = get_t_start(m),
+        tf = get_t_end(m),
+        z_scm = z_scm,
+        prof_ind = prof_ind,
+        penalized_value = penalized_value,
+        verbose = verbose,
+        has_time_dims = has_time_dims,
+    )
 end
 
 """
@@ -546,10 +585,10 @@ function get_time_covariance(
         if any(isnan, var_)
             @warn "NaNs in $var_name, switching to NaNStatistics"
             mean = NaNStatistics.nanmean
-            var  = NaNStatistics.nanvar
+            var = NaNStatistics.nanvar
         else
             mean = Statistics.mean # i think you haveto use this or else it fails...
-            var  = Statistics.var
+            var = Statistics.var
         end
 
         # @info characteristic_values
@@ -561,11 +600,11 @@ function get_time_covariance(
             elseif normalization_type == :pooled_nonzero_mean_to_value # convert the mean of non-zero values to 1
                 # pool_var[i] = var_factor * mean_nonzero_elements(var_[:, ti_index:tf_index], dims=[1,2]) + eps(FT) # mean of nonzero elements of variable (should this be squared so the if block below isn't necessary?)
                 mean_nonzero_elements_output = mean_nonzero_elements(var_[:, ti_index:tf_index])
-                if iszero(mean_nonzero_elements_output) && !isnothing(characteristic_values) 
+                if iszero(mean_nonzero_elements_output) && !isnothing(characteristic_values)
                     mean_nonzero_elements_output = get(characteristic_values, var_name, FT(0.0))
                     # @info "new mean_nonzero_elements_output: $mean_nonzero_elements_output"
                 end
-                pool_var[i] = var_factor * mean_nonzero_elements_output.^2 + eps(FT) # mean of nonzero elements of variable, squared bc they usually normalize by sqrt of this value...
+                pool_var[i] = var_factor * mean_nonzero_elements_output .^ 2 + eps(FT) # mean of nonzero elements of variable, squared bc they usually normalize by sqrt of this value...
             else
                 throw(ArgumentError("Normalization type $normalization_type not recognized."))
             end
@@ -592,7 +631,7 @@ function get_time_covariance(
                 if iszero(mean_nonzero_elements_output) && !isnothing(characteristic_values)
                     mean_nonzero_elements_output = get(characteristic_values, var_name, FT(0.0))
                 end
-                pool_var[i] = var_factor * mean_nonzero_elements_output.^2 + eps(FT)  # time-variance of variable, squared bc they usually normalize by sqrt of this value...
+                pool_var[i] = var_factor * mean_nonzero_elements_output .^ 2 + eps(FT)  # time-variance of variable, squared bc they usually normalize by sqrt of this value...
             else
                 throw(ArgumentError("Normalization type $normalization_type not recognized."))
             end
@@ -608,7 +647,7 @@ function get_time_covariance(
             # else
             #     ts_var_i = Array(var_[ti_index:tf_index]') # dims: (1, Nt)
             # end
-               
+
             ts_var_i =
                 normalize ? Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) : Array(var_[ti_index:tf_index]') # dims: (1, Nt)
         else
@@ -628,16 +667,18 @@ function get_time_covariance(
             if isa(obs_var_additional_uncertainty_factor, FT)
                 obs_var_additional_uncertainty_factor_i = FT(obs_var_additional_uncertainty_factor)
             elseif isa(obs_var_additional_uncertainty_factor, Dict)
-                obs_var_additional_uncertainty_factor_i = FT(get(obs_var_additional_uncertainty_factor, var_name, FT(0.0)))
+                obs_var_additional_uncertainty_factor_i =
+                    FT(get(obs_var_additional_uncertainty_factor, var_name, FT(0.0)))
             end
         else
             obs_var_additional_uncertainty_factor_i = FT(0.0) # default to not adding anything...
         end
-        obs_var_additional_uncertainty_vectors = cat(obs_var_additional_uncertainty_vectors, ts_var_i .* obs_var_additional_uncertainty_factor_i, dims=1)
+        obs_var_additional_uncertainty_vectors =
+            cat(obs_var_additional_uncertainty_vectors, ts_var_i .* obs_var_additional_uncertainty_factor_i, dims = 1)
     end
 
     # set cov to be safe for NaNs
-    if any(isnan,ts_vec)
+    if any(isnan, ts_vec)
         @warn "NaNs in ts_vec, switching to NaNStatistics"
         cov = NaNStatistics.nancov
     else
@@ -662,7 +703,7 @@ function get_time_covariance(
 
     # if we wanted to do this by variable we would I guess want to construct this vector in the loop above?
     # cov_mat += Diagonal(obs_var_additional_uncertainty_vectors)
-    cov_mat += Diagonal(mean(obs_var_additional_uncertainty_vectors, dims=2)[:]) # mean across time, make diagonal, add to cov matrix
+    cov_mat += Diagonal(mean(obs_var_additional_uncertainty_vectors, dims = 2)[:]) # mean across time, make diagonal, add to cov matrix
 
     # If we've added uncertainty due to low variance, it doesn't change the fact that our covariances are near 0... should we add an option to add covariances? that get's dicey bcause we don't know magnitude or sign...
     # we could try to use the 3D data as an alternative, but if we're not let's consider at best theyre perfectly correlated and cov(aX, bY) = a*b*cov(X,Y) = a*b*var(X)

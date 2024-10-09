@@ -5,7 +5,7 @@ CEDMF_dir = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl"
 
 
 # experiments list
-experiments=(
+experiments = (
     "SOCRATES_Base",
     "SOCRATES_exponential_T_scaling_ice",
     "SOCRATES_exponential_T_scaling_ice_raw",
@@ -18,9 +18,9 @@ experiments=(
     "SOCRATES_linear_combination_with_w",
 )
 
-setups=("pow_icenuc_autoconv_eq", "tau_autoconv_noneq")
+setups = ("pow_icenuc_autoconv_eq", "tau_autoconv_noneq")
 
-  
+
 
 CEDMF_dir = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl"
 CEDMF_data_dir = "/home/jbenjami/Data/Research_Schneider/CliMa/CalibrateEDMF.jl/"
@@ -30,17 +30,18 @@ SOCRATES_data_dir = joinpath(CEDMF_data_dir, "experiments", "SOCRATES")
 
 
 last_calibration_vars = Dict(
-    ("SOCRATES_Base", "tau_autoconv_noneq") => ["ql_all_mean","qi_all_mean"],
+    ("SOCRATES_Base", "tau_autoconv_noneq") => ["ql_all_mean", "qi_all_mean"],
     ("SOCRATES_Base", "pow_icenuc_autoconv_eq") => ["temperature_mean", "ql_mean", "qi_mean"],
     ("SOCRATES_exponential_T_scaling_ice", "tau_autoconv_noneq") => ["ql_mean", "qi_mean"],
     # ("SOCRATES_exponential_T_scaling_ice_raw", "tau_autoconv_noneq") => ["ql_mean","qi_mean"],
-    ("SOCRATES_powerlaw_T_scaling_ice", "tau_autoconv_noneq") => ["ql_mean","qi_mean"],
+    ("SOCRATES_powerlaw_T_scaling_ice", "tau_autoconv_noneq") => ["ql_mean", "qi_mean"],
     ("SOCRATES_geometric_liq__geometric_ice", "tau_autoconv_noneq") => ["temperature_mean", "ql_mean", "qi_mean"],
-    ("SOCRATES_geometric_liq__exponential_T_scaling_and_geometric_ice", "tau_autoconv_noneq") => ["ql_mean", "qi_mean"],
+    ("SOCRATES_geometric_liq__exponential_T_scaling_and_geometric_ice", "tau_autoconv_noneq") =>
+        ["ql_mean", "qi_mean"],
     ("SOCRATES_geometric_liq__powerlaw_T_scaling_ice", "tau_autoconv_noneq") => ["ql_all_mean", "qi_all_mean"],
     ("SOCRATES_neural_network", "tau_autoconv_noneq") => ["temperature_mean", "ql_mean", "qi_mean"],
     ("SOCRATES_linear_combination", "tau_autoconv_noneq") => ["ql_all_mean", "qi_all_mean"],
-    ("SOCRATES_linear_combination_with_w", "tau_autoconv_noneq") => ["ql_mean","qi_mean"],
+    ("SOCRATES_linear_combination_with_w", "tau_autoconv_noneq") => ["ql_mean", "qi_mean"],
 )
 
 
@@ -52,9 +53,7 @@ new_calibration_vars_list = (
     ["temperature_mean", "ql_all_mean", "qi_all_mean"],
 )
 
-ens_param_factors = Dict(
-    "SOCRATES_neural_network" => 1.0,
-)
+ens_param_factors = Dict("SOCRATES_neural_network" => 1.0)
 
 
 dt_min_list = [0.5, 2.0, 5.0] # factor of 10 increase is ~factor 10 decrease in number of vertical points.... we'll have to see how that looks.....
@@ -73,11 +72,13 @@ if fix_old_calibration_vars_dirs
                 for calibratation_vars in new_calibration_vars_list
                     calibration_vars_str = join(sort(calibratation_vars), "__")
                     @info "New calibration vars: $calibratation_vars"
-                    
+
                     dt_min = 0.5
                     dt_max = 2.0
                     adapt_dt = true
-                    dt_string = adapt_dt ? "adapt_dt__dt_min_"*string(dt_min)*"__dt_max_"*string(dt_max) : "dt_"*string(dt_min)
+                    dt_string =
+                        adapt_dt ? "adapt_dt__dt_min_" * string(dt_min) * "__dt_max_" * string(dt_max) :
+                        "dt_" * string(dt_min)
                     @info(dt_string)
 
 
@@ -88,8 +89,23 @@ if fix_old_calibration_vars_dirs
                     fix_folders = true
                     if fix_folders
 
-                        old_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, calibration_vars_str)
-                        new_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, dt_string, calibration_vars_str)
+                        old_path = joinpath(
+                            SOCRATES_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            calibration_vars_str,
+                        )
+                        new_path = joinpath(
+                            SOCRATES_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            dt_string,
+                            calibration_vars_str,
+                        )
 
                         # make new directory
                         mkpath(new_path)
@@ -104,7 +120,7 @@ if fix_old_calibration_vars_dirs
                             run(`mv $old_path/run $new_path`)
                         end
 
-                        sleep(.1)
+                        sleep(0.1)
 
                         # move ouptput symlinks
                         # change directory to new path
@@ -116,9 +132,12 @@ if fix_old_calibration_vars_dirs
                                 run(`mv $old_path/$dir $new_path`)
                             end
 
-                            run(`cd $new_path/$dir`); cd(joinpath(new_path, dir))
-                            rm("$new_path/$dir/output", force=true)
-                            run(`ln -s ../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$calibration_vars_str/$dir/output  $new_path/$dir/output`)
+                            run(`cd $new_path/$dir`)
+                            cd(joinpath(new_path, dir))
+                            rm("$new_path/$dir/output", force = true)
+                            run(
+                                `ln -s ../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$calibration_vars_str/$dir/output  $new_path/$dir/output`,
+                            )
 
                             if isdir(old_path)
                                 @info "Removing old path: $old_path"
@@ -130,8 +149,23 @@ if fix_old_calibration_vars_dirs
                     # Fix data folders
                     fix_data_folders = true
                     if fix_data_folders
-                        old_path = joinpath(SOCRATES_data_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, calibration_vars_str)
-                        new_path = joinpath(SOCRATES_data_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, dt_string, calibration_vars_str)
+                        old_path = joinpath(
+                            SOCRATES_data_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            calibration_vars_str,
+                        )
+                        new_path = joinpath(
+                            SOCRATES_data_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            dt_string,
+                            calibration_vars_str,
+                        )
 
                         # make new directory
                         mkpath(new_path)
@@ -166,18 +200,38 @@ if add_new_calibration_vars
             if (experiment, setup) in keys(last_calibration_vars) # the valid ones
                 old_calibration_vars = last_calibration_vars[(experiment, setup)]
                 old_dt_min, old_dt_max, old_adapt_dt = 0.5, 2.0, true
-                old_dt_string = old_adapt_dt ? "adapt_dt__dt_min_"*string(old_dt_min)*"__dt_max_"*string(old_dt_max) : "dt_"*string(old_dt_min)
+                old_dt_string =
+                    old_adapt_dt ? "adapt_dt__dt_min_" * string(old_dt_min) * "__dt_max_" * string(old_dt_max) :
+                    "dt_" * string(old_dt_min)
                 old_calibration_vars_str = join(sort(old_calibration_vars), "__")
 
                 for (dt_min, dt_max, adapt_dt) in zip(dt_min_list, dt_max_list, adapt_dt_list)
-                    dt_string = adapt_dt ? "adapt_dt__dt_min_"*string(dt_min)*"__dt_max_"*string(dt_max) : "dt_"*string(dt_min)
+                    dt_string =
+                        adapt_dt ? "adapt_dt__dt_min_" * string(dt_min) * "__dt_max_" * string(dt_max) :
+                        "dt_" * string(dt_min)
 
                     for new_calibratation_vars in new_calibration_vars_list
                         new_calibration_vars_str = join(sort(new_calibratation_vars), "__")
                         @info "New calibration vars: $new_calibratation_vars"
 
-                        old_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, old_dt_string, old_calibration_vars_str)
-                        new_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup,     dt_string, new_calibration_vars_str)
+                        old_path = joinpath(
+                            SOCRATES_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            old_dt_string,
+                            old_calibration_vars_str,
+                        )
+                        new_path = joinpath(
+                            SOCRATES_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            dt_string,
+                            new_calibration_vars_str,
+                        )
 
                         # make new directory
                         if !isdir(new_path)
@@ -188,8 +242,24 @@ if add_new_calibration_vars
                         end
 
                         # == Copy data folders == #
-                        old_data_path = joinpath(SOCRATES_data_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, old_dt_string, old_calibration_vars_str)
-                        new_data_path = joinpath(SOCRATES_data_dir, "subexperiments", experiment, "Calibrate_and_Run", setup,     dt_string, new_calibration_vars_str)
+                        old_data_path = joinpath(
+                            SOCRATES_data_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            old_dt_string,
+                            old_calibration_vars_str,
+                        )
+                        new_data_path = joinpath(
+                            SOCRATES_data_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            dt_string,
+                            new_calibration_vars_str,
+                        )
                         # make new directory
                         mkpath(new_data_path)
 
@@ -219,7 +289,7 @@ if add_new_calibration_vars
                                     @info "Found commented line: $line"
                                     run(`sed -i '/# calibration_vars/d' $config_file_fullpath`)
                                 end
-                                
+
 
                             end
                         end
@@ -233,15 +303,23 @@ if add_new_calibration_vars
                             if !isdir(joinpath(new_path, dir))
                                 mkpath(joinpath(new_path, dir))
                             end
-                            run(`cd $new_path/$dir`); cd(joinpath(new_path, dir))
-                            rm("$new_path/$dir/output", force=true) # remove symlink if it exists
-                            outpath = abspath(joinpath( "$new_path/$dir", "../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$new_calibration_vars_str/$dir/output")) # create folder at outpath that in Data_Storage that we will link to if it doesnt already exist
+                            run(`cd $new_path/$dir`)
+                            cd(joinpath(new_path, dir))
+                            rm("$new_path/$dir/output", force = true) # remove symlink if it exists
+                            outpath = abspath(
+                                joinpath(
+                                    "$new_path/$dir",
+                                    "../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$new_calibration_vars_str/$dir/output",
+                                ),
+                            ) # create folder at outpath that in Data_Storage that we will link to if it doesnt already exist
                             if !isdir(outpath)
                                 mkpath(outpath)
                             end
-                            run(`ln -s ../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$new_calibration_vars_str/$dir/output  $new_path/$dir/output`)
+                            run(
+                                `ln -s ../../../../../Data_Storage/Calibrate_and_Run/$setup/$dt_string/$new_calibration_vars_str/$dir/output  $new_path/$dir/output`,
+                            )
                             run(`rm -rf ../../../../Data_Storage`)
-        
+
                         end
                     end
                 end
@@ -308,7 +386,7 @@ end
 #                                 run(`sed -i 's/^t_bnds *=.*'/$new_line/ $config_file_fullpath`)
 #                                 run(`sed -i 's/^t_bnds=.*'/$new_line/ $config_file_fullpath`)
 #                             end
-                            
+
 
 #                         end
 #                     end
@@ -324,13 +402,14 @@ end
 
 setup_new_scripts = true
 if setup_new_scripts
-    template_file = joinpath(SOCRATES_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_body.jl")
+    template_file =
+        joinpath(SOCRATES_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_body.jl")
 
     calibrate_to = "Atlas_LES" # "Atlas_LES" or "Flight_Observations"
-    flight_numbers = [1,9,10,11,12,13]
-    forcing_types  = [:obs_data]
+    flight_numbers = [1, 9, 10, 11, 12, 13]
+    forcing_types = [:obs_data]
 
-    N_ens  = 50 # number of ensemble members (needed)
+    N_ens = 50 # number of ensemble members (needed)
     ens_param_factor_default = 4 # scale the ensemble size by the # of parametesr we're calibrating
     use_ens_param_factor = true
     N_iter = 10 # number of iterations
@@ -342,13 +421,23 @@ if setup_new_scripts
             if (experiment, setup) in keys(last_calibration_vars) # the valid ones
 
                 for (dt_min, dt_max, adapt_dt) in zip(dt_min_list, dt_max_list, adapt_dt_list)
-                    dt_string = adapt_dt ? "adapt_dt__dt_min_"*string(dt_min)*"__dt_max_"*string(dt_max) : "dt_"*string(dt_min)
+                    dt_string =
+                        adapt_dt ? "adapt_dt__dt_min_" * string(dt_min) * "__dt_max_" * string(dt_max) :
+                        "dt_" * string(dt_min)
 
                     for new_calibratation_vars in new_calibration_vars_list
                         new_calibration_vars_str = join(sort(new_calibratation_vars), "__")
                         @info "New calibration vars: $new_calibratation_vars"
 
-                        new_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, dt_string, new_calibration_vars_str)
+                        new_path = joinpath(
+                            SOCRATES_dir,
+                            "subexperiments",
+                            experiment,
+                            "Calibrate_and_Run",
+                            setup,
+                            dt_string,
+                            new_calibration_vars_str,
+                        )
 
                         config_path = joinpath(new_path, "calibrate", "configs")
                         new_config_file = joinpath(config_path, "config_calibrate_RFAll_obs.jl")
@@ -363,11 +452,12 @@ if setup_new_scripts
                         global forcing_types
 
                         if use_ens_param_factor
-                            ens_param_factor =  get(ens_param_factors, experiment, ens_param_factor_default)
+                            ens_param_factor = get(ens_param_factors, experiment, ens_param_factor_default)
 
                             read_config_way = false
                             if read_config_way # read directly form output of config, precise but slower
-                                old_calibrate_to, old_flight_numbers, old_forcing_types = calibrate_to, flight_numbers, forcing_types
+                                old_calibrate_to, old_flight_numbers, old_forcing_types =
+                                    calibrate_to, flight_numbers, forcing_types
                                 # we have to set N_iter inside the file bc ekp_par_calibration.sbatch greps for that to know how many jobs to start
                                 # The only way to know how many jobs to start though is to know how many parameters we're calibrating which comes from the config file
                                 # Nothing we set below should change the # of parameters we're calibrating so we should be good
@@ -376,13 +466,14 @@ if setup_new_scripts
                                     if !isdefined(Main, :CalibrateEDMF)
                                         Pkg.activate(CEDMF_dir)
                                     end
-                                    include(new_config_file); # would set N_ens, N_iter and everything else... but doesnt bc of scoping
+                                    include(new_config_file) # would set N_ens, N_iter and everything else... but doesnt bc of scoping
                                     config = @invokelatest get_process_config() # function definitions maybe should work?
                                 end
-                                calibrate_to, flight_numbers, forcing_types = old_calibrate_to, old_flight_numbers, old_forcing_types
+                                calibrate_to, flight_numbers, forcing_types =
+                                    old_calibrate_to, old_flight_numbers, old_forcing_types
 
                             else # try to get calibration_parametesr from config_calibrate_template_header and calibration_parameters_and_nameslit
-                                
+
                                 for line in eachline(new_config_file)
                                     if occursin(r"^header_setup_choice\s+=", line)
                                         @info("Found line: $line")
@@ -392,8 +483,16 @@ if setup_new_scripts
                                     end
                                 end
 
-                                if !isdefined(Main, :simple_calibration_parameters) || !isdefined(Main, :default_calibration_parameters)
-                                    include(joinpath(SOCRATES_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_header.jl"))
+                                if !isdefined(Main, :simple_calibration_parameters) ||
+                                   !isdefined(Main, :default_calibration_parameters)
+                                    include(
+                                        joinpath(
+                                            SOCRATES_dir,
+                                            "Calibrate_and_Run_scripts",
+                                            "calibrate",
+                                            "config_calibrate_template_header.jl",
+                                        ),
+                                    )
                                 end
 
                                 if header_setup_choice == :simple
@@ -404,15 +503,36 @@ if setup_new_scripts
                                     error("header_setup_choice not recognized")
                                 end
 
-                                @info("loading:", joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, "calibration_parameters_and_namelist.jl"))
+                                @info(
+                                    "loading:",
+                                    joinpath(
+                                        SOCRATES_dir,
+                                        "subexperiments",
+                                        experiment,
+                                        "Calibrate_and_Run",
+                                        setup,
+                                        "calibration_parameters_and_namelist.jl",
+                                    )
+                                )
                                 flush(stdout)
                                 flush(stderr)
 
-                                global experiment_dir = joinpath(CEDMF_dir, "experiments", "SOCRATES", "subexperiments", experiment) # used for NN but only defined in config_calibrate_template_body.jl since it's defined after supersat_type
+                                global experiment_dir =
+                                    joinpath(CEDMF_dir, "experiments", "SOCRATES", "subexperiments", experiment) # used for NN but only defined in config_calibrate_template_body.jl since it's defined after supersat_type
                                 global calibration_setup = setup # it's called that in calibration_parameters_and_namelist.jl files
-                                include(joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, "calibration_parameters_and_namelist.jl"))
+                                include(
+                                    joinpath(
+                                        SOCRATES_dir,
+                                        "subexperiments",
+                                        experiment,
+                                        "Calibrate_and_Run",
+                                        setup,
+                                        "calibration_parameters_and_namelist.jl",
+                                    ),
+                                )
 
-                                calibration_parameters = merge(calibration_parameters, calibration_parameters__experiment_setup)
+                                calibration_parameters =
+                                    merge(calibration_parameters, calibration_parameters__experiment_setup)
 
 
                             end
@@ -430,7 +550,7 @@ if setup_new_scripts
 
                         # fix up the new config file
                         for line in eachline(new_config_file)
-                            
+
 
                             # ========================================================================================================================= #
 
@@ -503,7 +623,7 @@ if setup_new_scripts
 
                             if occursin(r"^dt_min *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
                                 @info "Found line: $line"
-                                new_line = "dt_min = $dt_min" 
+                                new_line = "dt_min = $dt_min"
 
                                 @info "Replacing with: $new_line"
                                 run(`sed -i 's/^dt_min *=.*'/$new_line/ $new_config_file`)
@@ -511,7 +631,7 @@ if setup_new_scripts
 
                             if occursin(r"^dt_max *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
                                 @info "Found line: $line"
-                                new_line = "dt_max = $dt_max" 
+                                new_line = "dt_max = $dt_max"
 
                                 @info "Replacing with: $new_line"
                                 run(`sed -i 's/^dt_max *=.*'/$new_line/ $new_config_file`)
@@ -519,7 +639,7 @@ if setup_new_scripts
 
                             if occursin(r"^adapt_dt *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
                                 @info "Found line: $line"
-                                new_line = "adapt_dt = $adapt_dt" 
+                                new_line = "adapt_dt = $adapt_dt"
 
                                 @info "Replacing with: $new_line"
                                 run(`sed -i 's/^adapt_dt *=.*'/$new_line/ $new_config_file`)
@@ -560,7 +680,7 @@ if setup_new_scripts
                                 run(`sed -i 's/^N_iter *=.*'/$new_line/ $new_config_file`)
                             end
 
-                            
+
 
                             # ========================================================================================================================= #
 

@@ -28,9 +28,9 @@ CEDMF_path = pkgdir(CalibrateEDMF.ModelTypes) # any submodule should work the sa
 struct SOCRATES_Train end
 struct SOCRATES_Val end
 
-default_params = CalibrateEDMF.HelperFuncs.CP.create_toml_dict(FT; dict_type="alias") # name since we use the alias in this package, get a list of all default_params (including those not in driver/generate_namelist.jl) from ClimaParameters
+default_params = CalibrateEDMF.HelperFuncs.CP.create_toml_dict(FT; dict_type = "alias") # name since we use the alias in this package, get a list of all default_params (including those not in driver/generate_namelist.jl) from ClimaParameters
 
-wrap(x) = (x isa Union{Vector,Tuple}) ? x : [x] # wrap scalars in a vector so that they can be splatted regardless of what they are (then you can pass in eitehr vector or scalar in your calibration_parameters dict)
+wrap(x) = (x isa Union{Vector, Tuple}) ? x : [x] # wrap scalars in a vector so that they can be splatted regardless of what they are (then you can pass in eitehr vector or scalar in your calibration_parameters dict)
 
 
 
@@ -38,8 +38,12 @@ wrap(x) = (x isa Union{Vector,Tuple}) ? x : [x] # wrap scalars in a vector so th
 # ========================================================================================================================= #
 # ========================================================================================================================= #
 
-@warn("Add method to save other variables to the diagnostics file, maybe something similar to get_profile, but for different y_names..., and only in real space")
-@warn("rn run_SCM calls eval_single_ref_model() which calls get_profile() so we just need to add another call to get out")
+@warn(
+    "Add method to save other variables to the diagnostics file, maybe something similar to get_profile, but for different y_names..., and only in real space"
+)
+@warn(
+    "rn run_SCM calls eval_single_ref_model() which calls get_profile() so we just need to add another call to get out"
+)
 @warn("they use NetCDFIO_Diags so we need to make up something similar somehow...")
 
 # ========================================================================================================================= #
@@ -81,80 +85,97 @@ global_param_defaults = Dict()
 
 
 r_r = FT(20 * 1e-6) # 20 microns
-ρ_l = FT(1000.)
+ρ_l = FT(1000.0)
 
-ρ_l = FT(1000.) # density of ice, default from ClimaParameters
+ρ_l = FT(1000.0) # density of ice, default from ClimaParameters
 ρ_i = FT(916.7) # density of ice, default from ClimaParameters
 r_r = FT(20 * 1e-6) # 20 microns
-r_0 = FT(.2 * 1e-6) # .2 micron base aerosol
+r_0 = FT(0.2 * 1e-6) # .2 micron base aerosol
 
-N_0   = FT(100*10^6)
-N_l   = FT(1e-5 / (4/3 * π * r_r^3 * ρ_l)) # estimated total N assuming reasonable q_liq.. (N = N_r in homogenous)
-N_i   = FT(1e-7 / (4/3 * π * r_r^3 * ρ_i)) # estimated total N assuming reasonable q_ice... (N = N_r + N_0)
+N_0 = FT(100 * 10^6)
+N_l = FT(1e-5 / (4 / 3 * π * r_r^3 * ρ_l)) # estimated total N assuming reasonable q_liq.. (N = N_r in homogenous)
+N_i = FT(1e-7 / (4 / 3 * π * r_r^3 * ρ_i)) # estimated total N assuming reasonable q_ice... (N = N_r + N_0)
 
 D_ref = FT(0.0000226)
 D = D_ref
 
 # --------------------------------------------------------------------------------------------- #
 using NCDatasets
-fit_parameters = NCDatasets.Dataset(joinpath(CEDMF_path, "experiments", "SOCRATES", "Reference", "Output_Inferred_Data", "SOCRATES_Atlas_LES_inferred_parameters.nc"), "r")
+fit_parameters = NCDatasets.Dataset(
+    joinpath(
+        CEDMF_path,
+        "experiments",
+        "SOCRATES",
+        "Reference",
+        "Output_Inferred_Data",
+        "SOCRATES_Atlas_LES_inferred_parameters.nc",
+    ),
+    "r",
+)
 use_fit_parameters::Bool = true
 priors = Dict{String, FT}(
     "geometric_liq_c_1" => use_fit_parameters ? FT(fit_parameters["geometric_liq_c_1"][1]) : FT(N_l * r_0),
-    "geometric_liq_c_2" => use_fit_parameters ? FT(fit_parameters["geometric_liq_c_2"][1]) : FT(1/3),
+    "geometric_liq_c_2" => use_fit_parameters ? FT(fit_parameters["geometric_liq_c_2"][1]) : FT(1 / 3),
     "geometric_liq_c_3" => use_fit_parameters ? FT(fit_parameters["geometric_liq_c_3"][1]) : FT(N_l * r_0),
-
-    "geometric_ice_c_1" => use_fit_parameters ? FT(fit_parameters["geometric_ice_c_1"][1]) : FT(1/(4/3 * π * ρ_i * r_r^2)),
-    "geometric_ice_c_2" => use_fit_parameters ? FT(fit_parameters["geometric_ice_c_2"][1]) : FT(2/3),
+    "geometric_ice_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["geometric_ice_c_1"][1]) : FT(1 / (4 / 3 * π * ρ_i * r_r^2)),
+    "geometric_ice_c_2" => use_fit_parameters ? FT(fit_parameters["geometric_ice_c_2"][1]) : FT(2 / 3),
     "geometric_ice_c_3" => use_fit_parameters ? FT(fit_parameters["geometric_ice_c_3"][1]) : FT(N_i * r_0),
-
-    "exponential_T_scaling_ice_c_1" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_ice_c_1"][1]) : FT(0.02),
-    "exponential_T_scaling_ice_c_2" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_ice_c_2"][1]) : FT(-0.6),
-
-    "powerlaw_T_scaling_ice_c_1" => use_fit_parameters ? FT(fit_parameters["powerlaw_T_scaling_ice_c_1"][1]) : FT(-9),
-    "powerlaw_T_scaling_ice_c_2" => use_fit_parameters ? FT(fit_parameters["powerlaw_T_scaling_ice_c_2"][1]) : FT(9),
-
-    "exponential_T_scaling_and_geometric_ice_c_1" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_1"][1]) : FT((4*π*D) * ((4/3 * π * ρ_i)^(-1/3)  * (N_i)^(2/3) * (0.02)^(2/3) + (N_i * r_0))),
-    "exponential_T_scaling_and_geometric_ice_c_2" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_2"][1]) : FT(2/3),
-    "exponential_T_scaling_and_geometric_ice_c_3" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_3"][1]) : FT((4*π*D) * r_0 * .02),
-    "exponential_T_scaling_and_geometric_ice_c_4" => use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_4"][1]) : FT(-0.6),
-
-    "linear_combination_liq_c_1" => use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_1"][1]) : FT(N_l * r_0),
-    "linear_combination_liq_c_2" => use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_2"][1]) : FT(0),
-    "linear_combination_liq_c_3" => use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_3"][1]) : FT(1),
-    "linear_combination_liq_c_4" => use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_4"][1]) : FT(1),
-
-    "linear_combination_ice_c_1" => use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_1"][1]) : FT(N_i * r_0),
-    "linear_combination_ice_c_2" => use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_2"][1]) : FT(-0.6),
-    "linear_combination_ice_c_3" => use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_3"][1]) : FT(1),
-    "linear_combination_ice_c_4" => use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_4"][1]) : FT(1),
+    "exponential_T_scaling_ice_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_ice_c_1"][1]) : FT(0.02),
+    "exponential_T_scaling_ice_c_2" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_ice_c_2"][1]) : FT(-0.6),
+    "powerlaw_T_scaling_ice_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["powerlaw_T_scaling_ice_c_1"][1]) : FT(-9),
+    "powerlaw_T_scaling_ice_c_2" =>
+        use_fit_parameters ? FT(fit_parameters["powerlaw_T_scaling_ice_c_2"][1]) : FT(9),
+    "exponential_T_scaling_and_geometric_ice_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_1"][1]) :
+        FT((4 * π * D) * ((4 / 3 * π * ρ_i)^(-1 / 3) * (N_i)^(2 / 3) * (0.02)^(2 / 3) + (N_i * r_0))),
+    "exponential_T_scaling_and_geometric_ice_c_2" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_2"][1]) : FT(2 / 3),
+    "exponential_T_scaling_and_geometric_ice_c_3" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_3"][1]) :
+        FT((4 * π * D) * r_0 * 0.02),
+    "exponential_T_scaling_and_geometric_ice_c_4" =>
+        use_fit_parameters ? FT(fit_parameters["exponential_T_scaling_and_geometric_ice_c_4"][1]) : FT(-0.6),
+    "linear_combination_liq_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_1"][1]) : FT(N_l * r_0),
+    "linear_combination_liq_c_2" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_2"][1]) : FT(0),
+    "linear_combination_liq_c_3" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_3"][1]) : FT(1),
+    "linear_combination_liq_c_4" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_liq_c_4"][1]) : FT(1),
+    "linear_combination_ice_c_1" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_1"][1]) : FT(N_i * r_0),
+    "linear_combination_ice_c_2" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_2"][1]) : FT(-0.6),
+    "linear_combination_ice_c_3" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_3"][1]) : FT(1),
+    "linear_combination_ice_c_4" =>
+        use_fit_parameters ? FT(fit_parameters["linear_combination_ice_c_4"][1]) : FT(1),
 )
 
 constraints = Dict{String, Any}( # is this necessary? should be the same perhaps either way? idk...
     "geometric_liq_c_1" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-    "geometric_liq_c_2" => use_fit_parameters ? bounded(1/3, 1) : bounded(1/3, 1),
+    "geometric_liq_c_2" => use_fit_parameters ? bounded(1 / 3, 1) : bounded(1 / 3, 1),
     "geometric_liq_c_3" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-
     "geometric_ice_c_1" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-    "geometric_ice_c_2" => use_fit_parameters ? bounded(1/3, 1) : bounded(1/3, 1),
+    "geometric_ice_c_2" => use_fit_parameters ? bounded(1 / 3, 1) : bounded(1 / 3, 1),
     "geometric_ice_c_3" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-
     "exponential_T_scaling_ice_c_1" => use_fit_parameters ? bounded_below(0) : bounded_below(0), # why do these not match?
     "exponential_T_scaling_ice_c_2" => use_fit_parameters ? bounded_above(0) : bounded_above(0),
-
     "powerlaw_T_scaling_ice_c_1" => use_fit_parameters ? no_constraint() : bounded_below(0),
     "powerlaw_T_scaling_ice_c_2" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-
     "exponential_T_scaling_and_geometric_ice_c_1" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
-    "exponential_T_scaling_and_geometric_ice_c_2" => use_fit_parameters ? bounded(1/3, 10) : bounded(1/3, 1), # ours doesnt come out in 1/3 1 by default, is more like 6... not sure how to combine processes... but figure i'll give it a chance
+    "exponential_T_scaling_and_geometric_ice_c_2" => use_fit_parameters ? bounded(1 / 3, 10) : bounded(1 / 3, 1), # ours doesnt come out in 1/3 1 by default, is more like 6... not sure how to combine processes... but figure i'll give it a chance
     "exponential_T_scaling_and_geometric_ice_c_3" => use_fit_parameters ? bounded_below(0) : bounded_below(0),
     "exponential_T_scaling_and_geometric_ice_c_4" => use_fit_parameters ? bounded_above(0) : bounded_above(0),
-
     "linear_combination_liq_c_1" => use_fit_parameters ? no_constraint() : no_constraint(),
     "linear_combination_liq_c_2" => use_fit_parameters ? no_constraint() : no_constraint(), # is this right for constraint? or is it actually unbounded
     "linear_combination_liq_c_3" => use_fit_parameters ? no_constraint() : no_constraint(), # T shouldn't be a factor per se, can go either way
     "linear_combination_liq_c_4" => use_fit_parameters ? no_constraint() : no_constraint(), # w no idea
-
     "linear_combination_ice_c_1" => use_fit_parameters ? no_constraint() : no_constraint(),
     "linear_combination_ice_c_2" => use_fit_parameters ? bounded_above(0) : bounded_above(0), # enforce temperature direction
     "linear_combination_ice_c_3" => use_fit_parameters ? no_constraint() : no_constraint(), # let q scaling go either way, sometimes it favors fewer larger droplets as q rises for example...
@@ -165,17 +186,13 @@ unconstrained_σ = Dict{String, FT}(
     "geometric_liq_c_1" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
     "geometric_liq_c_2" => use_fit_parameters ? bounded_σ : bounded_σ,
     "geometric_liq_c_3" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
-
     "geometric_ice_c_1" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
     "geometric_ice_c_2" => use_fit_parameters ? bounded_σ : bounded_σ,
     "geometric_ice_c_3" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
-
     "exponential_T_scaling_ice_c_1" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
     "exponential_T_scaling_ice_c_2" => use_fit_parameters ? FT(1.0) : FT(1.0),
-
     "powerlaw_T_scaling_ice_c_1" => use_fit_parameters ? FT(10) : FT(10),
     "powerlaw_T_scaling_ice_c_2" => use_fit_parameters ? FT(1) : FT(1),
-
     "exponential_T_scaling_and_geometric_ice_c_1" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
     "exponential_T_scaling_and_geometric_ice_c_2" => use_fit_parameters ? bounded_σ : bounded_σ,
     "exponential_T_scaling_and_geometric_ice_c_3" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
@@ -186,33 +203,74 @@ unconstrained_σ = Dict{String, FT}(
     "linear_combination_liq_c_2" => use_fit_parameters ? FT(1) : FT(1),
     "linear_combination_liq_c_3" => use_fit_parameters ? unbounded_σ : unbounded_σ,
     "linear_combination_liq_c_4" => use_fit_parameters ? unbounded_σ : unbounded_σ,
-
     "linear_combination_ice_c_1" => use_fit_parameters ? unbounded_σ : unbounded_σ,
     "linear_combination_ice_c_2" => use_fit_parameters ? bounded_edge_σ : bounded_edge_σ,
     "linear_combination_ice_c_3" => use_fit_parameters ? unbounded_σ : unbounded_σ,
     "linear_combination_ice_c_4" => use_fit_parameters ? unbounded_σ : unbounded_σ,
 )
 
-@warn("NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases...")
-@warn("NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases...")
-@warn("NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases...")
-@warn("NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases...")
+@warn(
+    "NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases..."
+)
+@warn(
+    "NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases..."
+)
+@warn(
+    "NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases..."
+)
+@warn(
+    "NEED to check that the priors and constraints are consistent with the unconstrained_σ values!!!... esp where we have no_constraint(), we will have no log scaling, maybe we should take the log of the parameters in some of those cases..."
+)
 
 # --------------------------------------------------------------------------------------------- #
 
 _max_area = FT(0.3)
-global_param_defaults["surface_area"] = Dict("prior_mean" =>  FT(default_params["surface_area"]["value"]), "constraints" => bounded(FT(0.0), _max_area),  "unconstrained_σ" => non_vec_sigma) # 0.3 is the max area we want to allow
+global_param_defaults["surface_area"] = Dict(
+    "prior_mean" => FT(default_params["surface_area"]["value"]),
+    "constraints" => bounded(FT(0.0), _max_area),
+    "unconstrained_σ" => non_vec_sigma,
+) # 0.3 is the max area we want to allow
 
 # --------------------------------------------------------------------------------------------- #
-global_param_defaults["pow_icenuc"] = Dict("prior_mean" => FT(default_params["pow_icenuc"]["value"]), "constraints" => bounded_below(0), "unconstrained_σ" => FT(1.0)) # pow_icenuc really shouldn't vary that far...
+global_param_defaults["pow_icenuc"] = Dict(
+    "prior_mean" => FT(default_params["pow_icenuc"]["value"]),
+    "constraints" => bounded_below(0),
+    "unconstrained_σ" => FT(1.0),
+) # pow_icenuc really shouldn't vary that far...
 
-global_param_defaults["τ_cond_evap"] = Dict("prior_mean" => FT(100.), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+global_param_defaults["τ_cond_evap"] =
+    Dict("prior_mean" => FT(100.0), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
 
 # global_param_defaults["τ_sub_dep"] = Dict("prior_mean" => FT(default_params["τ_sub_dep"]["value"]), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
-global_param_defaults["τ_sub_dep"] = Dict("prior_mean" => FT(1000.), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
+global_param_defaults["τ_sub_dep"] =
+    Dict("prior_mean" => FT(1000.0), "constraints" => bounded_below(0), "unconstrained_σ" => expanded_unconstrained_σ) # a little higher so we can spread it out more relative to ice and allow it to survive even w/ precip
 
-for var ∈ ["geometric_liq_c_1", "geometric_liq_c_2", "geometric_liq_c_3", "geometric_ice_c_1", "geometric_ice_c_2", "geometric_ice_c_3", "exponential_T_scaling_ice_c_1", "exponential_T_scaling_ice_c_2", "powerlaw_T_scaling_ice_c_1", "powerlaw_T_scaling_ice_c_2", "exponential_T_scaling_and_geometric_ice_c_1", "exponential_T_scaling_and_geometric_ice_c_2", "exponential_T_scaling_and_geometric_ice_c_3", "exponential_T_scaling_and_geometric_ice_c_4", "linear_combination_liq_c_1", "linear_combination_liq_c_2", "linear_combination_liq_c_3", "linear_combination_liq_c_4", "linear_combination_ice_c_1", "linear_combination_ice_c_2", "linear_combination_ice_c_3", "linear_combination_ice_c_4"]
-    global_param_defaults[var] = Dict("prior_mean" => priors[var] , "constraints" => constraints[var] , "unconstrained_σ" => unconstrained_σ[var])
+for var in [
+    "geometric_liq_c_1",
+    "geometric_liq_c_2",
+    "geometric_liq_c_3",
+    "geometric_ice_c_1",
+    "geometric_ice_c_2",
+    "geometric_ice_c_3",
+    "exponential_T_scaling_ice_c_1",
+    "exponential_T_scaling_ice_c_2",
+    "powerlaw_T_scaling_ice_c_1",
+    "powerlaw_T_scaling_ice_c_2",
+    "exponential_T_scaling_and_geometric_ice_c_1",
+    "exponential_T_scaling_and_geometric_ice_c_2",
+    "exponential_T_scaling_and_geometric_ice_c_3",
+    "exponential_T_scaling_and_geometric_ice_c_4",
+    "linear_combination_liq_c_1",
+    "linear_combination_liq_c_2",
+    "linear_combination_liq_c_3",
+    "linear_combination_liq_c_4",
+    "linear_combination_ice_c_1",
+    "linear_combination_ice_c_2",
+    "linear_combination_ice_c_3",
+    "linear_combination_ice_c_4",
+]
+    global_param_defaults[var] =
+        Dict("prior_mean" => priors[var], "constraints" => constraints[var], "unconstrained_σ" => unconstrained_σ[var])
 end
 
 # global_param_defaults["var"] = Dict("prior_mean" => priors["var"] , "constraints" => constraints["var"]   , "unconstrained_σ" => unconstrained_σ["var"])
@@ -247,13 +305,19 @@ end
 # # --------------------------------------------------------------------------------------------- #
 
 
-q_r_1 = FT((4/3) * π * r_r^3 * 1000) # mass of one raindrop, q = N q_r
+q_r_1 = FT((4 / 3) * π * r_r^3 * 1000) # mass of one raindrop, q = N q_r
 B = FT(100) # Hong and Lim 2006 [ Constant in raindrop freezing equation ]
-global_param_defaults["heterogeneous_ice_nuclation_coefficient"] = Dict("prior_mean" => q_r_1/ρ_l * B , "constraints" => nothing, "unconstrained_σ" => NaN) # See the writeup
-global_param_defaults["heterogeneous_ice_nuclation_exponent"]    = Dict("prior_mean" => FT(0.66)      , "constraints" => nothing, "unconstrained_σ" => NaN) # Hong & Lim 2006 [Constant in Biggs Freezing]
+global_param_defaults["heterogeneous_ice_nuclation_coefficient"] =
+    Dict("prior_mean" => q_r_1 / ρ_l * B, "constraints" => nothing, "unconstrained_σ" => NaN) # See the writeup
+global_param_defaults["heterogeneous_ice_nuclation_exponent"] =
+    Dict("prior_mean" => FT(0.66), "constraints" => nothing, "unconstrained_σ" => NaN) # Hong & Lim 2006 [Constant in Biggs Freezing]
 
 # global_param_defaults["r_ice_snow"] = Dict("prior_mean" => FT(62.5e-6), "constraints" => bounded(0, 1e-3), "unconstrained_σ" => bounded_σ) # 62.5 microns is the default from ClimaParameters
-global_param_defaults["r_ice_snow"] = Dict("prior_mean" => default_params["r_ice_snow"]["value"], "constraints" => bounded(0, 1e-3), "unconstrained_σ" => bounded_σ) # 62.5 microns is the default from ClimaParameters
+global_param_defaults["r_ice_snow"] = Dict(
+    "prior_mean" => default_params["r_ice_snow"]["value"],
+    "constraints" => bounded(0, 1e-3),
+    "unconstrained_σ" => bounded_σ,
+) # 62.5 microns is the default from ClimaParameters
 
 # ========================================================================================================================= #
 # ========================================================================================================================= #
@@ -276,8 +340,18 @@ Costa_SOTA_namelist_args = [
     ("turbulence", "EDMF_PrognosticTKE", "Prandtl_number_0", Costa_SOTA["Prandtl_number_0"]),
     # Momentum Exchange parameters
     ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_adv_coeff", Costa_SOTA["pressure_normalmode_adv_coeff"]),
-    ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_buoy_coeff1", Costa_SOTA["pressure_normalmode_buoy_coeff1"]),
-    ("turbulence", "EDMF_PrognosticTKE", "pressure_normalmode_drag_coeff", Costa_SOTA["pressure_normalmode_drag_coeff"]),
+    (
+        "turbulence",
+        "EDMF_PrognosticTKE",
+        "pressure_normalmode_buoy_coeff1",
+        Costa_SOTA["pressure_normalmode_buoy_coeff1"],
+    ),
+    (
+        "turbulence",
+        "EDMF_PrognosticTKE",
+        "pressure_normalmode_drag_coeff",
+        Costa_SOTA["pressure_normalmode_drag_coeff"],
+    ),
     # Area Limiters
     ("turbulence", "EDMF_PrognosticTKE", "min_area_limiter_scale", Costa_SOTA["min_area_limiter_scale"]),
     ("turbulence", "EDMF_PrognosticTKE", "min_area_limiter_power", Costa_SOTA["min_area_limiter_power"]),
@@ -294,18 +368,60 @@ bounded_σ = FT(2.0) # most of the log space is pressed up against the edges so 
 
 autoconversion_calibration_parameters = Dict(
     # autoconversion
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(1000) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => unconstrained_σ_autoconversion_timescale), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(1000) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => unconstrained_σ_autoconversion_timescale), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(1e-5) , "constraints" => bounded(0, 5e-4) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => unconstrained_σ_autoconversion_threshold), # unrealistically high upper bound
-    "q_ice_threshold" => Dict("prior_mean" => FT(1e-8) , "constraints" => bounded(0, 1e-6) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => unconstrained_σ_autoconversion_threshold),          # unrealistically high upper bound
+    "τ_acnv_rai" => Dict(
+        "prior_mean" => FT(1000),
+        "constraints" => bounded_below(0),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "rain_autoconversion_timescale",
+        "unconstrained_σ" => unconstrained_σ_autoconversion_timescale,
+    ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
+    "τ_acnv_sno" => Dict(
+        "prior_mean" => FT(1000),
+        "constraints" => bounded_below(0),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "snow_autoconversion_timescale",
+        "unconstrained_σ" => unconstrained_σ_autoconversion_timescale,
+    ),
+    "q_liq_threshold" => Dict(
+        "prior_mean" => FT(1e-5),
+        "constraints" => bounded(0, 5e-4),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold",
+        "unconstrained_σ" => unconstrained_σ_autoconversion_threshold,
+    ), # unrealistically high upper bound
+    "q_ice_threshold" => Dict(
+        "prior_mean" => FT(1e-8),
+        "constraints" => bounded(0, 1e-6),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold",
+        "unconstrained_σ" => unconstrained_σ_autoconversion_threshold,
+    ),          # unrealistically high upper bound
 )
 
 sedimentation_parameters = Dict(
     # liq_sedimentation_scaling_factor = Dict("prior_mean" => FT(1.0) , "constraints" => bounded(0,5) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ), # not testing rn
-    "rain_sedimentation_scaling_factor" => Dict("prior_mean" => FT(1.0) , "constraints" => bounded(0, 5) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ), # not testing rn
-    "ice_sedimentation_scaling_factor"  => Dict("prior_mean" => FT(1.0) , "constraints" => bounded(0, 5) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ), # testing
-    "snow_sedimentation_scaling_factor" => Dict("prior_mean" => FT(1.0) , "constraints" => bounded(0, 5) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => bounded_σ), # testing
-    )
+    "rain_sedimentation_scaling_factor" => Dict(
+        "prior_mean" => FT(1.0),
+        "constraints" => bounded(0, 5),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => bounded_σ,
+    ), # not testing rn
+    "ice_sedimentation_scaling_factor" => Dict(
+        "prior_mean" => FT(1.0),
+        "constraints" => bounded(0, 5),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => bounded_σ,
+    ), # testing
+    "snow_sedimentation_scaling_factor" => Dict(
+        "prior_mean" => FT(1.0),
+        "constraints" => bounded(0, 5),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => nothing,
+        "unconstrained_σ" => bounded_σ,
+    ), # testing
+)
 
 
 # Things we're calibrating (from costa are the entrainment/detrainment)
@@ -326,21 +442,46 @@ default_calibration_parameters = Dict(
     # "pressure_normalmode_drag_coeff" => Dict("prior_mean" => FT(10.0), "constraints" => bounded(0.0, 100.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "pressure_normalmode_drag_coeff", "unconstrained_σ" => non_vec_sigma),
 
     # # Area limiters (turned off rn bc was tuned to 0.9 and need to figure how how to make it more stable and peak around 0.3 w/ SOCRATES grid spacing)
-    "area_limiter_scale" => Dict("prior_mean" => FT(5.0), "constraints" => bounded(0.0, 100.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "area_limiter_scale", "unconstrained_σ" => non_vec_sigma ), # these were set w/ max_area = 0.3 in mind
-    "area_limiter_power" => Dict("prior_mean" => FT(30.0), "constraints" => bounded(1.0, 50.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "area_limiter_power", "unconstrained_σ" => non_vec_sigma ),  # these were set w/ max_area = 0.3 in mind
+    "area_limiter_scale" => Dict(
+        "prior_mean" => FT(5.0),
+        "constraints" => bounded(0.0, 100.0),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "area_limiter_scale",
+        "unconstrained_σ" => non_vec_sigma,
+    ), # these were set w/ max_area = 0.3 in mind
+    "area_limiter_power" => Dict(
+        "prior_mean" => FT(30.0),
+        "constraints" => bounded(1.0, 50.0),
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "area_limiter_power",
+        "unconstrained_σ" => non_vec_sigma,
+    ),  # these were set w/ max_area = 0.3 in mind
     # "min_area_limiter_scale" => Dict("prior_mean" => FT(2.0), "constraints" => bounded(1.0, 100.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "min_area_limiter_scale", "unconstrained_σ" => 1.0 ),
     # "min_area_limiter_power" => Dict("prior_mean" => FT(2000.0), "constraints" => bounded(1000.0, 5000.0), "l2_reg" => nothing, "CLIMAParameters_longname" => "min_area_limiter_power", "unconstrained_σ" => 1.0 ),
     # surface area (important for updraft evolution? -- should this be bounded by max_area?
-    "surface_area" => Dict("prior_mean" => global_param_defaults["surface_area"]["prior_mean"], "constraints" => global_param_defaults["surface_area"]["constraints"], "l2_reg" => nothing, "CLIMAParameters_longname" => "surface_area", "unconstrained_σ" => global_param_defaults["surface_area"]["unconstrained_σ"]),
+    "surface_area" => Dict(
+        "prior_mean" => global_param_defaults["surface_area"]["prior_mean"],
+        "constraints" => global_param_defaults["surface_area"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "surface_area",
+        "unconstrained_σ" => global_param_defaults["surface_area"]["unconstrained_σ"],
+    ),
     #
-    "r_ice_snow" => Dict("prior_mean" => global_param_defaults["r_ice_snow"]["prior_mean"]    , "constraints" => global_param_defaults["r_ice_snow"]["constraints"] , "l2_reg" => nothing, "CLIMAParameters_longname" => "r_ice_snow", "unconstrained_σ" => global_param_defaults["r_ice_snow"]["unconstrained_σ"]),
+    "r_ice_snow" => Dict(
+        "prior_mean" => global_param_defaults["r_ice_snow"]["prior_mean"],
+        "constraints" => global_param_defaults["r_ice_snow"]["constraints"],
+        "l2_reg" => nothing,
+        "CLIMAParameters_longname" => "r_ice_snow",
+        "unconstrained_σ" => global_param_defaults["r_ice_snow"]["unconstrained_σ"],
+    ),
     # "adjusted_ice_N_scaling_factor" => Dict("prior_mean" => FT(1.0) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => FT(1)), # .1 to 10 should be reasonable lol
 
 )
 
 
 
-default_calibration_parameters = merge(default_calibration_parameters, autoconversion_calibration_parameters, sedimentation_parameters)
+default_calibration_parameters =
+    merge(default_calibration_parameters, autoconversion_calibration_parameters, sedimentation_parameters)
 
 
 # Thing's were setting and not calibrating
@@ -401,10 +542,22 @@ default_namelist_args = [ # from Costa, i think just starting here is fine and i
     ("turbulence", "EDMF_PrognosticTKE", "linear_ent_biases", true),
     #
     ("user_aux", "adjust_ice_N", true),
-    ("microphysics", "r_ice_snow", default_calibration_parameters["r_ice_snow"]["prior_mean"] ),
-    ("user_aux", "rain_sedimentation_scaling_factor", default_calibration_parameters["rain_sedimentation_scaling_factor"]["prior_mean"] ),
-    ("user_aux", "ice_sedimentation_scaling_factor", default_calibration_parameters["ice_sedimentation_scaling_factor"]["prior_mean"] ),
-    ("user_aux", "snow_sedimentation_scaling_factor", default_calibration_parameters["snow_sedimentation_scaling_factor"]["prior_mean"] ),
+    ("microphysics", "r_ice_snow", default_calibration_parameters["r_ice_snow"]["prior_mean"]),
+    (
+        "user_aux",
+        "rain_sedimentation_scaling_factor",
+        default_calibration_parameters["rain_sedimentation_scaling_factor"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "ice_sedimentation_scaling_factor",
+        default_calibration_parameters["ice_sedimentation_scaling_factor"]["prior_mean"],
+    ),
+    (
+        "user_aux",
+        "snow_sedimentation_scaling_factor",
+        default_calibration_parameters["snow_sedimentation_scaling_factor"]["prior_mean"],
+    ),
     # ("user_aux", "adjusted_ice_N_scaling_factor", default_calibration_parameters["adjusted_ice_N_scaling_factor"]["prior_mean"] ), # this should just be constants in the thing right
     ("user_aux", "ice_sedimentation_Dmax", FT(Inf)), # 62.5 microns cutoff from CM
     # ("grid", "z_reduction_factor", 1),
@@ -441,43 +594,41 @@ default_namelist_constraints = Dict() # from Costa, to fill in (not sure I used 
 obs_var_additional_uncertainty_factor = 0.1 # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
 obs_var_additional_uncertainty_factor = Dict( # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
     "temperature_mean" => obs_var_additional_uncertainty_factor / 273, # scale down bc it's already so big for temperature, so divide by characteristic value to get ΔT ∼ obs_var_additional_uncertainty_factor instead... more like additive lol (note it's in normalized space but still)
-    "ql_mean"          => obs_var_additional_uncertainty_factor,
-    "qi_mean"          => obs_var_additional_uncertainty_factor,
-    "qr_mean"          => obs_var_additional_uncertainty_factor,
-    "qs_mean"          => obs_var_additional_uncertainty_factor,
-    "qip_mean"         => obs_var_additional_uncertainty_factor,
-    "ql_all_mean"      => obs_var_additional_uncertainty_factor,
-    "qi_all_mean"      => obs_var_additional_uncertainty_factor,
-    "qt_mean"          => obs_var_additional_uncertainty_factor,
-
+    "ql_mean" => obs_var_additional_uncertainty_factor,
+    "qi_mean" => obs_var_additional_uncertainty_factor,
+    "qr_mean" => obs_var_additional_uncertainty_factor,
+    "qs_mean" => obs_var_additional_uncertainty_factor,
+    "qip_mean" => obs_var_additional_uncertainty_factor,
+    "ql_all_mean" => obs_var_additional_uncertainty_factor,
+    "qi_all_mean" => obs_var_additional_uncertainty_factor,
+    "qt_mean" => obs_var_additional_uncertainty_factor,
 )
 
 # set some characteristic values to serve as default to normalize by if a profile is all 0's. This is hard though bc if youre the wrong order of magnitude compared to the simulation you could swamp your MSE.
 calibration_vars_characteristic_values = Dict(
     "temperature_mean" => FT(273), # 273 K
-    "ql_mean"          => FT(1e-4), # 1e-3 kg/kg
-    "qi_mean"          => FT(1e-8), # 1e-3 kg/kg
-    "qr_mean"          => FT(1e-2), # 1e-3 kg/kg
-    "qs_mean"          => FT(1e-3), # 1e-3 kg/kg
-    "qip_mean"         => FT(1e-3), # 1e-3 kg/kg
-    "ql_all_mean"      => FT(1e-3), # 1e-3 kg/kg
-    "qi_all_mean"      => FT(1e-8), # 1e-3 kg/kg
-    "qt_mean"          => FT(1e-3), # 1e-3 kg/kg
+    "ql_mean" => FT(1e-4), # 1e-3 kg/kg
+    "qi_mean" => FT(1e-8), # 1e-3 kg/kg
+    "qr_mean" => FT(1e-2), # 1e-3 kg/kg
+    "qs_mean" => FT(1e-3), # 1e-3 kg/kg
+    "qip_mean" => FT(1e-3), # 1e-3 kg/kg
+    "ql_all_mean" => FT(1e-3), # 1e-3 kg/kg
+    "qi_all_mean" => FT(1e-8), # 1e-3 kg/kg
+    "qt_mean" => FT(1e-3), # 1e-3 kg/kg
 )
 
 
 default_obs_var_scaling = Dict{String, FT}(
-    "temperature_mean" => (1/273.0)^2, #  scale down bc we scaled T to 1, so ΔT is now ∼ 1/273, so scale that up, leave others the same. then ΔT will be O(1) just like Δq
-    "ql_mean" => FT((1.0/2)^2), # boost by factor of 2
-    "qi_mean" => FT((1.0/5)^2), # boost by factor of 5
+    "temperature_mean" => (1 / 273.0)^2, #  scale down bc we scaled T to 1, so ΔT is now ∼ 1/273, so scale that up, leave others the same. then ΔT will be O(1) just like Δq
+    "ql_mean" => FT((1.0 / 2)^2), # boost by factor of 2
+    "qi_mean" => FT((1.0 / 5)^2), # boost by factor of 5
     "qr_mean" => FT(1.0),
     "qs_mean" => FT(1.0),
     "qip_mean" => FT(1.0),
     "ql_all_mean" => FT(1.0), # leave equal
     "qi_all_mean" => FT(1.0), # leave equal
-    
-    ) # scale down so ice becomes more important (factor of 5 rn), maybe will help calibrations...
-    
+) # scale down so ice becomes more important (factor of 5 rn), maybe will help calibrations...
+
 # Can maybe implement this later, rn we're just using obs_var_scaling to adjust
 # pooled_nonzero_mean_values = Dict(
 #     "ql_mean" => FT(1),
@@ -489,7 +640,9 @@ default_obs_var_scaling = Dict{String, FT}(
 
 header_setup_choice = :default # can be overwritten in the exepriment script, currently have choices :default and :simple
 
-@warn("How is additive inflation (at least I think it is) changing the absolute scaling when using obs_var_scaling? do we actually need to add a 'normalize to' value?")
+@warn(
+    "How is additive inflation (at least I think it is) changing the absolute scaling when using obs_var_scaling? do we actually need to add a 'normalize to' value?"
+)
 # additive_inflation = nothing # default to not using it
 additive_inflation = 1e-8 # default to not using it
 
@@ -527,7 +680,8 @@ z_bounds = Dict(
         10 => (0, 4000),
         11 => (missing, missing),
         12 => (0, 2000),
-        13 => (0, 2000), ),
+        13 => (0, 2000),
+    ),
     :ERA5_data => Dict{Int, NTuple{2, Union{FT, Missing}}}(
         1 => (missing, missing),
         9 => (missing, missing),
@@ -535,6 +689,5 @@ z_bounds = Dict(
         11 => (missing, missing),
         12 => (missing, missing),
         13 => (missing, missing),
-        )
+    ),
 )
-

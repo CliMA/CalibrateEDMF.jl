@@ -56,29 +56,29 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     if haskey(out_config, "outdir_root") && isdir(out_config["outdir_root"])
         @warn("Cleaning up old files in output directory: $(out_config["outdir_root"])")
         outdir_root = out_config["outdir_root"]
-        files = readdir(outdir_root; join=true)
+        files = readdir(outdir_root; join = true)
         # print(files)
         # delete ekobj_iter_#.jld2 files
-        map(file-> occursin(r"ekobj_iter_\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"ekobj_iter_\d+.jld2", file) ? rm(file; force = true) : nothing, files)
         # delete prior.jld2 files
-        map(file-> occursin(r"prior.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"prior.jld2", file) ? rm(file; force = true) : nothing, files)
         # delte scm_output_i#_e#.jld2 files
-        map(file-> occursin(r"scm_output_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
-        map(file-> occursin(r"scm_val_output_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"scm_output_i\d+_e\d+.jld2", file) ? rm(file; force = true) : nothing, files)
+        map(file -> occursin(r"scm_val_output_i\d+_e\d+.jld2", file) ? rm(file; force = true) : nothing, files)
         # delete versions_#.txt files
-        map(file-> occursin(r"versions_\d+.txt", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"versions_\d+.txt", file) ? rm(file; force = true) : nothing, files)
         # delete .txt files remaining (shold be hte random sequence.txt file left...)
-        map(file-> occursin(r".txt", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r".txt", file) ? rm(file; force = true) : nothing, files)
         # delete scm_initializer_i#_e#.jld2 files
-        map(file-> occursin(r"scm_initializer_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
-        map(file-> occursin(r"scm_val_initializer_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"scm_initializer_i\d+_e\d+.jld2", file) ? rm(file; force = true) : nothing, files)
+        map(file -> occursin(r"scm_val_initializer_i\d+_e\d+.jld2", file) ? rm(file; force = true) : nothing, files)
         # delete config.jl file
-        map(file-> occursin(r"config.jl", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"config.jl", file) ? rm(file; force = true) : nothing, files)
         # delete Diagnostics.nc file
-        map(file-> occursin(r"Diagnostics.nc", file) ?  rm(file; force=true) : nothing, files)
+        map(file -> occursin(r"Diagnostics.nc", file) ? rm(file; force = true) : nothing, files)
         # clear out tmp subdirectory if it exists
         if isdir(joinpath(outdir_root, "tmp"))
-            rm(joinpath(outdir_root, "tmp"); recursive=true, force=true)
+            rm(joinpath(outdir_root, "tmp"); recursive = true, force = true)
         end
     end
 
@@ -93,7 +93,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     Δt = get_Δt(Δt_scheduler, 1)
 
     scheduler = get_entry(proc_config, "scheduler", nothing)
-    
+
 
     @info("Δt 2: $Δt_scheduler, $Δt")
     @info("scheduler ", proc_config["scheduler"], scheduler)
@@ -173,7 +173,10 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         batch_size,
         config_path,
         y_ref_type;
-        use_outdir_root_as_outdir_path = ("use_outdir_root_as_outdir_path" in keys(out_config) && (out_config["use_outdir_root_as_outdir_path"] == true)) ? true : false # if specified in output config, just use the outdir_root as the outdir_path
+        use_outdir_root_as_outdir_path = (
+            "use_outdir_root_as_outdir_path" in keys(out_config) &&
+            (out_config["use_outdir_root_as_outdir_path"] == true)
+        ) ? true : false, # if specified in output config, just use the outdir_root as the outdir_path
     )
 
     if !isnothing(prior_μ)
@@ -238,7 +241,7 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     init_diagnostics(config, outdir_path, io_ref_models, io_ref_stats, ekobj, priors, val_ref_models, val_ref_stats)
 
     if mode == "hpc"
-        @info "$(job_id).txt" 
+        @info "$(job_id).txt"
         open("$(job_id).txt", "w") do io
             println(io, outdir_path)
         end
@@ -275,10 +278,10 @@ function create_output_dir(
     end
 
     @info "Name of outdir path for this EKP is: $outdir_path"
-    outdir_path = HelperFuncs.realpath_resolve_symlinks(outdir_path, use_shell=false) # resolve symlinked paths (if the outdir_path leads to a symlink to a directory that doesn't exist yet, mkpath will fail)
+    outdir_path = HelperFuncs.realpath_resolve_symlinks(outdir_path, use_shell = false) # resolve symlinked paths (if the outdir_path leads to a symlink to a directory that doesn't exist yet, mkpath will fail)
     mkpath(outdir_path)
     if !isnothing(config_path)
-        cp(config_path, joinpath(outdir_path, "config.jl"); force=true) # force to allow overwrites say to keep a consistent output directory
+        cp(config_path, joinpath(outdir_path, "config.jl"); force = true) # force to allow overwrites say to keep a consistent output directory
     end
     return outdir_path
 end
@@ -476,26 +479,34 @@ function ek_update(
             # since we don't control the internals of EKP to just construct that matrix externally, we'll just rely on them... once it's merged in... for now we're stuck with just using use_prior_cov=true (false would use final iteration which is probably jacked up in our collapsed case, since we're not benignly using inflation...) 
 
             # if u_cov is singular, this wont work....
-            
+
             # should we use prior cov or final cov when applying inflation?
-            
+
             #=
             This code is copied from  EnsembleKalmanProcesses.jl </src/EnsembleKalmanProcess.jl> bc I don't want to separately manage my own version of another package again
             =#
-            
+
             Σ = get_u_cov_prior(ekobj)
 
             # NOTE: in 1.1.6, we could just pass Σ = Σ + additive_inflation * I to update_ensemble!() as our additive_inflation_cov matrix, and then we'd just be done w/ the whole thing...  MvNormal() call would work, etc yada yada... but we're stuck in 1.1.5 for now... (can try to update later)
 
-            if (detΣ =  EnsembleKalmanProcesses.LinearAlgebra.det(Σ)) < 1e-100 # close to 0...
+            if (detΣ = EnsembleKalmanProcesses.LinearAlgebra.det(Σ)) < 1e-100 # close to 0...
                 # this code is copied from  EnsembleKalmanProcesses.jl </src/EnsembleKalmanProcess.jl> bc I don't want to separately manage my own version of another package again
                 # In principle, calculating det(Σ) is slow... so repeating it isn't ideal...
                 @warn "Prior covariance matrix may be singular, has determinant $detΣ... Adding $additive_inflation to the covariance matrix diagonal. You likely need more ensemble members!"
-                
+
 
                 # == we can't guarantee that the new u will have a positive definite and non-singular cov matrix, so  we call update_ensemble!() but w/ inflation off... == #
-                update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=false, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
-                
+                update_ensemble!(
+                    ekobj,
+                    g,
+                    Δt_new = Δt,
+                    deterministic_forward_map = deterministic_forward_map,
+                    additive_inflation = false,
+                    s = additive_inflation,
+                    use_prior_cov = true,
+                ) # version in 1.1.5
+
                 # == Now we'l do our own inflation == #
 
                 u = get_u_final(ekobj)
@@ -510,14 +521,22 @@ function ek_update(
                 end
 
                 Σ += additive_inflation * EnsembleKalmanProcesses.LinearAlgebra.I # this ensures that Σ is positive definite and non-singular
-                noise_multivariate =  EnsembleKalmanProcesses.Distributions.MvNormal((scaled_Δt / (1 - scaled_Δt)) .* Σ) # just a normal distribution with the additional to the diagnoal, but no other scaling... this also doesn't rely on Δt from the scheduler, idk if that's bad or not. We don't wanna call calculate_timestep! bc it mutates ekp.Δt (though you could just undo that...)
+                noise_multivariate = EnsembleKalmanProcesses.Distributions.MvNormal((scaled_Δt / (1 - scaled_Δt)) .* Σ) # just a normal distribution with the additional to the diagnoal, but no other scaling... this also doesn't rely on Δt from the scheduler, idk if that's bad or not. We don't wanna call calculate_timestep! bc it mutates ekp.Δt (though you could just undo that...)
                 u_updated = u + rand(noise_multivariate, size(u, 2))
 
                 # we overwrite the update_ensemble no inflation u w/ our inflated u, just as if we were now calling EnsembleKalmanProcesses:additive_inflation!()
                 ekobj.u[end] = EnsembleKalmanProcesses.DataContainers.DataContainer(u_updated, data_are_columns = true) # update the u w/ something that is sure to have positive definite and non-singular cov matrix
 
             else
-                update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+                update_ensemble!(
+                    ekobj,
+                    g,
+                    Δt_new = Δt,
+                    deterministic_forward_map = deterministic_forward_map,
+                    additive_inflation = true,
+                    s = additive_inflation,
+                    use_prior_cov = true,
+                ) # version in 1.1.5
             end
 
 
@@ -532,7 +551,7 @@ function ek_update(
         else
             @info "No additive inflation applied to the ensemble."
             @info "Δt 4: $Δt"
-            update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map,) #
+            update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map) #
             @info("Δt 5", ekobj.Δt)
         end
     elseif isa(ekobj.process, Unscented)
@@ -546,7 +565,7 @@ function ek_update(
         update_ensemble!(ekobj, g)
     end
 
-    
+
 
     # Diagnostics IO
     if !isnothing(val_config)

@@ -6,7 +6,7 @@ import EnsembleKalmanProcesses as EKP
 using JLD2
 using NCDatasets
 using Statistics
-using Random 
+using Random
 using GaussianProcesses
 
 include("../tools/DiagnosticsTools.jl")
@@ -14,13 +14,13 @@ include("../tools/DiagnosticsTools.jl")
 const CES = CalibrateEmulateSample
 
 
-exp_id = <experiment_id>
+# exp_id = <experiment_id>
 # linreg pre-calibration ekp object
-eki_path = <ekp_subset_precalibration.jld2>
+# eki_path = <ekp_subset_precalibration.jld2>
 # linreg full calibration
-output_dir_full =  <path/to/fullcalibration>
+# output_dir_full =  <path/to/fullcalibration>
 # linreg pre-calibration
-output_dir = <path/to/precalibration>
+# output_dir = <path/to/precalibration>
 
 iterations = (4, 8, 16)
 num_params = 22
@@ -52,9 +52,7 @@ phi_names_optimal, phi_optimal = optimal_parameters(diagnostics_path; method = "
 @assert phi_names_optimal == phi_names_optimal_full
 
 
-u_optimal = Emulators.transform_constrained_to_unconstrained(
-    prior, phi_optimal
-)
+u_optimal = Emulators.transform_constrained_to_unconstrained(prior, phi_optimal)
 u_final = u_optimal
 
 
@@ -86,7 +84,7 @@ function create_paired_data(ds, iterations, randomly_select_N = nothing, first_N
 
 
 
-    factor_vector = maximum(G, dims=1)[:]
+    factor_vector = maximum(G, dims = 1)[:]
 
     input_output_pairs = PairedDataContainer(U', G', data_are_columns = true)
     return (input_output_pairs, factor_vector)
@@ -105,15 +103,17 @@ else
     # If not loading from file, build and train the emulator
     gppackage = Emulators.SKLJL()
     gauss_proc = Emulators.GaussianProcess(gppackage, noise_learn = false)
-    emulator_gp = Emulator(gauss_proc, 
-                            input_output_pairs, 
-                            normalize_inputs = true,  
-                            standardize_outputs = true,
-                            standardize_outputs_factors = factor_vector,
-                            decorrelate = true, 
-                            obs_noise_cov = Γ_i)
+    emulator_gp = Emulator(
+        gauss_proc,
+        input_output_pairs,
+        normalize_inputs = true,
+        standardize_outputs = true,
+        standardize_outputs_factors = factor_vector,
+        decorrelate = true,
+        obs_noise_cov = Γ_i,
+    )
     optimize_hyperparameters!(emulator_gp)
-    
+
     if save_emulator
         @save emulator_save_path emulator_gp
         println("Emulator saved to $emulator_save_path")
@@ -140,9 +140,8 @@ display(chain)
 
 # # Extract posterior samples
 posterior = MarkovChainMonteCarlo.get_posterior(mcmc, chain);
-constrained_posterior = Emulators.transform_unconstrained_to_constrained(
-    prior, MarkovChainMonteCarlo.get_distribution(posterior)
-)
+constrained_posterior =
+    Emulators.transform_unconstrained_to_constrained(prior, MarkovChainMonteCarlo.get_distribution(posterior))
 
 
 # draw num samples from prior equal to MCMC N_samples
@@ -152,7 +151,7 @@ prior_samples_u_phi = EKP.transform_unconstrained_to_constrained(prior, prior_sa
 
 constrained_prior = Dict()
 for (i, name) in enumerate(prior.name)
-    constrained_prior[name] = prior_samples_u_phi[i,:]
+    constrained_prior[name] = prior_samples_u_phi[i, :]
 end
 
 
