@@ -61,8 +61,8 @@ run_setups = [
 
 # run_calibration_vars_list = new_calibration_vars_list
 run_calibration_vars_list = [
-    ["ql_mean", "qi_mean"],
-    ["ql_all_mean", "qi_all_mean"],
+    # ["ql_mean", "qi_mean"],
+    # ["ql_all_mean", "qi_all_mean"],
     ["ql_mean", "qi_mean", "qr_mean", "qip_mean"],
     # ["temperature_mean", "ql_mean", "qi_mean"],
     # ["temperature_mean", "ql_all_mean", "qi_all_mean"],

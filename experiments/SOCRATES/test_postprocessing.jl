@@ -20,7 +20,7 @@ run_setups = [
 ]
 run_setups = run_setups_default
 
-run_postprocessing_runs = true
+run_postprocessing_runs = false
 if run_postprocessing_runs
     for (experiment, setup) in run_setups
         for calibration_vars in run_calibration_vars_list

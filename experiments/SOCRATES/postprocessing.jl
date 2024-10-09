@@ -138,7 +138,7 @@ all_needed_reference_vars =  Dict{Tuple{String,String}, String}(
     #
 
     # autoconv
-    ("ql_autoconv", "profiles") => "PRC",  # autocnversion QL to QR[QL -> QR]
+    ("ql_autoconv", "profiles") => "PRC",  # autoconversion QL to QR [QL -> QR]
     ("qi_autoconv", "profiles") => "PRCI", # autoconversion QI to QS [QI -> QS]
     ("qi_thresh", "profiles") => "PITOSN", # ice to snow due to threshold [QI -> QS]
     # accretion
@@ -150,7 +150,7 @@ all_needed_reference_vars =  Dict{Tuple{String,String}, String}(
     ("ql_accr_r", "profiles") => "PRA",    # accretion QL by QR [QL -> QR]
     ("ql_accr_i", "profiles") => "PSACWI", # accretion QL by QI [QL -> QI]
     ("ql_accr_g", "profiles") => "PSACWG", # accretion QL by QG [QL -> QG] (https://doi.org/10.1029/2018JD028490 calls it collection)
-    ("ql_accr_s", "profiles") => "PSACWS", # accretion QL by QS [QG -> QS] 
+    ("ql_accr_s", "profiles") => "PSACWS", # accretion QL by QS [QG -> QS] ???? is this right
     # collection
     ("ql_coll_by_snow_to_grau", "profiles") => "PGSACW", # collection QL by QS, to QG
     #
@@ -296,8 +296,8 @@ run_setups_default = [
 
 # run_calibration_vars_list = new_calibration_vars_list
 run_calibration_vars_list = [
-    ["ql_mean", "qi_mean"],
-    ["ql_all_mean", "qi_all_mean"],
+    # ["ql_mean", "qi_mean"],
+    # ["ql_all_mean", "qi_all_mean"],
     ["ql_mean", "qi_mean", "qr_mean", "qip_mean"],
     # ["temperature_mean", "ql_mean", "qi_mean"],
     # ["temperature_mean", "ql_all_mean", "qi_all_mean"],
