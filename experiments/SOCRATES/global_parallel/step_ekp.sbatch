@@ -7,7 +7,7 @@
 #SBATCH -J "sct_cont"   # job name
 
 # module load julia/1.9.3 openmpi/4.1.5
-module load julia/1.9.3 mpich/4.0.0 # copied from other experiments
+module load julia/1.10.0 mpich/4.0.0 # copied from other experiments
 
 
 

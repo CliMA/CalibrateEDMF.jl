@@ -39,7 +39,9 @@ run_script=${1?Error: no config file given} # maybe we add later to just default
 
 # echo $thisfile
 
-module load julia/1.9.3 # hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # do we need these then? costa amde it seem like we don't anymore (doesn't work on sampo anyway... and we should have julia loaded already -- might need on clima idk, it's in my bashrc)
+# module load julia/1.9.3 # hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # do we need these then? costa amde it seem like we don't anymore (doesn't work on sampo anyway... and we should have julia loaded already -- might need on clima idk, it's in my bashrc)
+module load julia/1.10.0 mpich/4.0.0 # copied from other experiments
+
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
 julia --project -p 72 $run_script # Not sure how many processors I should go for... maybe at least 1 more than the batch size?

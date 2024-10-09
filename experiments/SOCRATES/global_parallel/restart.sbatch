@@ -7,7 +7,7 @@
 #SBATCH -J "restart"   # job name
 
 # module load julia/1.9.3 openmpi/4.1.5
-module load julia/1.9.3 mpich/4.0.0 # copied from other experiments
+module load julia/1.10.0 mpich/4.0.0 # copied from other experiments
 
 output_dir=${1?Error: no output directory given}
 job_id=${2?Error: no job ID given}

@@ -8,7 +8,7 @@
 
 #julia package management
 # module load julia/1.9.3 openmpi/4.1.5
-module load julia/1.9.3 mpich/4.0.0 # copied from other experiments
+module load julia/1.10.0 mpich/4.0.0 # copied from other experiments
 
 config=${1?Error: no config file given}
 job_id=${2?Error: no job ID given}
