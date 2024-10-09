@@ -721,12 +721,16 @@ function values_ordered(dict::Dict)
     return [dict[key] for key in keys_ordered(dict)]
 end
 
-"Returns the N-vector stored in `dict[key]`, or an N-vector of `nothing`"
-function expand_dict_entry(dict, key, N)
+"Returns the N-vector stored in `dict[key]`, or an N-vector of `default`. Additionally, expand scalars to N-vector"
+function expand_dict_entry(dict, key, N; default=nothing)
     val = get(dict, key, nothing)
-    r = isnothing(val) ? repeat([nothing], N) : val
+    r = isnothing(val) ? repeat([default], N) : val
+    if isa(r, Array)
     @assert length(r) == N
-    r
+    else
+        r = repeat([r], N) # expand to a vector if we're given a scalar
+    end
+    return r
 end
 
 """
