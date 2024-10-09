@@ -39,27 +39,28 @@ D_ref = FT(0.0000226)
 D = D_ref
 # ========================================================================================================================= #
 # setup stuff (needs to be here for ekp_par_calibration.sbatch to read), can read fine as long as is after "=" sign
-N_ens  = 30 # number of ensemble members
-N_iter = 20 # number of iterations
+N_ens  = 50 # number of ensemble members
+N_iter = 15 # number of iterations
 # ========================================================================================================================= #
+expanded_unconstrained_σ = FT(5.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)
 calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
+    # we should log space some of these but if we don't know their sign... it's hard to do that... also idk the right order of mangitudes for the priors... bounded_below/bounded_above mapping means the variance seems to be mostly 1:1 in log space... let's just assume bc it's exponential that the exponenet can't be thaaat big given q,T(C),w aren't that big
+    "linear_combination_liq_c_1"   => Dict("prior_mean" => FT(N_l * r_0)                     , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # I think at q=0, we need c_1 from linear = c_1 from geometric...
+    "linear_combination_liq_c_2"   => Dict("prior_mean" => FT(0)                             , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # T scaling on liq sign uncertain...
+    "linear_combination_liq_c_3"   => Dict("prior_mean" => FT(1)                             , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # should have τ down as q up, so start positive but bounded
+    "linear_combination_liq_c_4"   => Dict("prior_mean" => FT(1)                             , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # w up should lead to τ down, so coefficient is (probably) positive  # start away from 0 bc that's ∞ in unbounded space
+    # seomthing can considers q_l, q_i ratio?
+    # an offset?
     #
-    "linear_combination_liq_c_1"   => Dict("prior_mean" => FT(N_l * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # I think at q=0, we need c_1 from linear = c_1 from geometric...
-    "linear_combination_liq_c_2"   => Dict("prior_mean" => FT(2/3.)                         , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # Halfway between 1/3 and 1 (we know these can't be right?) but it has the same sign lmao so it still decays... (we would need to figure out how to match slopes at some arbitrary point near 0 that isn't 0 lmao)
-    "linear_combination_liq_c_3"   => Dict("prior_mean" => FT(-1)                           , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # asssume nothing here? (keep 0 as upper bound?)  # start away from 0 bc that's ∞ in unbounded space
-    "linear_combination_liq_c_4"   => Dict("prior_mean" => FT(1)                            , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # w up should lead to τ down, so coefficient is positive  # start away from 0 bc that's ∞ in unbounded space
-    # "linear_combination_liq_c_5"   => Dict("prior_mean" => FT(N_l * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
+    "linear_combination_ice_c_1"   => Dict("prior_mean" => FT(N_i * r_0)                     , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # I think at q=0, we need c_1 from linear = c_1 from geometric...
+    "linear_combination_ice_c_2"   => Dict("prior_mean" => FT(-0.6)                          , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Fletcher 1962 (values taken from Frostenberg 2022), same sign again I suppose...
+    "linear_combination_ice_c_3"   => Dict("prior_mean" => FT(1)                             , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # should have τ down as q up, so start positive
+    "linear_combination_ice_c_4"   => Dict("prior_mean" => FT(1)                             , "constraints" => no_constraint()  , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), #  w up should lead to τ down, so coefficient is positive
     #
-    "linear_combination_ice_c_1"   => Dict("prior_mean" => FT(N_i * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # I think at q=0, we need c_1 from linear = c_1 from geometric...
-    "linear_combination_ice_c_2"   => Dict("prior_mean" => FT(2/3.)                         , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # Halfway between 1/3 and 1 (we know these can't be right?) but it has the same sign lmao so it still decays... (we would need to figure out how to match slopes at some arbitrary point near 0 that isn't 0 lmao)
-    "linear_combination_ice_c_3"   => Dict("prior_mean" => FT(-0.6)                         , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), # Fletcher 1962 (values taken from Frostenberg 2022), same sign again I suppose...
-    "linear_combination_ice_c_4"   => Dict("prior_mean" => FT(1)                            , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), #  w up should lead to τ down, so coefficient is positive
-    # "linear_combination_ice_c_5"   => Dict("prior_mean" => FT(N_l * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
-    #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale"), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale"), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold"),
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold"),
+    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
+    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), 
+    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ), # unrealistically high upper bound
+    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded(0, 1)    , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),          # unrealistically high upper bound
     ) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
@@ -82,7 +83,8 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
+    # ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
     #
     ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
 ]

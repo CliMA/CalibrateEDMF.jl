@@ -216,14 +216,16 @@ function get_prior_config()
     # Don't forget to also update these in L2-reg (should we add a warning to check they all have the same keys or something?)
     config = Dict()
     # constraints on each variable
-    wrap(x) = (x isa Union{Vector,Tuple}) ? x : [x] # wrap scalars in a vector so that they can be splatted regardless of what they are (then you can pass in eitehr vector or scalar in your calibration_parameters dict)
     config["constraints"] = Dict(k=>[wrap(v["constraints"])...] for (k,v) in calibration_parameters) # costa said we don't need this
     # TC.jl prior mean
     config["prior_mean"] = Dict(k=>[wrap(v["prior_mean"])...] for (k,v) in calibration_parameters) # put in list if scalar (expand lists so doesnt become nested)
     # not sure yet what this is lol
-    config["unconstrained_σ"] = 1.0 # just leave everyting variance 
+    # config["unconstrained_σ"] = 1.0 # just leave everyting variance 
     # Tight initial prior for Unscented
     # config["unconstrained_σ"] = 0.25
+    # Test defaulting to 1 but allowing for different values
+    config["unconstrained_σ"] = Dict(k=>[wrap(get(v,"unconstrained_σ", 1.0))...] for (k,v) in calibration_parameters)
+
     return config
 end
 
