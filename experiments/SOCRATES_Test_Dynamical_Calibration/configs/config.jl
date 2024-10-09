@@ -25,7 +25,9 @@ struct SOCRATES_Train end
 struct SOCRATES_Val end
 
 this_dir = @__DIR__ # the location of this file
-data_dir = joinpath(this_dir, "Truth") # the folder where we store our truth (Atlas LES Data)
+pkg_dir = pkgdir(CalibrateEDMF)
+experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES_Test_Dynamical_Calibration")
+truth_dir = joinpath(experiment_dir, "Truth") # the folder where we store our truth (Atlas LES Data)
 # SOCRATES setups
 flight_numbers = [1,9,10,11,12,13]
 forcing_types  = [:obs_data, :ERA5_data]
@@ -77,7 +79,7 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = joinpath(this_dir, "Output") # store them in the experiment folder here by default
+    config["outdir_root"] = joinpath(experiment_dir, "Output", "Calibrations") # store them in the experiment folder here by default
     return config
 end
 
@@ -134,7 +136,7 @@ function get_reference_config(::SOCRATES_Train)
     # add this here because it seems to be called?
     for setup in setups
        name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
-       datafile = joinpath(this_dir, "Truth", name, "stats", name*".nc")
+       datafile = joinpath(truth_dir, name, "stats", name*".nc")
        if isfile(datafile)
            setup["datafile"] = datafile
            setup["case_name"] = "SOCRATES_"*name
@@ -143,7 +145,7 @@ function get_reference_config(::SOCRATES_Train)
        end
     end
 
-    NC.Dataset(joinpath(data_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+    NC.Dataset(joinpath(truth_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
         for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
             if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
                 setup["t_start"] = 10 * 3600.
@@ -202,7 +204,7 @@ function get_reference_config(::SOCRATES_Val)
     # add this here because it seems to be called?
     for setup in setups
        name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
-       datafile = joinpath(this_dir, "Truth", name, "stats", name*".nc")
+       datafile = joinpath(truth_dir, name, "stats", name*".nc")
        if isfile(datafile)
            setup["datafile"] = datafile
            setup["case_name"] = "SOCRATES_"*name
@@ -212,7 +214,7 @@ function get_reference_config(::SOCRATES_Val)
     end
     setup = filter(d->haskey(d,"datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
 
-    NC.Dataset(joinpath(data_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+    NC.Dataset(joinpath(truth_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
         for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
             if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
                 setup["t_start"] = 10 * 3600.
