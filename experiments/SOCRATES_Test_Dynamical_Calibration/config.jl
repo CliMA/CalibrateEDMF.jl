@@ -48,7 +48,7 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = pwd()
+    config["outdir_root"] = joinpath(this_dir, "Output") # store them in the experiment folder here by default
     return config
 end
 
