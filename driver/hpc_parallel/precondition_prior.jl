@@ -24,6 +24,10 @@ s = ArgParseSettings()
     help = "Job output directory"
     arg_type = String
     default = "output"
+    "--max_counter"
+    help = "Maximum number of recursive calls to the preconditioner"
+    arg_type = Int
+    default = 10
 end
 parsed_args = parse_args(ARGS, s)
 version = parsed_args["version"]
@@ -37,7 +41,7 @@ ekobj = load(ekobj_path(outdir_path, 1))["ekp"]
 
 # Preconditioning ensemble methods in unconstrained space
 if isa(ekobj.process, Inversion) || isa(ekobj.process, Sampler)
-    model_evaluator = precondition(scm_args["model_evaluator"], priors)
+    model_evaluator = precondition(scm_args["model_evaluator"], priors; max_counter = parsed_args["max_counter"])
     batch_indices = scm_args["batch_indices"]
     rm(scm_init_path(outdir_path, version))
     jldsave(scm_init_path(outdir_path, version); model_evaluator, version, batch_indices)

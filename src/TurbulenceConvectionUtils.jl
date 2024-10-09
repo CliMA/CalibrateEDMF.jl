@@ -619,10 +619,10 @@ Inputs:
 Outputs:
  - A preconditioned ModelEvaluator.
 """
-function precondition(ME::ModelEvaluator, priors)
+function precondition(ME::ModelEvaluator, priors; max_counter::Integer=10)
     # Precondition in unconstrained space
     u_orig = transform_constrained_to_unconstrained(priors, ME.param_cons)
-    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats)
+    u = precondition(u_orig, priors, ME.param_map, ME.ref_models, ME.ref_stats; max_counter=max_counter)
     # Transform back to constrained space
     param_cons = transform_unconstrained_to_constrained(priors, u)
     return ModelEvaluator(param_cons, ME.param_names, ME.param_map, ME.ref_models, ME.ref_stats)
