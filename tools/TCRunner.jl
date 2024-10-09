@@ -42,6 +42,7 @@ function run_TC_optimal(
     method::String = "best_nn_particle_mean",
     metric::String = "mse_full",
     n_ens::Int = 1,
+    optimal_params_save_path::Union{String, Nothing} = nothing,
 )
     cases = run_cases["case_name"]
     # get global namelist_args
@@ -56,6 +57,20 @@ function run_TC_optimal(
         u_names, u = final_parameters(joinpath(results_dir, "Diagnostics.nc"))
     else
         u_names, u = optimal_parameters(joinpath(results_dir, "Diagnostics.nc"); method = method, metric = metric)
+    end
+
+    # save calibrated parameters if desired
+    @warn("Need to add option to save calibrated parameter values to file")
+    if !isnothing(optimal_params_save_path)
+        info("Saving optimal parameters to $optimal_params_save_path")
+        error("saving not implemented yet")
+
+        rm(optimal_params_save_path, force = true)
+        optimal_params_file = NC.Dataset(optimal_params_save_path, "c")
+        NC.defDim(optimal_params_file, "param", length(u_names)) # dim
+        NC.defVar(optimal_params_file, "param", u_names, ["param"]) # coordinates (should we do this or just 1:length(u_names))
+        NC.defVar(optimal_params_file, "params", u, ["param"]) # data
+        close(optimal_params_file)
     end
 
     @everywhere run_single_SCM(t::Tuple) = run_single_SCM(t...)
@@ -136,6 +151,10 @@ function parse_commandline()
         help = "number of ensembles to run"
         arg_type = Int64
         default = 1
+        "--optimal_params_save_path"
+        help = "Path to save optimal parameters"
+        arg_type = String
+        default = nothing
     end
 
     return ArgParse.parse_args(s)
