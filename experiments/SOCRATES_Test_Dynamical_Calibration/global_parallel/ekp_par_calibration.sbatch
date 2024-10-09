@@ -19,14 +19,14 @@ n_proc_scm=10
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 module purge
-module load julia/1.8.5 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # check these are still up to date
+module load julia/1.8.5 # hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1 # check these are still up to date
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
 export JULIA_CUDA_USE_BINARYBUILDER=false
 
 # run instantiate/precompile serial
-julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+julia --project -C skylake-avx512 -e 'using Pkg; Pkg.instantiate(); Pkg.build()' # do we want this? maybe only works on hpc w/ skylake-avx512
 julia --project -C skylake-avx512 -e 'using Pkg; Pkg.precompile()'
 
 for it in $(seq 1 1 $n_it)
