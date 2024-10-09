@@ -522,4 +522,65 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     )
 end
 
+# """
+# I was working on a new version of this function that would return a vector of ReferenceStatistics objects
+# This was motivated by a desire to have time_shifts be a vector (I need different ones for obs/ERA in the event I ever calibrate them simultaneously)
+# It works but ref_stats in Pipeline.jl gets sent to Diagnostics and further so it's maybe not a priority right now for me to chase all that down and do that yet...
+# Would work with construct_reference_statistics() below
+# """
+# function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any}) # we need to edit this to be more like get_ref_model_kwargs in ReferenceModels.jl, to allow for different time_shifts...
+#     n_cases = length(ref_config["case_name"])
+#     model_errors = expand_dict_entry(ref_config, "model_errors", n_cases; default = nothing)
+#     time_shift = expand_dict_entry(ref_config, "time_shift", n_cases; default = 6.0 * 3600.0)
+#     perform_PCA = expand_dict_entry(reg_config, "perform_PCA", n_cases; default = true)
+#     variance_loss = expand_dict_entry(reg_config, "variance_loss", n_cases; default = 1.0e-2)
+#     normalize = expand_dict_entry(reg_config, "normalize", n_cases; default = true)
+#     tikhonov_mode = expand_dict_entry(reg_config, "tikhonov_mode", n_cases; default = "relative")
+#     tikhonov_noise = expand_dict_entry(reg_config, "tikhonov_noise", n_cases; default = 1.0e-6)
+#     dim_scaling = expand_dict_entry(reg_config, "dim_scaling", n_cases; default = true)
+
+#     rs_kwargs =  Dict(
+#         :perform_PCA => perform_PCA,
+#         :normalize => normalize,
+#         :variance_loss => variance_loss,
+#         :tikhonov_noise => tikhonov_noise,
+#         :tikhonov_mode => tikhonov_mode,
+#         :dim_scaling => dim_scaling,
+#         :model_errors => model_errors,
+#         :time_shift => time_shift,
+#     )
+
+#     n_RS = n_cases # redundant but copying format from get_ref_model_kwargs() which is also redundant
+#     for (k, v) in pairs(rm_kwargs)
+#         if !(k in [:y_type, :Σ_type])
+#             @assert length(v) == n_RM "Entry `$k` in the reference config file has length $(length(v)). Should have length $n_RM."
+#         end
+#     end
+#     return rm_kwargs
+# end
+
+# function construct_reference_statistics(ref_models::Vector{ReferenceModel}; kwarg_ld::Dict)::Vector{ReferenceStatistics}
+#     n_RS = length(kwarg_ld['time_shift']) # just pick a random one
+#     ref_stats = Vector{ReferenceStatistics}()
+#     for RS_i in 1:n_RS
+#         kw = Dict(k => v[RS_i] for (k, v) in pairs(kwarg_ld))  # unpack dict
+
+#         push!(
+#             ref_stats,
+#             ReferenceStatistics(
+#                 ref_models[RS_i];
+#                 perform_pca = get(kw, :perform_pca, nothing), 
+#                 normalize = get(kw, :normalize, nothing),
+#                 variance_loss = get(kw, :variance_loss, nothing),
+#                 tikhonov_noise = get(kw, :tikhonov_noise, nothing),
+#                 tikhonov_mode = kwarg_ld[:tikhonov_mode],
+#                 dim_scaling = kwarg_ld[:dim_scaling],
+#                 time_shift = get(kw, :time_shift, nothing),
+#                 model_errors = get(kw, :model_errors, nothing),
+#             ),
+#         )
+#     end
+#     return ref_stats
+# end
+
 end # module

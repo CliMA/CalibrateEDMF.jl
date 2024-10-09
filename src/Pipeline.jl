@@ -89,14 +89,19 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         global_ref_models = deepcopy(ref_model_batch.ref_models)
         ref_models, batch_indices = get_minibatch!(ref_model_batch, batch_size)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         # Generate global reference statistics for diagnostics
         io_ref_stats = ReferenceStatistics(global_ref_models; kwargs_ref_stats...)
+        # io_ref_stats = construct_reference_statistics(global_ref_models; kwargs_ref_stats...) 
         io_ref_models = global_ref_models
     else
+        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         ref_models = construct_reference_models(kwargs_ref_model)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         io_ref_stats = ref_stats
+        # The io_ref_stats is used in diagnostics stuff all over, so if we change it to be a vector of length matching ref_models, that's a lot of change that might have to happen. If time_shift is the only thing we need to change perhaps that's not essential?
         io_ref_models = ref_models
         batch_indices = nothing
     end
@@ -260,6 +265,7 @@ function init_validation(
         batch_indices = nothing
     end
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+    # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp))
     params = [c[:] for c in eachcol(params_cons_i)]
     mod_evaluators = [ModelEvaluator(param, get_name(priors), param_map, ref_models, ref_stats) for param in params]
@@ -315,6 +321,7 @@ function update_validation(
         ref_model_batch = reshuffle_on_epoch_end(ref_model_batch)
         kwargs_ref_stats = get_ref_stats_kwargs(val_config, reg_config)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         rm(joinpath(outdir_path, "val_ref_model_batch.jld2"))
         write_val_ref_model_batch(ref_model_batch, outdir_path = outdir_path)
     else
@@ -526,6 +533,7 @@ function restart_calibration(
         ekp = ekobj
         ref_models = construct_reference_models(kwargs_ref_model)
         ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+        # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
         batch_indices = nothing
     end
 
@@ -606,6 +614,7 @@ function restart_validation(
         batch_indices = nothing
     end
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+    # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
 
     params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekp_old))
     params = [c[:] for c in eachcol(params_cons_i)]
@@ -803,6 +812,7 @@ function update_minibatch_inverse_problem(
     l2_reg = get_entry(reg_config, "l2_reg", nothing)
     kwargs_ref_stats = get_ref_stats_kwargs(ref_config, reg_config)
     ref_stats = ReferenceStatistics(ref_models; kwargs_ref_stats...)
+    # ref_stats = construct_reference_statistics(ref_models; kwargs_ref_stats...)
     process = ekp_old.process
     ekp_kwargs = Dict(
         :outdir_path => outdir_path,
