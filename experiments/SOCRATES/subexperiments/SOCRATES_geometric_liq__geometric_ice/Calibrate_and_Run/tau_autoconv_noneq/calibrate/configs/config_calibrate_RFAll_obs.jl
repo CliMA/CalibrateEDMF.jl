@@ -37,8 +37,8 @@ N_i   = FT(1e-7 / (4/3 * π * r_r^3 * ρ_i)) # estimated total N assuming reason
 
 # ========================================================================================================================= #
 # setup stuff (needs to be here for ekp_par_calibration.sbatch to read), can read fine as long as is after "=" sign
-N_ens  = 30 # number of ensemble members (neede)
-N_iter = 10 # number of iterations
+N_ens  = 50 # number of ensemble members (neede)
+N_iter = 15 # number of iterations
 # ========================================================================================================================= #
 calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
     #
@@ -50,11 +50,7 @@ calibration_parameters_default = Dict( # The variables we wish to calibrate , th
     "geometric_ice_c_2"   => Dict("prior_mean" => FT(2/3.)                         , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
     "geometric_ice_c_3"   => Dict("prior_mean" => FT(N_i * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale"), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale"), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold"),
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold"),
-    ) # these aren't in the default_namelist so where should I put them?
+) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
 # global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
@@ -71,7 +67,8 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
+    # ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style) ), # we need supersat for non_eq results and the ramp for eq, testing
 ]
 @info("local_namelist:", local_namelist)
 

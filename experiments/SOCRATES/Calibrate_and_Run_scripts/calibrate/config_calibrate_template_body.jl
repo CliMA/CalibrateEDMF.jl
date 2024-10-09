@@ -30,11 +30,23 @@ flight_string  = flight_numbers == [1,9,10,11,12,13] ? "All" : join(string.(flig
 forcing_types_str = join((x->split(string(x),"_")[1]).(forcing_types), "_")
 
 # join our defaults to the rest of the namelist
-local_namelist = [default_namelist_args; local_namelist] # add the default namelist args to the local namelist
+if header_setup_choice == :default
+    local_namelist = [default_namelist_args; local_namelist] # add the default namelist args to the local namelist
+elseif header_setup_choice == :simple
+    local_namelist = [simple_namelist_args; local_namelist] # add the default namelist args to the local namelist
+else
+    error("invalid header_setup_choice: ", header_setup_choice)
+end
 @info("local_namelist:", local_namelist)
 
 # join calibration_parameter dictionaries
-calibration_parameters = merge(default_calibration_parameters, calibration_parameters) # merge the default calibration parameters with the ones we've defined here (overwrite defaults if necessary)
+if header_setup_choice == :default
+    calibration_parameters = merge(default_calibration_parameters, calibration_parameters) # merge the default calibration parameters with the ones we've defined here (overwrite defaults if necessary)
+elseif header_setup_choice == :simple
+    calibration_parameters = merge(simple_calibration_parameters, calibration_parameters) # merge the default calibration parameters with the ones we've defined here (overwrite defaults if necessary)
+else
+    error("invalid header_setup_choice: ", header_setup_choice)
+end
 
 # consider adding a flag to just get the paths without overwriting existing files
 include(joinpath(main_experiment_dir, "process_SOCRATES_reference.jl")) # process the truth data into a format we can use for calibration
@@ -103,7 +115,16 @@ function get_regularization_config()
     # Defaults set to batch_size/total_size to match total dataset uncertainty
     # in UKI. Feel free to set treat these as hyperparameters.
 
-    # config["l2_reg"] = Dict(k=>[v["l2_reg"]] for (k,v) in calibration_parameters) # costa said we don't need this
+    # config["l2_reg"] = Dict(k=>[v["l2_reg"]] for (k,v) in calibration_parameters) # costa said we don't need this, if you leave as nothingw/ augmented true tho it adds cov_prior as regularizer
+    # config["l2_reg"] = 0.0 # test no regularization by prior ( i think default is cov(prior))
+
+    # For obs_var_additional_uncertainty_factor, use variable if it exists else nothing
+    # config["obs_var_additional_uncertainty_factor"] = Dict(v=>obs_var_additional_uncertainty_factor for v in calibration_vars) # testing.... (separate for each variable)
+    config["obs_var_additional_uncertainty_factor"] = obs_var_additional_uncertainty_factor # testing.... (overall), default is nothing unless it was overwritten somewhere
+
+    config["additive_inflation"] = 1e-5 # Additive inflation factor for the covariance matrix (ollie said try starting around here)
+    # -- in principle we could put this in model_error as structural error right? but that gets added which isn't exactly what we want...
+    
     return config
 end
 
@@ -115,10 +136,19 @@ function get_process_config()
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
-    config["Δt"] = 1.0 # EKI learning rate
-    config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number...
+    config["Δt"] = 1.0 # EKI learning rate # (maybe change this if having problems?), but the higher above 1 we get the more we forget the prior so.
+    if @isdefined(alt_scheduler)
+        if alt_scheduler == :default || isnothing(alt_scheduler)
+            config["scheduler"] = nothing
+        else
+            config["scheduler"] = alt_scheduler
+        end
+    else
+        config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number... (however it goes very slowly sometimes lol)
+    end
+    # config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number... (however it goes very slowly sometimes lol)
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = true # costa set this to false?
+    config["augmented"] = false # costa set this to false? (TESTING FALSE!!!)
     config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
     return config
 end
@@ -207,6 +237,12 @@ function get_reference_config(::SOCRATES_Train)
     # config["reference_mean"] = nothing # provide a list of one per case, so they can be concatented block-diagonally in ReferenceStats.jl, should be one vector/profile per y_name (i.e. calibration_var)
     # config["reference_cov"] = nothing # provide a list of one per case, so they can be concatented block-diagonally in ReferenceStats.jl, should be one cov matrix per y_name (i.e. calibration_var)
 
+    # testing
+    config["z_rectifiers"] = [z_bounds[setup["forcing_type"]][setup["flight_number"]] for setup in setups] # z_bounds is a dictionary of dictionaries, so we index it with the flight number and forcing type to get the z_bounds for that setup
+
+    @info(config["z_rectifiers"])
+    @info(typeof(config["z_rectifiers"]))
+    
     return config
 end
 

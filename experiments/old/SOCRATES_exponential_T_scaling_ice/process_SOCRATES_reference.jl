@@ -106,10 +106,10 @@ function process_SOCRATES_Atlas_LES_reference(;
                     #close file at end
                     close(new_data)
                 else
-                    @info("Skiping existing file for flight $flight_number and forcing $forcing_type since overwrite is false")
+                    @info("Skipping existing file for flight $flight_number and forcing $forcing_type since overwrite is false")
                 end
             else
-                @info("Skiping creating reference due to missing truth file for flight $flight_number and forcing $forcing_type")
+                @info("Skipping creating reference due to missing truth file for flight $flight_number and forcing $forcing_type")
             end
         end
     end

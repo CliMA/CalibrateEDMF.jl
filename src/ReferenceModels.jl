@@ -7,6 +7,7 @@ export ReferenceModel,
     get_t_start_Σ,
     get_t_end_Σ,
     get_z_obs,
+    get_z_rectified_obs, # i think this is needed for using custom z
     get_y_dir,
     get_Σ_dir,
     num_vars,
@@ -94,6 +95,8 @@ Base.@kwdef struct ReferenceModel{FT <: Real}
     Σ_t_end::FT
     "Vector of observed vertical locations"
     z_obs::Vector{FT}
+    "Vector of desired vertical locations for the comparison -- you may not wish to compare all z locations so we allow to to specify"
+    z_rectified_obs::Vector{FT}
     "TurbulenceConvection namelist"
     namelist::Dict
     "Type of model used to generate mean observations"
@@ -116,7 +119,8 @@ function ReferenceModel(
     n_obs::OptInt = nothing,
     namelist_args::OptVec{<:Tuple} = nothing,
     seed::OptInt = nothing,
-)
+    z_rectifier::Union{Function, NTuple{2,FT2}, Vector{FT2}, Nothing} = nothing
+    ) where {FT2 <: Real}
     if case_name == "LES_driven_SCM" || occursin("socrates", lowercase(case_name))
         @assert isa(y_type, LES) || isa(Σ_type, LES) "LES data must be used in the construction of LES_driven_SCM ReferenceModels."
     end
@@ -127,6 +131,21 @@ function ReferenceModel(
     z_obs = construct_z_obs(namelist)
     z_obs = !isnothing(n_obs) ? Array(range(z_obs[1], z_obs[end], n_obs)) : z_obs
     FT = eltype(z_obs)
+
+    if !isnothing(z_rectifier)
+        if isa(z_rectifier, Vector{FT2}) # single z vector, use as is
+            z_rectified_obs = z_rectifier
+        elseif isa(z_rectifier, Function)
+            z_rectified_obs = z_rectifier(z_obs) # apply some func
+        elseif isa(z_rectifier, NTuple{2,FT2}) # select only z between z_rectifier[1] and z_rectifier[2]
+            z_rectified_obs = z_obs[(z_obs .>= z_rectifier[1]) .& (z_obs .<= z_rectifier[2])]
+        else
+            throw(ArgumentError("z_rectifiers must be a function, a tuple of two floats, or a vector of floats."))
+        end
+    else
+        z_rectified_obs = z_obs
+    end
+    z_rectified_obs = FT.(z_rectified_obs) # in case FT and FT2 were different
 
     Σ_dir = isnothing(Σ_dir) ? y_dir : Σ_dir
     Σ_t_start = isnothing(Σ_t_start) ? t_start : Σ_t_start
@@ -142,6 +161,7 @@ function ReferenceModel(
         FT(Σ_t_start),
         FT(Σ_t_end),
         z_obs,
+        z_rectified_obs,
         namelist,
         y_type,
         Σ_type,
@@ -155,6 +175,7 @@ get_t_end_Σ(m::ReferenceModel) = m.Σ_t_end
 
 "Returns the observed vertical locations for a reference model"
 get_z_obs(m::ReferenceModel) = m.z_obs
+get_z_rectified_obs(m::ReferenceModel) = m.z_rectified_obs # we need to add get_z_rectified_obs or the z_rectifier to the ReferenceModel struct, better just to add the obs
 
 get_y_dir(m::ReferenceModel) = m.y_dir
 get_Σ_dir(m::ReferenceModel) = m.Σ_dir
@@ -243,6 +264,7 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:T
     n_obs = expand_dict_entry(ref_config, "n_obs", n_cases)
     y_type = ref_config["y_reference_type"]
     Σ_type = ref_config["Σ_reference_type"]
+    z_rectifiers = expand_dict_entry(ref_config, "z_rectifiers", n_cases) # expand if it's not a vector, if is a vector, must be of length n_cases (so even if reusing same custom z_vector, repeat it n_cases times), if not set, will return [nothing,] x n_cases
     # Construct namelist_args from case-specific args merged with global args
     # Note: Case-specific args takes precedence over global args
     case_namelist_args = expand_dict_entry(ref_config, "namelist_args", n_cases)
@@ -264,6 +286,7 @@ function get_ref_model_kwargs(ref_config::Dict; global_namelist_args::OptVec{<:T
         :namelist_args => namelist_args,
         :y_type => y_type,
         :Σ_type => Σ_type,
+        :z_rectifiers => z_rectifiers
     )
     n_RM = length(rm_kwargs[:case_name])
     for (k, v) in pairs(rm_kwargs)
@@ -294,7 +317,7 @@ function construct_reference_models(kwarg_ld::Dict; seed::OptInt = nothing)::Vec
     n_RM = length(kwarg_ld[:case_name])
     ref_models = Vector{ReferenceModel}()
     for RM_i in 1:n_RM
-        kw = Dict(k => v[RM_i] for (k, v) in pairs(kwarg_ld) if !(k in [:y_type, :Σ_type]))  # unpack dict
+        kw = Dict(k => v[RM_i] for (k, v) in pairs(kwarg_ld) if !(k in [:y_type, :Σ_type]))  # unpack dict (ytype and Σ_type must be the same for all models so we just get them from kwarg_ld  )
         args = (kw[j] for j in (:y_names, :y_dir, :case_name, :t_start, :t_end))
 
         push!(
@@ -309,6 +332,7 @@ function construct_reference_models(kwarg_ld::Dict; seed::OptInt = nothing)::Vec
                 n_obs = get(kw, :n_obs, nothing),
                 namelist_args = get(kw, :namelist_args, nothing),
                 seed = seed,
+                z_rectifier = get(kw, :z_rectifiers, nothing), # function/vector/z_bounds for choosing the z you want for the comparison
             ),
         )
     end
@@ -358,6 +382,7 @@ function time_shift_reference_model(m::ReferenceModel, time_shift::FT) where {FT
         Σ_t_start,
         Σ_t_end,
         m.z_obs,
+        m.z_rectified_obs, # we added this to the ReferenceModel struct, so the default constructor has it
         m.namelist,
         m.y_type,
         m.Σ_type,

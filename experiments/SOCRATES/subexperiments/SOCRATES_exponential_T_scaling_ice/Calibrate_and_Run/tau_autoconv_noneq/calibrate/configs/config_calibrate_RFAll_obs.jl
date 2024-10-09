@@ -46,29 +46,27 @@ calibration_parameters_default = Dict( # The variables we wish to calibrate , th
     #
     "τ_cond_evap"     => Dict("prior_mean" => FT(default_params["τ_cond_evap"]["value"])    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "condensation_evaporation_timescale"), 
     #
-    "T_scaling_c_1"   => Dict("prior_mean" => FT(0.02)    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
-    "T_scaling_c_2"   => Dict("prior_mean" => FT(-0.6)    , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
+    "T_scaling_ice_c_1"   => Dict("prior_mean" => FT(0.02)    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
+    "T_scaling_ice_c_2"   => Dict("prior_mean" => FT(-0.6)    , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing), 
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale"), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale"), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold"),
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold"),
-    ) # these aren't in the default_namelist so where should I put them?
+) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
 # global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
 local_namelist = [ # things in namelist that otherwise wouldn't be... (both random parameters and parameters we want to calibrate that we added ourselves that generate_namelist doesn't insert...)
     ("microphysics", "τ_cond_evap", calibration_parameters["τ_cond_evap"]["prior_mean"] ),
     #
-    ("user_aux", "T_scaling_c_1", calibration_parameters["T_scaling_c_1"]["prior_mean"] ),
-    ("user_aux", "T_scaling_c_2", calibration_parameters["T_scaling_c_2"]["prior_mean"] ),
+    ("user_aux", "T_scaling_ice_c_1", calibration_parameters["T_scaling_ice_c_1"]["prior_mean"] ),
+    ("user_aux", "T_scaling_ice_c_2", calibration_parameters["T_scaling_ice_c_2"]["prior_mean"] ),
     #
-    ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
-    ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_liq", FT( 3.)), # stability testing
+    # ("user_aux", "min_τ_ice", FT( 3.)), # stability testing
     #
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
+    # ("user_args", (;use_supersat=supersat_type)), # we need supersat for non_eq results and the ramp for eq
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style) ), # testing if this improves stability...
+
 ]
 @info("local_namelist:", local_namelist)
 

@@ -19,6 +19,10 @@ else
     use_expansion=${4}
 fi
 
+# call Sys.CPU_NAME in julia and get the architecture
+# architecture=$(julia -e 'using Sys; println(Sys.CPU_NAME)')
+# sys_image_name = CEDMF_${architecture}.so
+
 
 
 if $(grep -q "Red Hat" /etc/redhat-release);  then # copied from /groups/esm/slurm-buildkite/hooks/environment

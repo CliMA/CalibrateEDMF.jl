@@ -78,7 +78,8 @@ function io_dictionary_reference(
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
     for (i, rm) in enumerate(ref_models)
-        z_obs = get_z_obs(rm)
+        # z_obs = get_z_obs(rm)
+        z_obs = get_z_rectified_obs(rm) # i think we need the rectified z for the diagnostics file to match up
         config_z_obs[i, 1:length(z_obs)] = z_obs
     end
 
@@ -177,7 +178,8 @@ function io_dictionary_val_reference(
 
     config_z_obs = zeros(length(ref_models), maximum(var_dof))
     for (i, rm) in enumerate(ref_models)
-        z_obs = get_z_obs(rm)
+        # z_obs = get_z_obs(rm)
+        z_obs = get_z_rectified_obs(rm) # i think we need the rectified z for the diagnostics file to match up
         config_z_obs[i, 1:length(z_obs)] = z_obs
     end
 

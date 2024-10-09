@@ -23,8 +23,10 @@ experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES", "subexperiments", 
 # tmax
 # t_max = 14*3600.0 # 14 hours
 # t_bnds = (;obs_data = missing, ERA5_data = missing) # normal full length
-t_max = 2*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
-t_bnds = (;obs_data = (0.0    , t_max), ERA5_data = (0.0    , t_max)) # shorter for testing
+t_max = 7*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
+# t_bnds = (;obs_data = (0.0    , t_max), ERA5_data = (0.0    , t_max)) # shorter for testing
+t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing
+
 # ========================================================================================================================= #
 # constants we use here
 ρ_l = FT(1000.) # density of ice, default from ClimaParameters
@@ -39,26 +41,23 @@ D_ref = FT(0.0000226)
 D = D_ref
 # ========================================================================================================================= #
 # setup stuff (needs to be here for ekp_par_calibration.sbatch to read), can read fine as long as is after "=" sign
-N_ens  = 50 # number of ensemble members
+N_ens  = 100 # number of ensemble members
 N_iter = 15 # number of iterations
 # ========================================================================================================================= #
-expanded_unconstrained_σ = FT(5.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)
+expanded_unconstrained_σ = FT(25.0) # alternate for unconstrained_σ when we truly don't know the prior mean (or it's very uncertain)  ## TESTING 100 HERE!!!! (seem to have some nan errors...)
+expanded_unconstrained_σ_2 = FT(5.0) # testing smaller value to see if maybe the failure for large σ is bc of bounded constraints...? getting domain errors
 calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
     #
     "geometric_liq_c_1"   => Dict("prior_mean" => FT(1/(4/3 * π * ρ_l * r_r^2))    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Inhomogenous default assuming r_0 = 20 micron since `typical` N is harder to define
-    "geometric_liq_c_2"   => Dict("prior_mean" => FT(2/3.)                         , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Halfway between 1/3 and 1
+    "geometric_liq_c_2"   => Dict("prior_mean" => FT(2/3.)                         , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ_2), # Halfway between 1/3 and 1
     "geometric_liq_c_3"   => Dict("prior_mean" => FT(N_l * r_0)                    , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), 
     #
     "geometric_and_T_scaling_ice_c_1"   => Dict("prior_mean" => FT((4*π*D) * ((4/3 * π * ρ_i)^(-1/3)  * (N_i)^(2/3) * (0.02)^(2/3) + (N_i * r_0))) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Yeahhh.... idk for this one lol... just combined them serially from the homogenous case where c_3 is -1/3
-    "geometric_and_T_scaling_ice_c_2"   => Dict("prior_mean" => FT(2/3.)                                                                           , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ),# Halfway between 1/3 and 1 -- should this be the same as c_2g? It's the same mixing...
+    "geometric_and_T_scaling_ice_c_2"   => Dict("prior_mean" => FT(2/3.)                                                                           , "constraints" => bounded(1/3., 1) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ_2),# Halfway between 1/3 and 1 -- should this be the same as c_2g? It's the same mixing...
     "geometric_and_T_scaling_ice_c_3"   => Dict("prior_mean" => FT((4*π*D) * r_0 * .02 )                                                           , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Fletcher 1962 (values taken from Frostenberg 2022)
     "geometric_and_T_scaling_ice_c_4"   => Dict("prior_mean" => FT(-0.6)                                                                           , "constraints" => bounded_above(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => nothing, "unconstrained_σ" => expanded_unconstrained_σ), # Fletcher 1962 (values taken from Frostenberg 2022)
     #
-    "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale", "unconstrained_σ" => expanded_unconstrained_σ), 
-    "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ), # could try using bounded(0, reasonable upper bound) but then the spacing from unconstrained_σ is linear not log... so maybe then we'd want to try to switch to predicting log(parameter) but that's a whole can of worms bc it's in the namelist
-    "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold", "unconstrained_σ" => expanded_unconstrained_σ),
-    ) # these aren't in the default_namelist so where should I put them?
+) # these aren't in the default_namelist so where should I put them?
 calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
 # global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
@@ -78,7 +77,9 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
     ("thermodynamics", "moisture_model", "nonequilibrium"), # choosing noneq for training...
     ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
     # ("user_args", (;use_supersat=supersat_type) ), # we need supersat for non_eq results and the ramp for eq
-    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    # ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
+    ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style) ), # we need supersat for non_eq results and the ramp for eq, testing
+
     #
     ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
 ]
@@ -86,8 +87,16 @@ local_namelist = [ # things in namelist that otherwise wouldn't be... (both rand
 
 calibration_vars = ["temperature_mean", "ql_mean","qi_mean"]
 # calibration_vars = ["temperature_mean", "qt_mean"] # qt instead of ql or qi because we don't care about phase just yet, temperature_mean to make sure other stuff doesn't get out of hand.
+# calibration_vars = [ "ql_mean","qi_mean"]
 
 # ========================================================================================================================= #
 # ========================================================================================================================= #
+
+obs_var_additional_uncertainty_factor = 0.3 # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
+header_setup_choice = :simple # switch from :default to :simple calibratione
+
+# ========================================================================================================================= #
+# ========================================================================================================================= #
+
 
 include(joinpath(main_experiment_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_body.jl")) # load the template config file for the rest of operations

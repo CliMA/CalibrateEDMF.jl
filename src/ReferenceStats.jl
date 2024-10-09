@@ -93,6 +93,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         time_shift::Union{FT, Vector{FT}} = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
         model_errors::OptVec{T} = nothing,
         obs_var_scaling::Union{Dict, Nothing} = nothing,
+        obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
     ) where {FT <: Real, T}
         IT = Int64
         # Init arrays
@@ -117,12 +118,14 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
             model = occursin("socrates", lowercase(m.case_name)) ? time_shift_reference_model(m, time_shift[i]) : m # if we use time shifts for SOCRATES cases ever, this will cover that - currently time_shift is 0.
             model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
+            z_scm = get_z_rectified_obs(model) # should be rectified
             y_, y_var_, pool_var = get_obs(
                 model,
                 normalize,
-                z_scm = get_z_obs(model),
+                z_scm = z_scm, # trying here to allow for changing z_scm from what the reference was run with...
                 model_error = model_error,
                 obs_var_scaling = obs_var_scaling,
+                obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor
             )
             push!(norm_vec, pool_var)
             if perform_PCA
@@ -245,6 +248,7 @@ function get_obs(
     z_scm::OptVec{FT} = nothing,
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
+    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
     Σ, pool_var = get_time_covariance(
@@ -254,6 +258,7 @@ function get_obs(
         normalize = normalize,
         model_error = model_error,
         obs_var_scaling = obs_var_scaling,
+        obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor,
     )
     # normalization
     norm_vec = normalize ? pool_var : ones(size(pool_var))
@@ -270,10 +275,11 @@ function get_obs(
     z_scm::OptVec{FT},
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
+    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
 ) where {FT <: Real}
     y_names = isa(m.y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(m.Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling)
+    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling, obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor)
 end
 
 """
@@ -469,6 +475,7 @@ function get_time_covariance(
     normalize::Bool = true,
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
+    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing, # if we do it by all vars
 ) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
@@ -521,7 +528,7 @@ function get_time_covariance(
         else
             throw(ArgumentError("Variable `$var_name` has more than 2 dimensions, 1 or 2 were expected."))
         end
-        ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt)
+        ts_vec = cat(ts_vec, ts_var_i, dims = 1)  # final dims: (Nz*num_profiles + num_timeseries, Nt), build up row by row
 
         # Add structural model error
         if !isnothing(model_error)
@@ -537,13 +544,23 @@ function get_time_covariance(
     end
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
+
+    # test doing the variance addition here scaled by the vector value mean across time
+    if !isnothing(obs_var_additional_uncertainty_factor)
+        obs_var_additional_uncertainty_factor = FT(obs_var_additional_uncertainty_factor)
+    else
+        obs_var_additional_uncertainty_factor = FT(0.0) # default to not adding anything...
+    end
+    var_addition_vec = mean(ts_vec, dims = 2)[:] .* obs_var_additional_uncertainty_factor # mean across time, times the factor
+    # if we wanted to do this by variable we would I guess want to construct this vector in the loop above?
+    cov_mat += Diagonal(var_addition_vec)
+
     # Although we may have trimmed our data, NaNs in the data could appear after interpolation, so we need to handle that.
     cov_mat = replace(cov_mat, NaN => 0.0) # just like off diagonal blocks are 0, if we get a NaN out even after trimming, we'll just set it to 0. (if you did not trim your data) | ps, i think we get the same output if we don't trim? trimming might be worse bc it could allow the interpolant to work in areas that otherwise might have given NaN => 0.0
     return cov_mat, pool_var
 end
 
-# The original get_ref_stats_kwargs(), moved here from Pipeline.jl cause it makes more sense here I think...
-function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any}) # we need to edit this to be more like get_ref_model_kwargs in ReferenceModels.jl, to allow for different time_shifts...
+function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
     model_errors = get_entry(ref_config, "model_errors", nothing)
     time_shift = get_entry(ref_config, "time_shift", 6.0 * 3600.0)
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
@@ -552,6 +569,8 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
     tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
     dim_scaling = get_entry(reg_config, "dim_scaling", true)
+    obs_var_scaling = get_entry(reg_config, "obs_var_scaling", nothing)
+    obs_var_additional_uncertainty_factor = get_entry(reg_config, "obs_var_additional_uncertainty_factor", nothing)
     return Dict(
         :perform_PCA => perform_PCA,
         :normalize => normalize,
@@ -561,6 +580,8 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
         :dim_scaling => dim_scaling,
         :model_errors => model_errors,
         :time_shift => time_shift,
+        :obs_var_scaling => obs_var_scaling,
+        :obs_var_additional_uncertainty_factor => obs_var_additional_uncertainty_factor,
     )
 end
 

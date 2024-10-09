@@ -233,28 +233,6 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     return outdir_path
 end
 
-function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, Any})
-    model_errors = get_entry(ref_config, "model_errors", nothing)
-    time_shift = get_entry(ref_config, "time_shift", 6.0 * 3600.0)
-    perform_PCA = get_entry(reg_config, "perform_PCA", true)
-    variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
-    normalize = get_entry(reg_config, "normalize", true)
-    tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
-    tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
-    dim_scaling = get_entry(reg_config, "dim_scaling", true)
-    obs_var_scaling = get_entry(reg_config, "obs_var_scaling", nothing)
-    return Dict(
-        :perform_PCA => perform_PCA,
-        :normalize => normalize,
-        :variance_loss => variance_loss,
-        :tikhonov_noise => tikhonov_noise,
-        :tikhonov_mode => tikhonov_mode,
-        :dim_scaling => dim_scaling,
-        :model_errors => model_errors,
-        :time_shift => time_shift,
-        :obs_var_scaling => obs_var_scaling,
-    )
-end
 
 "Create the calibration output directory and copy the config file into it"
 function create_output_dir(
@@ -470,7 +448,20 @@ function ek_update(
     end
 
     if isa(ekobj.process, Inversion) || isa(ekobj.process, SparseInversion)
-        update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map)
+        # test
+        additive_inflation = get(reg_config, "additive_inflation", nothing)
+        if !isnothing(additive_inflation)
+            @info "Additive inflation applied to the ensemble, some scalar times an identity"
+            # u = get_u_final(ekobj) # something of the same size as this 
+            # additive_inflation_cov = additive_inflation .* ones(size(u)) # how does this differ from just using the gaussian noise? # this at least isn't sensitive to the prior , but it's not allowed in 1.1.5 as is until that's merged...
+            # using identity n_param x n_param cov martrix times n_param x n_ens param matrix will add constant amount to each parameter (then times noise in EKP spreading all directions)
+            # since we don't control the internals of EKP to just construct that matrix externally, we'll just rely on them... once it's merged in... for now we're stuck with just using use_prior_cov=true (false would use final iteration which is probably jacked up in our collapsed case, since we're not benignly using inflation...) 
+
+            # update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = 1.0, additive_inflation_cov=additive_inflation_cov) # not merged yet
+            update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+        else
+            update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map,) #
+        end
     elseif isa(ekobj.process, Unscented)
         update_ensemble!(ekobj, g, Δt_new = Δt)
     else

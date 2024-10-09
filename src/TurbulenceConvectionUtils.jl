@@ -203,7 +203,8 @@ function eval_single_ref_model(
     # run TurbulenceConvection.jl. Get output directory for simulation data
     sim_dir, model_error = run_SCM_handler(m, tmpdir, u, u_names, param_map)
     filename = get_stats_path(sim_dir)
-    z_obs = get_z_obs(m)
+    # z_obs = get_z_obs(m)
+    z_obs = get_z_rectified_obs(m) # i think we want our comparison z... just like in stats...
     if model_error
         d_full, d = size(RS.pca_vec[m_index])
         g_scm = fill(NaN, d_full)
