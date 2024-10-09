@@ -18,11 +18,30 @@ default_data_vars_atlas = Dict{Tuple{String,String}, String}( #TC.jl (Name, Grou
 ("qc_mean", "profiles") => "QN", # cloud liquid and ice (not in TC.jl output)
 ("qr_mean", "profiles") => "QR",
 ("qs_mean", "profiles") => "QS",
+("qg_mean", "profiles") => "QG",
 ("qp_mean", "profiles") => "QP", # total precipitation (rain + snow) , not in TC.jl output
 ("t", "timeseries") => "time",
 ("t", "profiles") => "time",
 ("zf", "profiles") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
 ("zf", "reference") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+)
+
+default_derived_data_vars_atlas = Dict{Tuple{String,String}, Function}( #TC.jl (Name, Group) =>  fcn
+("ql_all_mean", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["ql_mean"] .+ x.group["profiles"]["qr_mean"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["ql_mean"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+("qi_all_mean", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["qi_mean"] .+ x.group["profiles"]["qs_mean"] .+ x.group["profiles"]["qg_mean"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+("qip_mean", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["qs_mean"] .+ x.group["profiles"]["qg_mean"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),  
 )
 
 """
@@ -32,6 +51,8 @@ Function to take the Atlas LES output and convert it to the format the calibrati
 
  # each <flight_number, forcing_type> pair has it's own directory since the model expects the ref_dir to only contain one flight
 """
+
+@info default_derived_data_vars_atlas
 function process_SOCRATES_Atlas_LES_reference(;
     flight_numbers::Vector{Int} = flight_numbers,
     forcing_types::Vector{Symbol} = forcing_types,
@@ -39,9 +60,11 @@ function process_SOCRATES_Atlas_LES_reference(;
     data_vars_rename::Dict{Tuple{String,String}, String} = default_data_vars_atlas,
     truth_dir::String = joinpath(this_dir, "Reference", "Atlas_LES"), # the folder where we store our truth (Atlas LES Data)
     out_dir::String = joinpath(this_dir, "Reference", "Atlas_LES"), # the folder where we store our output data
-    overwrite::Bool = true
+    overwrite::Bool = true,
+    derived_data_vars::Dict{Tuple{String,String}, Function} = default_derived_data_vars_atlas, # variables derived from existing vars 
     )
     truth_files = filter(contains(".nc",), readdir(truth_dir))
+
 
     outfiles = Dict{Tuple{Int,Symbol}, Union{String,Nothing}}((flight_number, forcing_type) => nothing for flight_number in flight_numbers, forcing_type in forcing_types)
 
@@ -81,7 +104,14 @@ function process_SOCRATES_Atlas_LES_reference(;
                         _data_var, _group = _vardef
                         _truth_var = data_vars_rename[_vardef]
                         _new_dims = collect((x=="z" ? "zf" : x for x in NC.dimnames(truth_data[_truth_var]))) # replace any "z" in dimnames with "zf"
-                        NC.defVar(new_data.group[_group], _data_var, Array(truth_data[_truth_var]), _new_dims; attrib =  truth_data[_truth_var].attrib )
+
+                        _truth_vardata = Array(truth_data[_truth_var])
+                        if _truth_var ∈ ("QT", "QCL", "QCI", "QN", "QR", "QS", "QP") 
+                            _truth_vardata ./= ( 1 .+ _truth_vardata) # convert mixing ratio to specific humidity
+                        end
+                        # @info _data_var
+                        NC.defVar(new_data.group[_group], _data_var, _truth_vardata, _new_dims; attrib =  truth_data[_truth_var].attrib )
+
                     end
 
                     # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
@@ -101,6 +131,25 @@ function process_SOCRATES_Atlas_LES_reference(;
                     new_data.group["profiles"]["qt_mean"][:] = new_data.group["profiles"]["qt_mean"][:] ./ 1000.0
                     new_data.group["profiles"]["ql_mean"][:] = new_data.group["profiles"]["ql_mean"][:] ./ 1000.0
                     new_data.group["profiles"]["qi_mean"][:] = new_data.group["profiles"]["qi_mean"][:] ./ 1000.0
+
+                    if "qs_mean" in keys(new_data.group["profiles"])
+                        new_data.group["profiles"]["qs_mean"][:] = new_data.group["profiles"]["qs_mean"][:] ./ 1000.0
+                    end
+                    if "qr_mean" in keys(new_data.group["profiles"])
+                        new_data.group["profiles"]["qr_mean"][:] = new_data.group["profiles"]["qr_mean"][:] ./ 1000.0
+                    end
+
+                    # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
+                    # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
+
+
+
+                    # Add derived variables
+                    for _vardef in keys(derived_data_vars)
+                        _data_var, _group = _vardef
+                        _new_data = derived_data_vars[_vardef](new_data)
+                        NC.defVar(new_data.group[_group], _data_var, _new_data["data"], _new_data["dimnames"] ) # drop attirbutes cause they'd be innacurate
+                    end
 
                     # consider calculating θ_{li} here, so we don't have to use say, temperature_mean in calibration... (probably requires adding Thermodynamics.jl)
                     
@@ -126,8 +175,13 @@ default_data_vars_obs = Dict{Tuple{String,String}, String}( #TC.jl (Name, Group)
 ("ql_mean", "profiles") => "ql_incloud", # Seems QCL and QC are the same
 ("qi_mean", "profiles") => "qi_incloud", # seems QCI and QI are the same
 ("qc_mean", "profiles") => "qc_incloud", # cloud liquid and ice (not in TC.jl output)
+# ("qr_mean", "profiles") => "RWC", # Haven't added to binning yet
+# ("qs_mean", "profiles") => "", # can't find a variable for
 ("zf", "profiles") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
 ("zf", "reference") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+)
+
+default_derived_data_vars_obs = Dict{Tuple{String,String}, Function}( #TC.jl (Name, Group) =>  Atlas Name
 )
 
 #= 
@@ -156,7 +210,8 @@ function process_SOCRATES_Flight_Observations_reference(;
     fake_time_bnds = "Atlas",
     out_dir::Union{String,Nothing} =  nothing,
     out_vars = nothing, # if not nothing, we will only output these variables and drop any rows for which any of the varialbes are all nan or only one value (or the intersection between variables that is not nan has only one variable)
-    overwrite::Bool = true
+    overwrite::Bool = true,
+    derived_data_vars::Dict{Tuple{String,String}, Function} = default_derived_data_vars_obs, # variables derived from existing vars 
     )
 
     if !isempty(truth_file) # if we have a file
@@ -254,6 +309,14 @@ function process_SOCRATES_Flight_Observations_reference(;
                 NC.defVar(new_data.group["reference"], "zc", zc_data, _new_dims; attrib =  _truth_data["z"].attrib )
 
                 # consider calculating θ_{li} here, so we don't have to use say, temperature_mean in calibration... (probably requires adding Thermodynamics.jl)
+
+                # Add derived variables
+                for _vardef in keys(derived_data_vars)
+                    _data_var, _group = _vardef
+                    _data_varfunc = derived_data_vars[_vardef]
+                    _new_data, new_dims = _data_varfunc(new_data)
+                    NC.defVar(new_data.group[_group], _data_varfunc, _new_data, _new_dims; attrib =  _truth_data[_new_data].attrib )
+                end
 
 
                 # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #

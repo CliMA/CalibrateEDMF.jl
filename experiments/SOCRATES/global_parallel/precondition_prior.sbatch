@@ -22,6 +22,12 @@ else
     use_expansion=${4}
 fi
 
+if [ -z "5" ]; then
+    max_preconditioner_counter=10
+else
+    max_preconditioner_counter=${5}
+fi
+
 
 
 
@@ -59,14 +65,33 @@ echo $version
 echo $PWD
 
 
-# julia --project -C skylake-avx512 -JCEDMF.so precondition_prior.jl --version $version --job_dir $job_dir && (
-#   echo sysimage loaded successfully
-# ) || (
-#   julia --project precondition_prior.jl --version $version --job_dir $job_dir
-# )
 
-julia --project $thisdir/precondition_prior.jl --version $version --job_dir $job_dir # ignore system image for now (according to costa)
+if [ -z "$SLURM_RESTART_COUNT" ]; then
+    SLURM_RESTART_COUNT=0
+fi
+SLURM_RESTART_COUNT_limit=5 # Won't this cause repeated running w/ same failing parameters? or does failing on parameters count as a clean exit?
+if [ "$SLURM_RESTART_COUNT" -lt  "$SLURM_RESTART_COUNT_limit" ]; then
+    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, less than limit of $SLURM_RESTART_COUNT_limit, trying..."
 
-echo "Preconditioning for ${version} finished."
+    
+    # julia --project -C skylake-avx512 -JCEDMF.so precondition_prior.jl --version $version --job_dir $job_dir && (
+    #   echo sysimage loaded successfully
+    # ) || (
+    #   julia --project precondition_prior.jl --version $version --job_dir $job_dir
+    # )
+
+    julia --project $thisdir/precondition_prior.jl --version $version --job_dir $job_dir --max_counter $max_preconditioner_counter # ignore system image for now (according to costa)
+    julia_exit_code=$?
+
+    if [ $julia_exit_code -eq 0 ]; then
+        echo "Preconditioning for ${version} finished."
+    else
+        echo "Preconditioning for ${version} failed with exit code $julia_exit_code, requeuing job $SLURM_JOB_ID"
+        scontrol requeue $SLURM_JOB_ID # combat random failures
+    fi
+
+else 
+    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, greater than limit of $SLURM_RESTART_COUNT_limit, exiting..."
+fi
 
 

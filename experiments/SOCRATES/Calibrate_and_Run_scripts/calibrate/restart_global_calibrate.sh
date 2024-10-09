@@ -9,11 +9,12 @@
 
 experiment=${1?Error: no experiment given}
 calibration_setup=${2?Error: no calibration setup given} # the subname of the calibration setup within the experiment (these should almost just be different experiments tbh)
+calibration_vars_str=${3?Error: no calibration vars given}
 
 calibrate_script=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/global_parallel/restart_ekp_par_calibration.sbatch
 experiment_path=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/subexperiments/${experiment}/
 calibrate_and_run_dir=$experiment_path/Calibrate_and_Run/
-this_calibrate_and_run=$calibration_setup
+this_calibrate_and_run=$calibration_setup/$calibration_vars_str
 this_calibrate_and_run_dir=$calibrate_and_run_dir/$this_calibrate_and_run/
 this_calibrate_dir=$this_calibrate_and_run_dir/calibrate/
 this_config_dir=$this_calibrate_dir/configs/

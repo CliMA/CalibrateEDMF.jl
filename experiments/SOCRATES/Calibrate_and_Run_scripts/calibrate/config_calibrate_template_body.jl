@@ -10,10 +10,10 @@
 
 if calibrate_to == "Atlas_LES"
     @info("Calibrating to Atlas_LES")
-    truth_dir = joinpath(main_experiment_dir, "Reference","Atlas_LES") # the folder where we store our truth (Atlas LES Data)
+    truth_dir = joinpath(main_experiment_dir, "Reference", "Atlas_LES") # the folder where we store our truth (Atlas LES Data)
 elseif calibrate_to == "Flight_Observations"
     @info("Calibrating to Flight_Observations")
-    truth_dir = joinpath(main_experiment_dir, "Reference","Flight_Observations","Faked_Profiles_to_Time") # the folder where we store our truth (Atlas LES Data)
+    truth_dir = joinpath(main_experiment_dir, "Reference", "Flight_Observations", "Faked_Profiles_to_Time") # the folder where we store our truth (Atlas LES Data)
     # based on calibration_vars we need to drop empty slices so the covariance matrix can be calculated without nans so it can still have eigenvalues (we actually need more than one value left over in each row , and in each pair of rows for cov to work)
 else
     error("invalid calibrate_to: ", calibrate_to)
@@ -30,6 +30,50 @@ flight_string  = flight_numbers == [1,9,10,11,12,13] ? "All" : join(string.(flig
 forcing_types_str = join((x->split(string(x),"_")[1]).(forcing_types), "_")
 
 # join our defaults to the rest of the namelist
+
+calibration_vars_str = join(sort(calibration_vars), "__")
+
+
+# ========================================================================================================================= #
+
+@info("supersat_type", supersat_type)
+@info("calibration_setup", calibration_setup)
+@info("calibration_vars_str", calibration_vars_str)
+@info("calibrate_to", calibrate_to)
+@info("flight_numbers", flight_numbers)
+@info("forcing_types", forcing_types)
+
+# ========================================================================================================================= #
+
+default_user_args = (;
+    use_supersat=supersat_type,
+    τ_use=:morrison_milbrandt_2015_style,
+    use_sedimentation = true, 
+    grid_mean_sedimentation = false,
+    sedimentation_integration_method = :upwinding,
+    use_heterogeneous_ice_nucleation = false,
+    sedimentation_ice_number_concentration = supersat_type, # idk if this is good or bad lol...
+    liq_velo_scheme = :Chen2022Vel,
+    ice_velo_scheme = :Chen2022Vel,
+    rain_velo_scheme = :Chen2022Vel,
+    snow_velo_scheme = :Chen2022Vel,)
+
+added_user_args::Bool = false
+print(added_user_args)
+@info("added_user_args", added_user_args)
+for (i_i, item) in enumerate(local_namelist)
+    if item[1] == "user_args"
+        @info("user_args found in local_namelist, merging with default values")
+        local_namelist[i_i] = (item[1], merge(default_user_args, item[2])) # i think 2nd means local will overwite default
+        global added_user_args = true        
+    end
+end
+@info("added_user_args after is ", added_user_args)
+if !added_user_args
+    @info("`user_args` not found in local_namelist, adding some default values now")
+    local_namelist = [local_namelist; ("user_args", default_user_args)] # shouldn't break anything, add to end (can't use push! bc of type assumptions)
+ end
+
 if header_setup_choice == :default
     local_namelist = [default_namelist_args; local_namelist] # add the default namelist args to the local namelist
 elseif header_setup_choice == :simple
@@ -38,6 +82,9 @@ else
     error("invalid header_setup_choice: ", header_setup_choice)
 end
 @info("local_namelist:", local_namelist)
+
+# ========================================================================================================================= #
+
 
 # join calibration_parameter dictionaries
 if header_setup_choice == :default
@@ -49,6 +96,7 @@ else
 end
 
 # consider adding a flag to just get the paths without overwriting existing files
+reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?)
 include(joinpath(main_experiment_dir, "process_SOCRATES_reference.jl")) # process the truth data into a format we can use for calibration
 if calibrate_to == "Flight_Observations" 
     if !ismissing(t_bnds.obs_data)
@@ -62,9 +110,13 @@ if calibrate_to == "Flight_Observations"
     # concatenate
     reference_paths = [obs_paths; ERA5_paths]
 else
-    process_SOCRATES_Atlas_LES_reference(;out_dir=truth_dir, truth_dir=truth_dir, overwrite=false)# the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
-    reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?
+    reference_paths = process_SOCRATES_Atlas_LES_reference(;out_dir=truth_dir, truth_dir=truth_dir, overwrite=false)# the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
+    # reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?)
+    # is it time to switch this to just use reference_paths? i don't see why not, what is truth_dir doing otherwise?
 end
+
+@info("REFERENCE PATHS: ", reference_paths)
+
 
 function get_config()
     config = Dict()
@@ -74,7 +126,7 @@ function get_config()
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(SOCRATES_Train())
-    # Define reference used for validation
+    # Define reference used for validation (setting this makes it run validation jobs though..., just use config["reference"] for reruns... and in tc_runner set run_set to reference)
     # config["validation"] = get_reference_config(SOCRATES_Val()) # No validation for now, until we maybe try calibrating everything together and then validating on a different flight
     # Define the parameter priors
     config["prior"] = get_prior_config()
@@ -85,9 +137,10 @@ function get_config()
     return config
 end
 
+
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, "calibrate", "output", calibrate_to, "RF"*flight_string*"_"*forcing_types_str) # store them in the experiment folder here by default
+    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, calibration_vars_str, "calibrate", "output", calibrate_to, "RF"*flight_string*"_"*forcing_types_str) # store them in the experiment folder here by default, organized by calibration vars
     config["use_outdir_root_as_outdir_path"] = true # use the outdir_root as the directory itself, otherwise it'll create a new directory inside the outdir_root with the calibration parameters
     return config
 end
@@ -95,12 +148,22 @@ end
 function get_regularization_config()
     config = Dict()
     # Regularization of observations: mean and covariance
-    config["perform_PCA"] = true # Performs PCA on data
-    config["variance_loss"] = 1.0e-2 # Variance truncation level in PCA
+    config["perform_PCA"] = perform_PCA # Performs PCA on data
+    config["variance_loss"] = variance_loss # Variance truncation level in PCA
     config["normalize"] = true  # whether to normalize data by pooled variance
+    config["normalization_type"] = @isdefined(normalization_type) ? normalization_type : :pooled_variance
     config["tikhonov_mode"] = "relative" # Tikhonov regularization
     config["tikhonov_noise"] = 1.0e-6 # Tikhonov regularization
     config["dim_scaling"] = true # Dimensional scaling of the loss
+
+    if normalization_type == :pooled_nonzero_mean_to_value && !@isdefined(obs_var_scaling) # if we didn't set this before, use these defaults
+        obs_var_scaling = Dict(
+            "temperature_mean" => (1/273.0)^2, #  scale down bc we scaled T to 1, so ΔT is now ∼ 1/273, so scale that up, leave others the same. then ΔT will be O(1) just like Δq
+            "ql_mean" => 1.0,
+            "qi_mean" => (1.0/5)^2) # scale down so ice becomes more important (factor of 5 rn), maybe will help calibrations...
+    end
+
+    config["obs_var_scaling"] = @isdefined(obs_var_scaling) ? obs_var_scaling : nothing # Scale the observation variance by these values
 
     # Parameter regularization: L2 regularization with respect to prior mean.
     #  - Set to `nothing` to use prior covariance as regularizer,
@@ -122,7 +185,7 @@ function get_regularization_config()
     # config["obs_var_additional_uncertainty_factor"] = Dict(v=>obs_var_additional_uncertainty_factor for v in calibration_vars) # testing.... (separate for each variable)
     config["obs_var_additional_uncertainty_factor"] = obs_var_additional_uncertainty_factor # testing.... (overall), default is nothing unless it was overwritten somewhere
 
-    config["additive_inflation"] = 1e-5 # Additive inflation factor for the covariance matrix (ollie said try starting around here)
+    config["additive_inflation"] = additive_inflation # Additive inflation factor for the covariance matrix (ollie said try starting around here)
     # -- in principle we could put this in model_error as structural error right? but that gets added which isn't exactly what we want...
     
     return config
@@ -136,10 +199,13 @@ function get_process_config()
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
-    config["Δt"] = 1.0 # EKI learning rate # (maybe change this if having problems?), but the higher above 1 we get the more we forget the prior so.
+    config["Δt"] = Δt # EKI learning rate # (maybe change this if having problems?), but the higher above 1 we get the more we forget the prior so.
+    @info("Δt: ", config["Δt"])
+    @info("alt_scheduler", alt_scheduler)
     if @isdefined(alt_scheduler)
         if alt_scheduler == :default || isnothing(alt_scheduler)
             config["scheduler"] = nothing
+            @info("herererererere")
         else
             config["scheduler"] = alt_scheduler
         end
@@ -147,9 +213,12 @@ function get_process_config()
         config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number... (however it goes very slowly sometimes lol)
     end
     # config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number... (however it goes very slowly sometimes lol)
+    config["accelerator"] = DefaultAccelerator()
     # Whether to augment the outputs with the parameters for regularization
     config["augmented"] = false # costa set this to false? (TESTING FALSE!!!)
     config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
+    # use localizer when number of parameters > number of ensemble members
+    # config["localizer"] = SEC(0.5, 0.1) # First arg is strength of localization, second is the minimum correlation retained
     return config
 end
 
@@ -167,9 +236,9 @@ function get_reference_config(::SOCRATES_Train)
     for setup in setups
         name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
         if (setup["flight_number"], setup["forcing_type"]) in keys(reference_paths)
-            setup["datafile"] = reference_paths[(setup["flight_number"], setup["forcing_type"])] # use the trimmed data for calibration
+            datafile = reference_paths[(setup["flight_number"], setup["forcing_type"])] # use the trimmed data for calibration
         else
-            datafile = joinpath(truth_dir, name, "stats", name*".nc")
+            datafile = joinpath(truth_dir, name, "stats", name*".nc") # this would be unneeded if we just used refrerence_paths for everything
         end
        if !isnothing(datafile) && isfile(datafile) # this might not work for obs since we do have truth there existing but can't run socrates...
            setup["datafile"] = datafile
@@ -242,13 +311,16 @@ function get_reference_config(::SOCRATES_Train)
 
     @info(config["z_rectifiers"])
     @info(typeof(config["z_rectifiers"]))
+
+    config["characteristic_values"] = calibration_vars_characteristic_values
     
     return config
 end
 
 function get_reference_config(::SOCRATES_Val)
-    config = Dict()
-    error("Validation has not been implemented yet")
+    # config = Dict()
+    # error("Validation has not been implemented yet")
+    config = get_reference_config(SOCRATES_Train()) # just reutrn the training config for now...
     return config
 end
 
@@ -265,6 +337,14 @@ function get_prior_config()
     # config["unconstrained_σ"] = 0.25
     # Test defaulting to 1 but allowing for different values
     config["unconstrained_σ"] = Dict(k=>[wrap(get(v,"unconstrained_σ", 1.0))...] for (k,v) in calibration_parameters)
+
+    # Allow passing in scalars for vector parameter variances..., just gets repeated
+    n_repeats = Dict(k=> length(v["prior_mean"]) for (k,v) in calibration_parameters)
+    for (k,v) in config["unconstrained_σ"]
+        if length(v) != n_repeats[k]
+            config["unconstrained_σ"][k] = repeat(config["unconstrained_σ"][k], n_repeats[k] ÷ length(v) )
+        end
+    end
 
     return config
 end

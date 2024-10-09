@@ -9,11 +9,19 @@
 
 experiment=${1?Error: no experiment given}
 calibration_setup=${2?Error: no calibration setup given} # the subname of the calibration setup within the experiment (these should almost just be different experiments tbh, but you could still i guess toggle doing autoconv or no, or calibrate to LES or flight obs, or use ERA5 or flight_obs LES runs.
+calibration_vars_str=${3?Error: no calibration vars given}
+
+if [ -z "$4" ]; then
+    # echo "max_preconditioner_counter not set, defaulting to 10"
+    max_preconditioner_counter=10
+else
+    max_preconditioner_counter=$4
+fi
 
 calibrate_script=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/global_parallel/ekp_par_calibration.sbatch
 experiment_path=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/subexperiments/${experiment}/
 calibrate_and_run_dir=$experiment_path/Calibrate_and_Run/
-this_calibrate_and_run=$calibration_setup
+this_calibrate_and_run=$calibration_setup/$calibration_vars_str
 this_calibrate_and_run_dir=$calibrate_and_run_dir/$this_calibrate_and_run/
 this_calibrate_dir=$this_calibrate_and_run_dir/calibrate/
 this_config_dir=$this_calibrate_dir/configs/
@@ -39,7 +47,7 @@ if [ "$use_expansion" = false ]; then
         # clear; sbatch -o ${log_dir}/RF11_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF11_obs.jl
         # clear; sbatch -o ${log_dir}/RF12_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF12_obs.jl
         # clear; sbatch -o ${log_dir}/RF13_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF13_obs.jl
-        true; sbatch -o ${log_dir}/RFAll_obs.out $calibrate_script  ${this_config_dir}/config_calibrate_RFAll_obs.jl $use_expansion
+        true; sbatch -o ${log_dir}/RFAll_obs.out $calibrate_script ${this_config_dir}/config_calibrate_RFAll_obs.jl $use_expansion $max_preconditioner_counter
     else
         # clear; sh $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF01_obs.jl  > ${log_dir}/RF01_obs.out
         # clear; sh $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF09_obs.jl  > ${log_dir}/RF09_obs.out
@@ -64,7 +72,7 @@ else
         # clear; sbatch -o ${log_dir}/RF11_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF11_obs.jl
         # clear; sbatch -o ${log_dir}/RF12_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF12_obs.jl
         # clear; sbatch -o ${log_dir}/RF13_obs.out  $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF13_obs.jl
-        true; sbatch -o ${log_dir}/RFAll_obs.out --partition=expansion $calibrate_script  ${this_config_dir}/config_calibrate_RFAll_obs.jl $use_expansion
+        true; sbatch -o ${log_dir}/RFAll_obs.out --partition=expansion $calibrate_script ${this_config_dir}/config_calibrate_RFAll_obs.jl $use_expansion $max_preconditioner_counter
     else
         # clear; sh $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF01_obs.jl  > ${log_dir}/RF01_obs.out
         # clear; sh $calibrate_script  ${this_config_dir}/config_calibrate_${this_calibrate_and_run}_RF09_obs.jl  > ${log_dir}/RF09_obs.out

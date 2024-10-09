@@ -18,6 +18,14 @@ else
 fi
 echo "use_expansion: ${use_expansion}"
 
+
+if [ -z "$3" ]; then
+    max_preconditioner_counter=10
+else
+    max_preconditioner_counter=${3}
+fi
+echo "max_preconditioner_counter: ${max_preconditioner_counter}"
+
 # Job identifier
 job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
 # Get size of the ensemble from config, trim comments and whitespace
@@ -39,7 +47,7 @@ echo $PWD
 
 config_dir=$(dirname $config)
 echo $config_dir
-subexperiment_dir=$(realpath $config_dir/../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/calibrate/configs/ to the subexperiment directory
+subexperiment_dir=$(realpath $config_dir/../../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/<calibration vars>/calibrate/configs/ to the subexperiment directory
 echo $subexperiment_dir
 experiment_dir=$(realpath $subexperiment_dir/../../) # go up from the subexperiment directory to the experiment directory
 echo $experiment_dir
@@ -92,7 +100,7 @@ if [ "$use_expansion" = false ] || [ "$os_type" = "centos7" ]; then # use_expans
         # id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so $thisdir/init.sbatch $config $job_id $thisdir)
         id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable $thisdir/init.sbatch $config $job_id $thisdir) # turn off system image for now
         # Precondition parameters
-        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir)
+        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter)
         # Run ensemble of forward models
         id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir)
     else
@@ -138,7 +146,7 @@ else
         # Initialize calibration
         id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable --partition=expansion $thisdir/init.sbatch $config $job_id $thisdir $use_expansion) # turn off system image for now
         # Precondition parameters
-        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion)
+        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter )
         # Run ensemble of forward models
         id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion)
     else

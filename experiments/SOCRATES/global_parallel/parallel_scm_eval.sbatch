@@ -60,26 +60,45 @@ echo $version
 echo $PWD
 echo $job_dir
 
+if [ -z "$SLURM_RESTART_COUNT" ]; then
+    SLURM_RESTART_COUNT=0
+fi
+SLURM_RESTART_COUNT_limit=5
+if [ "$SLURM_RESTART_COUNT" -lt  "$SLURM_RESTART_COUNT_limit" ]; then
+    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, less than limit of $SLURM_RESTART_COUNT_limit, trying..."
 
-# julia --project -C skylake-avx512 -JCEDMF.so -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train" && (
-#   echo sysimage loaded successfully
-# ) || (
-#   julia --project -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train"
-# ) &
+    # julia --project -C skylake-avx512 -JCEDMF.so -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train" && (
+    #   echo sysimage loaded successfully
+    # ) || (
+    #   julia --project -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train"
+    # ) &
 
-julia --project -p $((n_proc_scm/2)) $thisdir/parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train" & # ignore system image for now (according to costa)
-P1=$!
-# julia --project -C skylake-avx512 -JCEDMF.so -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation" && (
-#   echo sysimage loaded successfully
-# ) || (
-#   julia --project -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation"
-# ) &
+    julia --project -p $((n_proc_scm/2)) $thisdir/parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "train" & # ignore system image for now (according to costa)
+    julia_exit_code_1=$?
+    P1=$!
+    # julia --project -C skylake-avx512 -JCEDMF.so -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation" && (
+    #   echo sysimage loaded successfully
+    # ) || (
+    #   julia --project -p $((n_proc_scm/2)) parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation"
+    # ) &
 
-julia --project -p $((n_proc_scm/2)) $thisdir/parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation" & # ignore system image for now (according to costa)
-P2=$!
-wait $P1 $P2
-echo "SCM simulation for ${version} in iteration ${iteration_} finished"
+    julia --project -p $((n_proc_scm/2)) $thisdir/parallel_scm_eval.jl --version $version --job_dir $job_dir --mode "validation" & # ignore system image for now (according to costa)
+    julia_exit_code_2=$?
+    P2=$!
+    wait $P1 $P2
+    # echo "SCM simulation for ${version} in iteration ${iteration_} finished"
 
+
+    if [ $julia_exit_code_1 -eq 0 ] && [ $julia_exit_code_2 -eq 0 ]; then
+        echo "SCM simulation for ${version} in iteration ${iteration_} finished."
+    else
+        echo "SCM simulation for ${version} in iteration ${iteration_} failed with exit codes $julia_exit_code_1 and $julia_exit_code_2, requeuing job $SLURM_JOB_ID"
+        scontrol requeue $SLURM_JOB_ID # combat random failures
+    fi
+
+else 
+    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, greater than limit of $SLURM_RESTART_COUNT_limit, exiting..."
+fi
 
 
 if [ "$use_expansion" = false ]; then
