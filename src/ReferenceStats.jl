@@ -89,7 +89,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-        time_shift::FT = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
+        time_shift::Union{FT, Vector{FT}} = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
         model_errors::OptVec{T} = nothing,
         obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real, T}
@@ -105,8 +105,14 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         ndof_full_case = IT[]
         zdof = IT[]
 
+        if isa(time_shift, Vector)
+            @assert length(time_shift) == length(RM)
+        else
+            time_shift = repeat([time_shift], length(RM)) # expand to a vector if we're given a scalar
+        end
+
         for (i, m) in enumerate(RM)
-            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, time_shift) : m
+            model = m.case_name == "LES_driven_SCM" ? time_shift_reference_model(m, time_shift[i]) : m
             model_error = !isnothing(model_errors) ? model_errors[i] : nothing
             # Get (interpolated and pool-normalized) observations, get pool variance vector
             y_, y_var_, pool_var = get_obs(
