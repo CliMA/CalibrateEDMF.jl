@@ -26,6 +26,50 @@ else
 fi
 echo "max_preconditioner_counter: ${max_preconditioner_counter}"
 
+
+if [ -z "$4" ]; then
+    SLURM_RESTART_COUNT_limit=2 # Won't this cause repeated running w/ same failing parameters? or does failing on parameters count as a clean exit? (using this bc of random failures writing to disk, maybe bc of NFS? etc...)
+else
+    SLURM_RESTART_COUNT_limit=${4}
+fi
+echo "SLURM_RESTART_COUNT_limit: ${SLURM_RESTART_COUNT_limit}"
+
+# When we change resolution and dt for example, we don't need as many resources... scale our requests accordingly (use seff to check if we're using all the resources we ask for)
+if [ -z "$5" ]; then
+    resource_scaling_factor_time=1
+else
+    resource_scaling_factor_time=${5}
+fi
+if [ -z "$6" ]; then
+    resource_scaling_factor_mem=1
+else
+    resource_scaling_factor_mem=${6}
+fi
+if [ -z "$7" ]; then
+    resource_scaling_factor_precondition_mem=1
+else
+    resource_scaling_factor_precondition_mem=${7}
+fi
+echo "resource_scaling_factor_time: ${resource_scaling_factor_time}, resource_scaling_factor_mem: ${resource_scaling_factor_mem}, resource_scaling_factor_precondition_mem: ${resource_scaling_factor_precondition_mem}"
+
+default_time_per_job=7200 # seconds
+default_mem_per_cpu=$((15*1024)) # MiB
+#cannot use bash arithmetic bc scaling factor might not be an integer so intstead...
+time=$(echo "$default_time_per_job * $resource_scaling_factor_time + 0.5" | bc -l | awk '{printf "%.0f\n", $1}' ) # walltime (what times do we need for our runs) -- just inits so 20 should be fine # multiply in full precision w/ bc -l, printf rounds (here to nearest integer, +.5 so always rounds up)
+
+time_str=$(printf "%02d:%02d:%02d" $((time/3600)) $((time%3600/60)) $((time%60))) # convert to HH:MM:SS format
+mem_per_cpu=$(echo "$default_mem_per_cpu * $resource_scaling_factor_mem + 0.5" | bc -l | awk '{printf "%.0f\n", $1}')M # memory per CPU core (10G was what i was using, for 6 jobs parallel x6? idk...) , add 0.5 before printf rounding so always rounds up (reduced from 60G,... i think 10-15 should work, idk why it didnt work on the julia_parallel version... used to work when run separately... -- hopefully queues faster...
+
+default_precondition_time=36000 # seconds
+precondition_time=$(echo "$default_precondition_time * $resource_scaling_factor_time + 0.5" | bc -l | awk '{printf "%.0f\n", $1}') # walltime (what times do we need for our runs) -- just inits so 20 should be fine # multiply in full precision w/ bc -l, printf rounds (here to nearest integer + 0.5 so always rounds up)
+precondition_time_str=$(printf "%02d:%02d:%02d" $((precondition_time/3600)) $((precondition_time%3600/60)) $((precondition_time%60))) # convert to HH:MM:SS format
+
+default_precondition_mem_per_cpu=$((60*1024)) # MiB
+precondition_mem_per_cpu=$(echo "$default_precondition_mem_per_cpu * $resource_scaling_factor_precondition_mem + 0.5" | bc -l | awk '{printf "%.0f\n", $1}')M # memory per CPU core (10G was what i was using, for 6 jobs parallel x6? idk...) , add 0.5 before printf rounding so always rounds up (reduced from 60G,... i think 10-15 should work, idk why it didnt work on the julia_parallel version... used to work when run separately... -- hopefully queues faster...
+
+echo " precondition_time: ${precondition_time}, precondition_time_str: ${precondition_time_str}, precondition_mem_per_cpu: ${precondition_mem_per_cpu}"
+echo "time: ${time}, time_str: ${time_str}, mem_per_cpu: ${mem_per_cpu}"
+
 # Job identifier
 job_id=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo '')
 # Get size of the ensemble from config, trim comments and whitespace
@@ -33,7 +77,9 @@ n=$(grep N_ens ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
 # Number of calibration iterations, trim comments and whitespace
 n_it=$(grep N_iter ${config} | cut -d=   -f2 | cut -d#   -f1 | xargs)
 # Number of parallel processes for SCM evaluation, split evenly between train and validation
-n_proc_scm=10
+# n_proc_scm=10 # should be fine, it's 5 flights, half for training, half for validation but we don't really do any vaidation...
+n_proc_scm=6 # should be fine, it's 5 flights, half for training, half for validation but we don't really do any vaidation..., and one control?
+
 echo "Initializing calibration with ${n} ensemble members and ${n_it} iterations."
 
 echo $PWD
@@ -47,7 +93,7 @@ echo $PWD
 
 config_dir=$(dirname $config)
 echo $config_dir
-subexperiment_dir=$(realpath $config_dir/../../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/<calibration vars>/calibrate/configs/ to the subexperiment directory
+subexperiment_dir=$(realpath $config_dir/../../../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/<dt string> <calibration vars>/calibrate/configs/ to the subexperiment directory
 echo $subexperiment_dir
 experiment_dir=$(realpath $subexperiment_dir/../../) # go up from the subexperiment directory to the experiment directory
 echo $experiment_dir
@@ -100,11 +146,11 @@ if [ "$use_expansion" = false ] || [ "$os_type" = "centos7" ]; then # use_expans
         # id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable --kill-on-invalid-dep=yes -A esm --dependency=afterok:$id_so $thisdir/init.sbatch $config $job_id $thisdir)
         id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable $thisdir/init.sbatch $config $job_id $thisdir) # turn off system image for now
         # Precondition parameters
-        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter)
+        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n --time=$precondition_time_str --mem-per-cpu=$precondition_mem_per_cpu $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter 0) # Dont allow restarts when preconditioning has its own restarter -- it should more rarely fail to write i think..., or at max 1 restart. 
         # Run ensemble of forward models
-        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir)
+        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm --time=$time_str --mem-per-cpu=$mem_per_cpu $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion $SLURM_RESTART_COUNT_limit)
     else
-        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir)
+        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm --time=$time_str --mem-per-cpu=$mem_per_cpu $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion $SLURM_RESTART_COUNT_limit)
     fi
     # Update ensemble
     id_ek_upd=$(sbatch -o $logdir/%x-%j.out --parsable --kill-on-invalid-dep=yes --dependency=afterok:$id_ens_array --export=n=$n $thisdir/step_ekp.sbatch $it $job_id $thisdir)
@@ -146,11 +192,11 @@ else
         # Initialize calibration
         id_init_ens=$(sbatch -o $logdir/%x-%j.out --parsable --partition=expansion $thisdir/init.sbatch $config $job_id $thisdir $use_expansion) # turn off system image for now
         # Precondition parameters
-        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter )
+        id_precond=$(sbatch -o $logdir/%x-%A_%a.out  --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_init_ens --array=1-$n --time=$precondition_time_str --mem-per-cpu=$precondition_mem_per_cpu $thisdir/precondition_prior.sbatch $it $job_id $thisdir $use_expansion $max_preconditioner_counter 0) # Dont allow restarts when preconditioning has its own restarter -- it should more rarely fail to write i think..., or at max 1 restart.
         # Run ensemble of forward models
-        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion)
+        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_precond --array=1-$n -n $n_proc_scm --time=$time_str --mem-per-cpu=$mem_per_cpu $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion $SLURM_RESTART_COUNT_limit)
     else
-        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion)
+        id_ens_array=$(sbatch -o $logdir/%x-%A_%a.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_ek_upd --array=1-$n -n $n_proc_scm --time=$time_str --mem-per-cpu=$mem_per_cpu $thisdir/parallel_scm_eval.sbatch $it $job_id $n_proc_scm $thisdir $use_expansion $SLURM_RESTART_COUNT_limit)
     fi
     # Update ensemble
     id_ek_upd=$(sbatch -o $logdir/%x-%j.out --parsable --partition=expansion --kill-on-invalid-dep=yes --dependency=afterok:$id_ens_array --export=n=$n $thisdir/step_ekp.sbatch $it $job_id $thisdir $use_expansion)

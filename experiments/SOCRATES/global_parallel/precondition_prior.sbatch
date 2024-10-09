@@ -29,6 +29,12 @@ else
 fi
 
 
+if [ -z "$6" ]; then
+    SLURM_RESTART_COUNT_limit=2 # Won't this cause repeated running w/ same failing parameters? or does failing on parameters count as a clean exit? (using this bc of random failures writing to disk, maybe bc of NFS? etc...)
+else
+    SLURM_RESTART_COUNT_limit=${6}
+fi
+
 
 
 
@@ -69,9 +75,8 @@ echo $PWD
 if [ -z "$SLURM_RESTART_COUNT" ]; then
     SLURM_RESTART_COUNT=0
 fi
-SLURM_RESTART_COUNT_limit=5 # Won't this cause repeated running w/ same failing parameters? or does failing on parameters count as a clean exit?
-if [ "$SLURM_RESTART_COUNT" -lt  "$SLURM_RESTART_COUNT_limit" ]; then
-    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, less than limit of $SLURM_RESTART_COUNT_limit, trying..."
+if [ $SLURM_RESTART_COUNT -le $SLURM_RESTART_COUNT_limit ]; then
+    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, less than or equal to the limit of $SLURM_RESTART_COUNT_limit, trying..."
 
     
     # julia --project -C skylake-avx512 -JCEDMF.so precondition_prior.jl --version $version --job_dir $job_dir && (
@@ -86,12 +91,20 @@ if [ "$SLURM_RESTART_COUNT" -lt  "$SLURM_RESTART_COUNT_limit" ]; then
     if [ $julia_exit_code -eq 0 ]; then
         echo "Preconditioning for ${version} finished."
     else
-        echo "Preconditioning for ${version} failed with exit code $julia_exit_code, requeuing job $SLURM_JOB_ID"
-        scontrol requeue $SLURM_JOB_ID # combat random failures
+        if [ $SLURM_RESTART_COUNT -eq $SLURM_RESTART_COUNT_limit ]; then
+            echo "Cannot retry beacuse SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, equaling the limit of $SLURM_RESTART_COUNT_limit, exiting..."
+        else
+            echo "Preconditioning for ${version} failed with exit code $julia_exit_code, requeuing job $SLURM_JOB_ID"
+            scontrol requeue $SLURM_JOB_ID # combat random failures
+        fi
+        # echo "Preconditioning for ${version} failed with exit code $julia_exit_code, requeuing job $SLURM_JOB_ID"
+        # scontrol requeue $SLURM_JOB_ID # combat random failures
     fi
 
 else 
-    echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, greater than limit of $SLURM_RESTART_COUNT_limit, exiting..."
+    # echo "SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, equaling the limit of $SLURM_RESTART_COUNT_limit, exiting..."
+    echo "Error, this should not happen, SLURM_RESTART_COUNT is $SLURM_RESTART_COUNT, equaling the limit of $SLURM_RESTART_COUNT_limit, exiting..."
+
 fi
 
-
+printf "\n...Done!\n\n"

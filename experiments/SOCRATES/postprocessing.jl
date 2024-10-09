@@ -40,10 +40,12 @@ using ProgressMeter
 
 
 CEDMF_dir = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl"
+CEDMF_data_dir = "/home/jbenjami/Data/Research_Schneider/CliMa/CalibrateEDMF.jl/"
 experiments_dir = joinpath(CEDMF_dir, "experiments/SOCRATES")
 # postprocess_dir = joinpath(experiments_dir, "Postprocessing") # eh we're gonna move this to be elsewhere... also we need data_storage
 postprocess_dir = joinpath(CEDMF_dir, "experiments/SOCRATES")
 postprocess_runs_storage_dir = joinpath(CEDMF_dir, "experiments/SOCRATES_postprocess_runs_storage") # store outside SOCRATES for rsync efficiency...
+postprocess_runs_storage_data_dir = joinpath(CEDMF_data_dir, "experiments/SOCRATES_postprocess_runs_storage") # store outside SOCRATES for rsync efficiency...
 
 """
 From https://discourse.julialang.org/t/how-to-include-into-local-scope/34634/11?u=jbphyswx
@@ -70,7 +72,7 @@ end
 
 
 
-include("postprocessing_variable_functions.jl") # methods for calculating derived quantities
+# include("postprocessing_variable_functions.jl") # methods for calculating derived quantities
 
 new_calibration_vars_list = (
     ["ql_mean", "qi_mean"],
@@ -111,76 +113,135 @@ valid_experiment_setups = (
 
 
 # === Variable Processing ========================================================================================== #
+neg = x -> -x
+null_func = x -> x
+g_to_kg = x -> x ./ FT(1000)
+perday_to_persec = x -> x ./ FT(24 * 3600)
+w_to_q = w -> w ./ (1 .+ w) # mixing ratio to specific humidity    
+hPa_to_Pa = x -> x .* FT(100)
 
-all_needed_reference_vars =  Dict{Tuple{String,String}, String}( 
-    ("thetal_mean", "profiles") => "THETAL",
-    ("temperature_mean", "profiles") => "TABS",
-    ("qt_mean", "profiles") => "QT",
-    ("ql_mean", "profiles") => "QCL", # Seems QCL and QC are the same
-    ("qi_mean", "profiles") => "QCI", # seems QCI and QI are the same
-    ("qr_mean", "profiles") => "QR",
-    ("qs_mean", "profiles") => "QS",
-    #
-    ("qc_mean", "profiles") => "QN", # cloud liquid and ice (not in TC.jl output)
-    ("qg_mean", "profiles") => "QG",
-    ("qp_mean", "profiles") => "QP", # total precipitation (rain + snow) , not in TC.jl output
-    #
-    ("t", "timeseries") => "time", # don't need here
-    ("t", "profiles") => "time", # don't need here
-    ("zf", "profiles") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
-    ("zf", "reference") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
-    #
-    ("qi_mean_sub", "profiles") => "PRD",
-    ("qi_mean_dep", "profiles") => "EPRD",
-    ("ql_mean_cond_evap", "profiles") => "PCC", # not sure this is right cause it says droplets
-    #
-    ("qi_mean_sedimentation", "profiles") => "QISED",
-    #
+# The others would have more complicated rates...
 
+#=
+should process rates also use w_to_q???? how so given it's a derivative???
+
+dq/dt = d/dt [w/(1+w)] =  dw/dt / (1+w)^2 --> dq/dt = dw/dt / (1+w)^2... so we'd need to multiply rates all by (1+w)^2 to get the right units... which is a more complicated fcn.. mostly should be close to the same but...
+would make them all derived...
+
+
+=#
+
+all_needed_reference_vars_detailed =  Dict{Tuple{String,String}, Tuple{Union{String,Nothing}, Function, Bool}}( # LES NAME, unit scaling func, already exists in TC,
+    # `t` and `zf` or `zc` in group reference must exist for process_SOCRATES_Atlas_LES_reference() to work properly...
+    ("t", "timeseries") => ("time", null_func, false), # don't need here
+    ("t", "profiles") => ("time", null_func, false), # don't need here
+    # ("zf", "profiles") => ("z", null_func, true), # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+    ("zc", "reference") => ("z", null_func, true), # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+    # ("p_f", "reference") => ("p", hPa_to_Pa, true), # assuming "p" is a reference pressure but sometimes maybe we should use real pressure "PRES" instead?
+    ("p_c", "reference") => ("p", hPa_to_Pa, true), # assuming "p" is a reference pressure but sometimes maybe we should use real pressure "PRES" instead?
+
+    ("ρ_c", "reference") => (nothing, null_func, true), # assuming "p" is a reference pressure but sometimes maybe we should use real pressure "PRES" instead? Hopefully these just fill w/ NaN on the reference side, need for p_mean, ρ_mean  
+    ("ρ_f", "reference") => (nothing, null_func, false), # assuming "p" is a reference pressure but sometimes maybe we should use real pressure "PRES" instead? Hopefully these just fill w/ NaN on the reference side, need for p_mean, ρ_mean  
+
+    #
+    ("thetal_mean", "profiles") => ("THETAL", null_func, true),
+    ("temperature_mean", "profiles") => ("TABS", null_func, true),
+    #
+    ("qt_mean", "profiles") => ("QT", w_to_q ∘ g_to_kg, true),
+    ("ql_mean", "profiles") => ("QC", w_to_q ∘ g_to_kg, true), # Seems QCL and QC are the same
+    ("qi_mean", "profiles") => ("QI", w_to_q ∘ g_to_kg, true), # seems QCI and QI are the same
+    ("qr_mean", "profiles") => ("QR", w_to_q ∘ g_to_kg, true),
+    ("qs_mean", "profiles") => ("QS", w_to_q ∘ g_to_kg, true),
+    #
+    ("qc_mean", "profiles") => ("QN", w_to_q ∘ g_to_kg, false), # cloud liquid and ice (not in TC.jl output)
+    ("qg_mean", "profiles") => ("QG", w_to_q ∘ g_to_kg, false),
+    ("qp_mean", "profiles") => ("QP", w_to_q ∘ g_to_kg, false), # total precipitation (rain + snow) , not in TC.jl output
+    #
+    ("p_mean", "profiles") => ("PRES", hPa_to_Pa, false), # need these to be in profiles but read from reference
+    ("ρ_mean", "profiles") => ("RHO", null_func, false), # need these to be in profiles but read from reference
+    #
+    ("qi_mean_sub", "profiles") => ("PRD", perday_to_persec, false),
+    ("qi_mean_dep", "profiles") => ("EPRD", perday_to_persec, false),
+    ("ql_mean_cond_evap", "profiles") => ("PCC", perday_to_persec, true), # not sure this is right cause it says droplets
+    #
+    ("qi_mean_sed", "profiles") => ("QISED", perday_to_persec ∘ g_to_kg, true),
     # autoconv
-    ("ql_autoconv", "profiles") => "PRC",  # autoconversion QL to QR [QL -> QR]
-    ("qi_autoconv", "profiles") => "PRCI", # autoconversion QI to QS [QI -> QS]
-    ("qi_thresh", "profiles") => "PITOSN", # ice to snow due to threshold [QI -> QS]
-    # accretion
-    ("qi_accr", "profiles") => "PRAI", # accretion QI by QS [QI -> QS] (disagrees w/ https://doi.org/10.1029/2018JD028490 that calls it autoconv QI -> QS)
-    # accretion QI by QL [QI -> QL] # doesn't exist
-    # accretion QI by QR [QI -> QR] # doesn't exist
-    # accretion QI by QG [QI -> QG] # doesn't exist
-    #
-    ("ql_accr_r", "profiles") => "PRA",    # accretion QL by QR [QL -> QR]
-    ("ql_accr_i", "profiles") => "PSACWI", # accretion QL by QI [QL -> QI]
-    ("ql_accr_g", "profiles") => "PSACWG", # accretion QL by QG [QL -> QG] (https://doi.org/10.1029/2018JD028490 calls it collection)
-    ("ql_accr_s", "profiles") => "PSACWS", # accretion QL by QS [QG -> QS] ???? is this right
-    # collection
-    ("ql_coll_by_snow_to_grau", "profiles") => "PGSACW", # collection QL by QS, to QG
-    #
-    ("qi_coll_rain", "profiles") => "PRACI", # collection QI by QR, to QG
-    ("qi_coll_snow", "profiles") => "PRACIS", # collection QI by QR, to QS
+    ("ql_mean_acnv", "profiles") => ("PRC", neg ∘ perday_to_persec, true),  # autoconversion QL to QR [QL -> QR]
+    ("qi_mean_acnv_direct", "profiles") => ("PRCI", neg ∘ perday_to_persec, false), # autoconversion QI to QS [QI -> QS]
+    ("qi_mean_acnv_thresh", "profiles") => ("PITOSN", neg ∘ perday_to_persec, false), # ice to snow due to threshold [QI -> QS]
+    # accretion/collection
+    ("ql_mean_accr_liq_rai", "profiles") => ("PRA", neg ∘ perday_to_persec, true),    # accretion QL by QR [QL -> QR]
+    ("ql_mean_accr_liq_ice", "profiles") => ("PSACWI", neg ∘ perday_to_persec, true),    # accretion QL by QI [QL -> QI]
+    ("ql_mean_accr_liq_gra_to_gra", "profiles") => ("PSACWG", neg ∘ perday_to_persec, false), # accretion QL by QG [QL -> QG] (https://doi.org/10.1029/2018JD028490 calls it collection)
+    ("ql_mean_accr_liq_sno_to_sno", "profiles") => ("PSACWS", neg ∘ perday_to_persec, false), # accretion QL by QS [QG -> QS] ???? is this right
+    ("ql_mean_accr_liq_sno_to_gra", "profiles") => ("PGSACW", neg ∘ perday_to_persec, false), # collection QL by QS, to QG
+
+    ("qi_mean_accr_ice_liq", "profiles") => ("PSACWI", perday_to_persec, true), # accretion QL by QI [QL -> QI] (scaling shouldnt have a neg? on the ice direction since it's to ice not from ice?)
+    ("qi_mean_accr_ice_rai_to_gra", "profiles") => ("PRACI", neg ∘ perday_to_persec, false), # collection QI by QR, to QG
+    ("qi_mean_accr_ice_rai_to_sno", "profiles") => ("PRACIS", neg ∘ perday_to_persec, false), # collection QI by QR, to QG
+    ("qi_mean_accr_ice_sno", "profiles") => ("PRAI", neg ∘ perday_to_persec, true), # accretion QI by QS [QI -> QS] (disagrees w/ https://doi.org/10.1029/2018JD028490 that calls it autoconv QI -> QS)
+
+    # hetero ice
+    ("qi_mean_het_nuc_immersion", "profiles") => ("MNUCCI", perday_to_persec, false), # Immersion freezing
+    ("qi_mean_het_nuc_contact", "profiles") => ("MNUCCC", perday_to_persec, false), # Contact freezing
+    # adv/sgs
+    ("qi_mean_vert_adv", "profiles") => ("QIADV", perday_to_persec ∘ g_to_kg, true), # resolved vertical advection of ice (liq isn't in our files)
+    ("qi_mean_ls_vert_adv", "profiles") => ("QILSADV", perday_to_persec ∘ g_to_kg, true), # large scale vertical ice advection (liq isn't in our files)
+    ("qi_mean_sgs_tend", "profiles") => ("QIDIFF", perday_to_persec ∘ g_to_kg, true), # SGS ice flux (liq isn't in our files)
+   
+    ("qi_microphys", "profiles") => ("QIMPHY", perday_to_persec ∘ g_to_kg, true), # SGS ice flux (liq isn't in our files)
 
 )
 
+all_needed_reference_vars =  Dict{Tuple{String,String}, Union{String, Nothing}}(key => value[1] for (key, value) in all_needed_reference_vars_detailed)
+var_LES_to_TC_scalings = Dict{Tuple{String,String}, Function}(key => value[2] for (key, value) in all_needed_reference_vars_detailed)
 
 # Things that exist in TC and in LES
-TC_existing_to_LES_existing_translation = NTuple{12, Tuple{String, String}}(( #TC.jl (Name, Group)
-("thetal_mean", "profiles"),
-("temperature_mean", "profiles"),
-("qt_mean", "profiles"),
-("ql_mean", "profiles"),
-("qi_mean", "profiles"),
-("qr_mean", "profiles"),
-("qs_mean", "profiles"),
-("zf", "profiles"), # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
-("zf", "reference"),# this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
-#
-("ql_mean_cond_evap", "profiles"),
-("ql_mean_sedimentation", "profiles"), # doesn't exist in LES, should be 0 in TC, no point I guess... idk maybe just leave it and let reference be NaN?
-("qi_mean_sedimentation", "profiles"),
-))
+# TC_existing_to_LES_existing_translation = NTuple{12, Tuple{String, String}}(( #TC.jl (Name, Group)
+# ("thetal_mean", "profiles"),
+# ("temperature_mean", "profiles"),
+# ("qt_mean", "profiles"),
+# ("ql_mean", "profiles"),
+# ("qi_mean", "profiles"),
+# ("qr_mean", "profiles"),
+# ("qs_mean", "profiles"),
+# ("zf", "profiles"), # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+# ("zf", "reference"),# this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+# #
+# ("ql_mean_cond_evap", "profiles"),
+# ("ql_mean_sedimentation", "profiles"), # doesn't exist in LES, should be 0 in TC, no point I guess... idk maybe just leave it and let reference be NaN?
+# ("qi_mean_sedimentation", "profiles"),
+# ))
+N_exist = sum(1 for (key, value) in all_needed_reference_vars_detailed if value[3])
+TC_existing_to_LES_existing_translation = NTuple{N_exist, Tuple{String, String}}(key for (key, value) in all_needed_reference_vars_detailed if value[3])
 
 # Things that don't exist in TC but do in LES (LES side)
 # LES_existing_to_TC_new_translation_LES_side = Dict{Tuple{String,String}, String}( # TC.jl (Name, Group) -> fcn
 # deprecated bc we'll need a TC name anyway to compare to TC output, instead we'll just use all_needed_reference_vars and just give it a TC name, and then create in TC w/ LES_existing_to_TC_new_translation
 # )
+
+function insert_dim(arr::AbstractArray, dim::Union{Int, Nothing}=nothing)
+    # insert a dimension at dimension dim (default is last), 
+    Nd = ndims(arr)
+    if isnothing(dim)
+        dim = Nd + 1
+    end
+
+    new_shape = size(arr)
+    if dim > Nd + 1
+        new_shape = (new_shape..., ones(Int, dim - Nd - 1)...)
+    end
+
+    new_shape = (new_shape[1:dim-1]..., 1, new_shape[dim:end]...)
+    return reshape(arr, new_shape)
+end
+
+function insert_dim(arr::AbstractArray, dim::Union{AbstractVector, Tuple}=[nothing])
+    # insert a dimension at dimension dim, going down the list
+   return foldl((a, d) -> insert_dim(a, d), dim; init=arr)
+end
+
+
 
 # Things that don't exist in TC but do in LES (TC side) that we want to recreate on TC side
 LES_existing_to_TC_new_translation = Dict{Tuple{String,String}, Function}( # TC.jl (Name, Group) -> fcn
@@ -195,6 +256,24 @@ LES_existing_to_TC_new_translation = Dict{Tuple{String,String}, Function}( # TC.
     "attrib" => nothing # drop
     ),
 # no qg_mean bc although we need it for calculation on reference side, it can't be created in LES data
+("p_mean", "profiles") => x-> Dict(
+    "data" =>
+        begin
+            p_c = insert_dim(x.group["reference"]["p_c"], [4]) # (z × flight_number × role) -> (z, flight_number, role, method), ρ_c doesn't exist in LES data at all so we just make it NaN
+            repeat(p_c, outer = size(x.group["profiles"]["temperature_mean"]) .÷ size(p_c))
+        end, # 
+    "dimnames" => NC.dimnames(x.group["profiles"]["temperature_mean"]), # copy from temp to expand to 2D
+    "attrib" => nothing # drop
+    ),
+("ρ_mean", "profiles") => x-> Dict(
+    "data" => 
+        begin
+            ρ_c = insert_dim(x.group["reference"]["ρ_c"], [4])  # (z × flight_number × role) -> (z, flight_number, role, method), ρ_c doesn't exist in LES data at all so we just make it NaN
+            repeat(ρ_c, outer = size(x.group["profiles"]["temperature_mean"]) .÷ size(ρ_c))
+        end, # 
+    "dimnames" => NC.dimnames(x.group["profiles"]["temperature_mean"]), # copy from temp to expand to 2D
+    "attrib" => nothing # drop
+    ),
 )
 
 # Things that exist in TC but don't exist in LES (these are just calculations in TC lingo from existing data, we won't add anything new)
@@ -214,22 +293,72 @@ TC_existing_to_LES_new_translation = Dict{Tuple{String,String}, Function}( # TC.
     "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean"]),
     "attrib" => nothing # drop attributes cause they'd be innacurate
     ),  
-#
+
 ("qi_mean_sub_dep", "profiles") => x-> Dict(
     "data" => x.group["profiles"]["qi_mean_sub"] .+ x.group["profiles"]["qi_mean_dep"],
     "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_sub"]),
     "attrib" => nothing # drop attributes cause they'd be innacurate
     ),
-("ql_mean_autoconv_accr", "profiles") => x-> Dict(
-    "data" => -x.group["profiles"]["ql_autoconv"] .- x.group["profiles"]["ql_accr_r"] - x.group["profiles"]["ql_accr_i"] - x.group["profiles"]["ql_accr_g"] - x.group["profiles"]["ql_accr_s"] - x.group["profiles"]["ql_coll_by_snow_to_grau"],
-    "dimnames" => NC.dimnames(x.group["profiles"]["ql_autoconv"]),
+
+("qi_mean_acnv", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["qi_mean_acnv_direct"] .+ x.group["profiles"]["qi_mean_acnv_thresh"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_sub"]),
     "attrib" => nothing # drop attributes cause they'd be innacurate
     ),
-("qi_mean_autoconv_accr", "profiles") => x-> Dict(
-    "data" => -x.group["profiles"]["qi_autoconv"] .- x.group["profiles"]["qi_thresh"] .- x.group["profiles"]["qi_accr"] .+ x.group["profiles"]["ql_accr_i"] .- x.group["profiles"]["qi_coll_rain"] .- x.group["profiles"]["qi_coll_snow"],
-    "dimnames" => NC.dimnames(x.group["profiles"]["qi_autoconv"]),
+
+("ql_mean_accr_liq", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["ql_mean_accr_liq_rai"] .+ x.group["profiles"]["ql_mean_accr_liq_gra_to_gra"] .+ x.group["profiles"]["ql_mean_accr_liq_sno_to_sno"] .+ x.group["profiles"]["ql_mean_accr_liq_sno_to_gra"] .+ x.group["profiles"]["ql_mean_accr_liq_ice"] ,
+    "dimnames" => NC.dimnames(x.group["profiles"]["ql_mean_accr_liq_rai"]),
     "attrib" => nothing # drop attributes cause they'd be innacurate
     ),
+
+("ql_mean_accr_liq_sno", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["ql_mean_accr_liq_sno_to_sno"] .+ x.group["profiles"]["ql_mean_accr_liq_sno_to_gra"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["ql_mean_accr_liq_sno_to_sno"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+
+("qi_mean_accr_ice", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["qi_mean_accr_ice_liq"] .+ x.group["profiles"]["qi_mean_accr_ice_rai_to_gra"] .+ x.group["profiles"]["qi_mean_accr_ice_rai_to_sno"] .+ x.group["profiles"]["qi_mean_accr_ice_sno"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_accr_ice_liq"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+
+("qi_mean_accr_ice_no_liq", "profiles") => x-> Dict( # for saving bc we don't have liq/ice interaction (PSACWI) in TC...
+    "data" =>  x.group["profiles"]["qi_mean_accr_ice_rai_to_gra"] .+ x.group["profiles"]["qi_mean_accr_ice_rai_to_sno"] .+ x.group["profiles"]["qi_mean_accr_ice_sno"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_accr_ice_liq"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+
+("qi_mean_accr_ice_rai", "profiles") => x-> Dict(
+    "data" =>  x.group["profiles"]["qi_mean_accr_ice_rai_to_gra"] .+ x.group["profiles"]["qi_mean_accr_ice_rai_to_sno"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_accr_ice_liq"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+
+("qi_mean_het_nuc", "profiles") => x-> Dict(
+    "data" => x.group["profiles"]["qi_mean_het_nuc_immersion"] .+ x.group["profiles"]["qi_mean_het_nuc_contact"],
+    "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_het_nuc_immersion"]),
+    "attrib" => nothing # drop attributes cause they'd be innacurate
+    ),
+
+# ("qi_microphys", "profiles") => x-> Dict( # or could just use QIMPHY
+#         "data" => 
+#             x.group["profiles"]["qi_mean_sub"] .+
+#             x.group["profiles"]["qi_mean_dep"] .+
+#             x.group["profiles"]["qi_mean_acnv_direct"] .+
+#             x.group["profiles"]["qi_mean_acnv_thresh"] .+
+#             x.group["profiles"]["qi_mean_accr_ice_liq"] .+
+#             x.group["profiles"]["qi_mean_accr_ice_rai_to_gra"] .+
+#             x.group["profiles"]["qi_mean_accr_ice_rai_to_sno"] .+
+#             x.group["profiles"]["qi_mean_accr_ice_sno"] .+
+#             x.group["profiles"]["qi_mean_het_nuc_immersion"] .+
+#             x.group["profiles"]["qi_mean_het_nuc_contact"] .+
+#             x.group["profiles"]["qi_mean_sed"],
+#         "dimnames" => NC.dimnames(x.group["profiles"]["qi_mean_het_nuc_immersion"]),
+#         "attrib" => nothing # drop attributes cause they'd be innacurate
+#         ),
+
 )
 
 # ========================================================================================================================= #
@@ -279,29 +408,9 @@ TC_existing_to_LES_new_translation_alt =  Dict{Tuple{String,String}, Function}(
 
 # ========================================================================================================================= #
 
-# run_setups = valid_experiment_setups
-run_setups_default = [
-    ("SOCRATES_Base", "tau_autoconv_noneq"),
-    ("SOCRATES_Base", "pow_icenuc_autoconv_eq"),
-    ("SOCRATES_exponential_T_scaling_ice", "tau_autoconv_noneq"),
-    # ("SOCRATES_exponential_T_scaling_ice_raw", "tau_autoconv_noneq"),
-    ("SOCRATES_powerlaw_T_scaling_ice", "tau_autoconv_noneq"),
-    ("SOCRATES_geometric_liq__geometric_ice", "tau_autoconv_noneq"),
-    ("SOCRATES_geometric_liq__exponential_T_scaling_and_geometric_ice", "tau_autoconv_noneq") ,
-    ("SOCRATES_geometric_liq__powerlaw_T_scaling_ice", "tau_autoconv_noneq"),
-    # ("SOCRATES_neural_network", "tau_autoconv_noneq"),
-    ("SOCRATES_linear_combination", "tau_autoconv_noneq"),
-    ("SOCRATES_linear_combination_with_w", "tau_autoconv_noneq"),
-]
 
-# run_calibration_vars_list = new_calibration_vars_list
-run_calibration_vars_list = [
-    # ["ql_mean", "qi_mean"],
-    # ["ql_all_mean", "qi_all_mean"],
-    ["ql_mean", "qi_mean", "qr_mean", "qip_mean"],
-    # ["temperature_mean", "ql_mean", "qi_mean"],
-    # ["temperature_mean", "ql_all_mean", "qi_all_mean"],
-]
+
+
 
 
 # run postprocessing runs
@@ -312,7 +421,6 @@ run_calibration_vars_list = [
 
 
 # construct output postprocessed files (can we do these as jobs that depend on the jobs above? -- would need to create child scripts for easy sbatch use)
-
 
 
 
@@ -426,10 +534,11 @@ function collate_postprocess_runs(
     ;
     # calibrate_to::String = "Atlas_LES",
     methods::Vector{String} = default_methods,
-    all_needed_reference_vars::Dict{Tuple{String,String}, String} = all_needed_reference_vars, # needed to create reference properly
+    all_needed_reference_vars::Dict{Tuple{String,String}, Union{String, Nothing}} = all_needed_reference_vars, # needed to create reference properly
     data_vars::Union{Vector{Tuple{String,String}}, NTuple{N, Tuple{String, String}} where N} = TC_existing_to_LES_existing_translation, # things that exist in both TC and reference file created from LES w/ all_needed_reference_vars
     derived_data_vars_LES::Dict{Tuple{String,String}, Function} = TC_existing_to_LES_new_translation, # things we need to create in reference file created from LES w/ all_needed_reference_vars
     derived_data_vars_TC::Dict{Tuple{String,String}, Function} = LES_existing_to_TC_new_translation, # things we need to create in TC that we already have in reference file created from LES w/ all_needed_reference_vars
+    var_LES_to_TC_scalings::Dict{Tuple{String,String}, Function} = var_LES_to_TC_scalings, # how to scale the variables from LES to TC units
     reference_files_already_have_derived_data_vars_LES::Bool = false, # if you've already created the reference file w/ derived_data_vars_LES, you don't have to redo it...
     overwrite_reference::Bool = false,
     overwrite::Bool = false,
@@ -533,13 +642,14 @@ function collate_postprocess_runs(
 
 
     # === Recalculate reference files ====================================================================================== #
-    # update the reference data so that we get everything we need in the reference file
+    # update the reference data so that we get everything we need in the reference file (do here cause need truth_dir from config file)
     reference_paths2 = @invokelatest process_SOCRATES_Atlas_LES_reference(;out_dir=truth_dir,
         truth_dir=truth_dir,
         data_vars = keys(all_needed_reference_vars),
         data_vars_rename = all_needed_reference_vars,
         derived_data_vars = derived_data_vars_LES,
-        overwrite=overwrite_reference)# the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
+        var_scalings = var_LES_to_TC_scalings,
+        overwrite=overwrite_reference) # the folder where we store our truth (Atlas LES Data) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
     reference_files = reference_paths2 # seem to need a different name for some reason.. idk... include was doing something weird to reference_paths
     reference_files_have_derived_data_vars_LES = false
     if overwrite_reference
@@ -559,7 +669,7 @@ function collate_postprocess_runs(
 
     groups::Tuple = ("profiles", "reference") # no timeseries for us cause we're only doing time means
     # ADD A GROUP FOR PARAMETERS!
-    @warn("Need to add a group for the parameters we calculated -- I don't think we saved them either")
+    @warn("Need to add a group for the parameters we calibrated -- I don't think we saved them so we could save them here with the data idk")
     coords = Dict{String, Union{Nothing, Vector{String}, Vector{Int}, Vector{FT}}}(
         # "t" => nothing, we will only keep averages (and maybe variances?) over the reference period
         "z" => nothing, # will get from the data
@@ -593,8 +703,8 @@ function collate_postprocess_runs(
     local _new_data_sub_dev::Array{FT}
     local _new_data_add_dev::Array{FT}
 
-    _new_dims::Dict{String, NTuple{N,String} where N} = Dict("profiles" => ("z", "flight_number", "role", "method"), "reference" => ("z",))
-    _new_dims_ens::Dict{String, NTuple{N,String} where N} = Dict("profiles" => ("z", "flight_number", "role", "particle"), "reference" => ("z",))
+    _new_dims::Dict{String, NTuple{N,String} where N} = Dict("profiles" => ("z", "flight_number", "role", "method"), "reference" => ("z", "flight_number", "role"))
+    _new_dims_ens::Dict{String, NTuple{N,String} where N} = Dict("profiles" => ("z", "flight_number", "role", "particle"), "reference" => ("z", "flight_number", "role"))
 
 
     
@@ -622,7 +732,7 @@ function collate_postprocess_runs(
                 end
             end
             # collate all the zs and get the sorted unique values out
-            coords["z"] = sort(unique(vcat(values( Dict(k => v for (k,v) in zs if k[2] == forcing_type))...)))
+            coords["z"] = sort(unique(vcat(values( Dict(k => v for (k,v) in zs if k[2] == forcing_type))...))) # should we change this to be from grid320 and grid 192 instead of from the runs themselves now that we change our z grid routinely?
             @info("coords z", coords["z"])
 
             # add coordinates we know (everything except time and z which we'll fill in at the end?)
@@ -644,13 +754,18 @@ function collate_postprocess_runs(
             for group = ["reference",]
                 # dims
                 NC.defDim(new_data.group[group], "z", length(coords["z"]))
+                NC.defDim(new_data.group[group], "flight_number", length(coords["flight_number"]))
+                NC.defDim(new_data.group[group], "role", length(coords["role"]))
                 # coords
                 NC.defVar(new_data.group[group], "z", coords["z"], ["z"])
+                NC.defVar(new_data.group[group], "flight_number", coords["flight_number"], ["flight_number"])
+                NC.defVar(new_data.group[group], "role", coords["role"], ["role"])
             end
 
 
 
 
+            @info("all_data_vars: ", all_data_vars)
 
             # do the data processing
             @showprogress for (_vardef, varsource) in all_data_vars
@@ -665,6 +780,10 @@ function collate_postprocess_runs(
 
                 ens_data_vars = Dict{Tuple{String, String, String}, Array{FT}}() # {name, group, method}
 
+                # if _data_var == "ρ_c" # we already did this above
+                #     @info("_data_var = ρ_c, group=$_group, _new_data_sz=$_new_data_sz")
+                # end
+
 
                 for (i_fn, flight_number) in enumerate(coords["flight_number"]) # looping over this first is nice bc we don't have to keep changing the reference model etc... but it's annoying for ensemble variables that are by method across flights, also creating variables is hard bc their dimensions are based on group...
                     # select truth, namelist, reference_model
@@ -678,7 +797,8 @@ function collate_postprocess_runs(
                     # get truth (LES) data
                     if (varsource == "data_vars") ||  (varsource == "derived_data_vars_TC") ||  (varsource == "derived_data_vars_LES" ) # already is in both TC and LES ||  already is in LES reference but not TC || wasn't in LES but we calculated it in process_SOCRATES_Atlas_LES_reference hopefully
                         if nc_contains_var(truth_file, _data_var; group=_group)
-                            truth_data = get_reference_period_TC_output(truth_file, [_data_var], config, reference_model; z_scm = coords["z"]) # check if this is just a vector, in which case doing var by var is best and not combining
+                            # @info("ssstatus: ", truth_file, _data_var, config, reference_model, flight_number, _vardef, varsource)
+                            truth_data = get_reference_period_TC_output(truth_file, [_data_var], config, reference_model; z_scm = coords["z"], has_time_dims = has_time_dims(truth_file, _data_var; group=_group)) # check if this is just a vector, in which case doing var by var is best and not combining
                         else
                             @warn("No variable $_data_var in truth file $truth_file, filling with NaN")
                             truth_data = FT(NaN)
@@ -702,7 +822,7 @@ function collate_postprocess_runs(
                                         data_file = out_files[method][(flight_number, forcing_type)]
 
                                         if nc_contains_var(data_file, _data_var; group=_group)
-                                            var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"]) # check if this is just a vector, in which case doing var by var is best and not combining
+                                            var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"],  has_time_dims = has_time_dims(truth_file, _data_var; group=_group)) # check if this is just a vector, in which case doing var by var is best and not combining
                                         else
                                             @warn("No variable $_data_var in data file $data_file, filling with NaN")
                                             var_data = FT(NaN)
@@ -737,7 +857,7 @@ function collate_postprocess_runs(
                                         if (varsource == "data_vars") || (varsource == "derived_data_vars_LES") # derived_data_vars_TC we'll do later from full arrays, derived_data_vars_LES ones are already there
                                             data_file = out_files[particle_method][(flight_number, forcing_type)]
                                             if nc_contains_var(data_file, _data_var; group=_group)
-                                                var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"])
+                                                var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"], has_time_dims = has_time_dims(truth_file, _data_var; group=_group))
                                             else
                                                 # @warn("No variable $_data_var in data file $data_file, filling with NaN")
                                                 var_data = FT(NaN)
@@ -763,15 +883,31 @@ function collate_postprocess_runs(
                             end
                         end
 
+                        # if _data_var == "ρ_mean"
+                        #     @info "Processing $_data_var in $_group"
+                        #     @info("truth_file: ", truth_file)
+                        #     @info("truth_data: ", truth_data)
+                        #     @info("var_data: ", var_data)
+                        #     @info("new_data: ", _new_data)
+                        # end
+
                     elseif _group == "reference" # reference data should be the same for all methods and the truth...
-                        data_file = truth_file
+                        # data_file = truth_file
+                        method = collect(keys(out_files))[1] # just need a method to get the data file, reference variables should not vary across methods
+                        data_file = out_files[method][(flight_number, forcing_type)]
                         if nc_contains_var(data_file, _data_var; group=_group)
-                            var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"])
+                            var_data = get_reference_period_TC_output(data_file, [_data_var], config, reference_model; z_scm = coords["z"],  has_time_dims = has_time_dims(data_file, _data_var; group=_group))
                         else
                             @warn("No variable $_data_var in data file $data_file, filling with NaN")
                             var_data = FT(NaN)
+
+                            # if _data_var == "ρ_c"
+                            #     @info("_data_var = ρ_c, group=$_group, _new_data_sz=$_new_data_sz, data_")
+                            # end
                         end
-                        @inbounds _new_data .= var_data
+                        
+                        @inbounds _new_data[:, i_fn:i_fn, i_r:i_r] .= truth_data
+                        @inbounds _new_data[:, i_fn:i_fn, i_c:i_c] .= var_data
 
                     end
 
@@ -801,16 +937,26 @@ function collate_postprocess_runs(
             # end
 
             # add derived variables to TC (that are already in LES) (all underlying needed vars should exist from above)
+            @warn("This isn't true, if you need a variable from TC that has no equivalent in LES, you can't do this..... for now just put secondary needed variables as if they exist in the reference fail and let it fail and fill w/ NaNs there...?")
+            # -- To fix this, you could write our functions here to just take in outputs from that fcn though, like qc_mean having  data => get_reference_period_TC_output(data_file, ["ql",]) + get_reference_period_TC_output(data_file, ["qi",])... but that's a lot of work...
+            # -- on the plus side, you wouldn't need this block to be at the end though and could do it inline w/ the other data vars...
+            # -- you would also be passing in datafile instead of x being the netcdf data
+            # -- you could also apply the same logic to the LES side and just have the functions take in the file and return the output fcn and that would greatly reduce the number of excess variables we need to store in combined_data.nc
             # THIS SHOULD WORK BC THE VARIABLES NEEDED ARE KEPT IN THE OUTPUT FILE (FOR NOW) -- LONG TERM WE NEED A WAY TO MIX GET_PROFILE AND THESE FUNCTIONS...
             for (_vardef, _varfunc) in derived_data_vars_TC
                 _varname, _group = _vardef
                 if _group == "profiles"
                     _varname, _group = _vardef
-                    # @info("status: ", _vardef, _varfunc)
-                    # @info(("_varfunc(_new_data)", _varfunc(new_data)))
                     _new_data = _varfunc(new_data)["data"]
-                    # @info("_new_data", _new_data)
-                    new_data.group[_group][_varname][:, :, i_c:i_c, :] = _new_data[:, :, i_c:i_c, :] # do only for calibrated side, the reference side gets done in reference processing rn
+                    new_data.group[_group][_varname][:, :, i_c:i_c, :] = _new_data[:, :, i_c:i_c, :] # do only for calibrated side because that's TC where the variable didn't exist yet, the reference value should have been done in the reference processing
+                    # do ensemble var # how do we do that with different names?
+                    @warn("Need to add ensemble vars for derived_data_vars_TC, but they have _ensemble appended onto their names right so how do we do that...")
+                elseif _group == "reference"
+                    _varname, _group = _vardef
+                    _new_data = _varfunc(new_data)["data"]
+                    new_data.group[_group][_varname][:, :, i_c:i_c] = _new_data[:, :, i_c:i_c] # do only for calibrated side, the reference side gets done in reference processing rn, and we have to have created this var already to be overwriting it...
+                    # do ensemble var # how do we do that with different names?
+                    @warn("Need to add ensemble vars for derived_data_vars_TC, but they have _ensemble appended onto their names right so how do we do that...")
                 end
             end
 
@@ -882,19 +1028,38 @@ function get_reference_period_TC_output(
     z_scm::Union{Nothing, Vector{FT}} = nothing, # if we already have z_scm we can pass it in
     penalized_value::FT = FT(NaN), # value to fill in for penalized values
     verbose::Bool = false,
-
+    has_time_dims::Union{Bool, Vector{Bool}} = true
 )
     if isnothing(z_scm)
         z_scm::Vector{FT} = @invokelatest CalibrateEDMF.ReferenceModels.get_z_rectified_obs(reference_model)
     end
+
     # use reference model bc we get the time shifts and windowing from config for free
-    return @invokelatest CalibrateEDMF.ReferenceStats.get_profile(reference_model, data_file, y_names; z_scm = z_scm, prof_ind = false, penalized_value = penalized_value, verbose = verbose) # does this concatenate them, if so maybe easier to go one variable at a time? idk... Also idk if it returns our z...
+    # @info("status: ", reference_model, data_file, y_names, z_scm, penalized_value, verbose)
+    return @invokelatest CalibrateEDMF.ReferenceStats.get_profile(reference_model, data_file, y_names; z_scm = z_scm, prof_ind = false, penalized_value = penalized_value, verbose = verbose, has_time_dims = has_time_dims) # does this concatenate them, if so maybe easier to go one variable at a time? idk... Also idk if it returns our z...
 
 
     # If we can create a faster version of this w/o the TC fluff that could be good, and also allow us to use functions on vars instead of just var names
 
 end
 
+
+function has_time_dims(
+    nc_data::Union{String, NCDatasets.NCDataset},
+    varname::String;
+    group::Union{String, Nothing} = nothing,
+    time_dim = "time"
+)
+
+    nc_data = isa(nc_data, String) ? NCDatasets.NCDataset(nc_data) : nc_data
+
+    if isnothing(group)
+        return time_dim ∈ NC.dimnames(nc_data[varname])
+    else
+        return time_dim ∈ NC.dimnames(nc_data.group[group][varname])
+    end
+
+end
 
 
 

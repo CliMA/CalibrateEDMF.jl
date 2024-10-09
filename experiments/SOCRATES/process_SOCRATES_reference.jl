@@ -9,7 +9,7 @@ this_dir = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments
 # data_dir = joinpath(this_dir, "Reference", "Atlas_LES") # the folder where we store our truth (Atlas LES Data)
 
 # The variables we need for calibration routine from the Atlas LES outputs
-default_data_vars_atlas = Dict{Tuple{String,String}, String}( #TC.jl (Name, Group) =>  Atlas Name
+default_data_vars_atlas = Dict{Tuple{String,String}, Union{String, Nothing}}( #TC.jl (Name, Group) =>  Atlas Name
 ("thetal_mean", "profiles") => "THETAL",
 ("temperature_mean", "profiles") => "TABS",
 ("qt_mean", "profiles") => "QT",
@@ -24,6 +24,39 @@ default_data_vars_atlas = Dict{Tuple{String,String}, String}( #TC.jl (Name, Grou
 ("t", "profiles") => "time",
 ("zf", "profiles") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
 ("zf", "reference") => "z", # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+)
+
+
+neg = x -> -x
+null_func = x -> x
+g_to_kg = x -> x ./ FT(1000)
+perday_to_persec = x -> x ./ FT(24 * 3600)
+w_to_q = w -> w ./ (1 .+ w) # mixing ratio to specific humidity    
+
+
+default_var_LES_to_TC_scaling = Dict{Tuple{String,String}, Function}( 
+    ("thetal_mean", "profiles") => null_func,
+    ("temperature_mean", "profiles") => null_func,
+    ("qt_mean", "profiles") => w_to_q ∘ g_to_kg,
+    ("ql_mean", "profiles") => w_to_q ∘ g_to_kg, # Seems QCL and QC are the same
+    ("qi_mean", "profiles") => w_to_q ∘ g_to_kg, # seems QCI and QI are the same
+    ("qr_mean", "profiles") => w_to_q ∘ g_to_kg,
+    ("qs_mean", "profiles") => w_to_q ∘ g_to_kg,
+    #
+    ("qc_mean", "profiles") => w_to_q ∘ g_to_kg, # cloud liquid and ice (not in TC.jl output)
+    ("qg_mean", "profiles") => w_to_q ∘ g_to_kg,
+    ("qp_mean", "profiles") => w_to_q ∘ g_to_kg, # total precipitation (rain + snow) , not in TC.jl output
+    #
+    ("t", "timeseries") => null_func, # handled in process_SOCRATES_Atlas_LES_reference rn. could move/fix later
+    ("t", "profiles") => null_func, # don't need here
+    ("zf", "profiles") => null_func, # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+    ("zf", "reference") => null_func, # this is how it works in TC.jl, do we need to add "zc" separately? (note "zf" though in TC.jl has an extra 0 point at surface...) # I dont think we need this one though cause HelperFuncs.jl pairs them together in get_height anyway, might need it for is_face_variable() in HelperFuncs.jl though...
+    #
+    ("qi_mean_sub", "profiles") => perday_to_persec,
+    ("qi_mean_dep", "profiles") => perday_to_persec,
+    ("ql_mean_cond_evap", "profiles") => perday_to_persec, # not sure this is right cause it says droplets
+    #
+
 )
 
 default_derived_data_vars_atlas = Dict{Tuple{String,String}, Function}( #TC.jl (Name, Group) =>  fcn
@@ -57,11 +90,13 @@ function process_SOCRATES_Atlas_LES_reference(;
     flight_numbers::Vector{Int} = flight_numbers,
     forcing_types::Vector{Symbol} = forcing_types,
     data_vars = keys(default_data_vars_atlas), # the variables we need...
-    data_vars_rename::Dict{Tuple{String,String}, String} = default_data_vars_atlas,
+    data_vars_rename::Dict{Tuple{String,String}, Union{String, Nothing}} = default_data_vars_atlas,
     truth_dir::String = joinpath(this_dir, "Reference", "Atlas_LES"), # the folder where we store our truth (Atlas LES Data)
     out_dir::String = joinpath(this_dir, "Reference", "Atlas_LES"), # the folder where we store our output data
     overwrite::Bool = true,
     derived_data_vars::Dict{Tuple{String,String}, Function} = default_derived_data_vars_atlas, # variables derived from existing vars 
+    var_scalings::Dict{Tuple{String,String}, Function} = default_var_LES_to_TC_scaling,
+    z_is_c_or_f::String = "c", # "c" or "f" for whether we take the z or f in the Atlas LES data as the center or face of the grid cell. any zf can create a valid zc but not all zc can create a valid zf... but for the Atlas LES data, taking z as zc does yield a valid zf and matches what TC.jl does...
     )
     truth_files = filter(contains(".nc",), readdir(truth_dir))
 
@@ -103,13 +138,26 @@ function process_SOCRATES_Atlas_LES_reference(;
                     for _vardef in data_vars
                         _data_var, _group = _vardef
                         _truth_var = data_vars_rename[_vardef]
-                        _new_dims = collect((x=="z" ? "zf" : x for x in NC.dimnames(truth_data[_truth_var]))) # replace any "z" in dimnames with "zf"
+
+                        if isnothing(_truth_var)
+                            continue # this variable doesn't exist in the truth data, so we can't create it without knowing its dimensions etc...
+                        end
+
+
+
+                        if z_is_c_or_f == "f"
+                            _new_dims = collect((x=="z" ? "zf" : x for x in NC.dimnames(truth_data[_truth_var]))) # replace any "z" in dimnames with "zf" (really it's zc in TC.jl but we can't reliaby ensure that any vector zf yields a valid zf w/ z[1] = 0)
+                        else
+                            _new_dims = collect((x=="z" ? "zc" : x for x in NC.dimnames(truth_data[_truth_var]))) # replace any "z" in dimnames with "zc" # this is technically what TC non advective variable are on...
+                        end
 
                         _truth_vardata = Array(truth_data[_truth_var])
-                        if _truth_var ∈ ("QT", "QCL", "QCI", "QN", "QR", "QS", "QP") 
-                            _truth_vardata ./= ( 1 .+ _truth_vardata) # convert mixing ratio to specific humidity
+
+                        # apply prescribed scalings
+                        if _vardef in keys(var_scalings)
+                            _truth_vardata = var_scalings[_vardef](_truth_vardata)
                         end
-                        # @info _data_var
+                        
                         NC.defVar(new_data.group[_group], _data_var, _truth_vardata, _new_dims; attrib =  truth_data[_truth_var].attrib )
 
                     end
@@ -119,36 +167,49 @@ function process_SOCRATES_Atlas_LES_reference(;
                     # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
 
                     # Calculate and add ("zc", "profiles"), and ("zc", "reference"), grid shouldn't have to be the same as TC.jl and it should interpolate using vertical_interpolation() from HelperFuncs.jl, if so we need to add z=0 to z/zf and also something at the surface for variables defined on z/zf, the latter part being the hard part lol so I hope we don't have to do that...
-                    zf_data = Array(new_data.group["profiles"]["zf"])
-                    zc_data = (zf_data[1:end-1] .+ zf_data[2:end]) ./ 2.0
-                    _new_dims  =  collect((x=="z" ? "zc" : x for x in NC.dimnames(truth_data["z"]))) # replace any "z" in dimnames with "zc"
-                    NC.defVar(new_data.group["profiles"], "zc", zc_data, (_new_dims); attrib =  truth_data["z"].attrib )
-                    NC.defVar(new_data.group["reference"], "zc", zc_data, _new_dims; attrib =  truth_data["z"].attrib )
+                    
+                    if z_is_c_or_f == "f"
+                        if "zf" ∈ keys(new_data.group["profiles"])
+                            zf_data = Array(new_data.group["profiles"]["zf"])
+                        elseif "zf" ∈ keys(new_data.group["reference"])
+                            zf_data = Array(new_data.group["reference"]["zf"])
+                        else
+                            error("No `zf` variable found in new_data group `profile`s or `reference``, ensure it is in the created data_vars")
+                        end
+
+                        zc_data = (zf_data[1:end-1] .+ zf_data[2:end]) ./ 2.0 # zf -> zc
+                        _new_dims  =  collect((x=="z" ? "zc" : x for x in NC.dimnames(truth_data["z"]))) # replace any "z" in dimnames with "zc"
+                        NC.defVar(new_data.group["profiles"], "zc", zc_data, (_new_dims); attrib =  truth_data["z"].attrib )
+                        NC.defVar(new_data.group["reference"], "zc", zc_data, _new_dims; attrib =  truth_data["z"].attrib )
+                    else
+                        if "zc" ∈ keys(new_data.group["profiles"])
+                            zc_data = Array(new_data.group["profiles"]["zc"])
+                        elseif "zc" ∈ keys(new_data.group["reference"])
+                            zc_data = Array(new_data.group["reference"]["zc"])
+                        else
+                            error("No `zc` variable found in new_data group `profile`s or `reference``, ensure it is in the created data_vars")
+                        end
+
+                        zf_data = FT[FT(0); ] # zc -> zf
+                        for zc in zc_data
+                            append!(zf_data, 2*zc - zf_data[end]) # zf_data[end] + 2*(zc - zf_data[end]) = 2*zc - zf_data[end] # This happens to work for the grids they gave us and not yield any negative numbers...
+                        end
+                        NC.defVar(new_data.group["profiles"], "zf", zf_data, ["zf"]; attrib =  truth_data["z"].attrib )
+                        NC.defVar(new_data.group["reference"], "zf", zf_data, ["zf"]; attrib =  truth_data["z"].attrib )
+                    end
+
+
+
+
                     # Fix time variable to go from days to second
                     new_data.group["profiles"]["t"][:] = (new_data.group["profiles"]["t"][:] .- new_data.group["profiles"]["t"][1]) .* (24.0 .* 3600.0) |> (x -> x .+ (ceil(x[end]/3600)*3600 - x[end])) # shift day to second, then i think t=0 is missing and we need to shift it to end at t=12,14, otherwise would end at 11.91,13.91h so shift to nearest hour
                     new_data.group["timeseries"]["t"][:] = (new_data.group["timeseries"]["t"][:] .- new_data.group["timeseries"]["t"][1]) .* (24.0 .* 3600.0 ) |> (x -> x .+ (ceil(x[end]/3600)*3600 - x[end])) # shift day to second, then i think t=0 is missing and we need to shift it to end at t=12,14, otherwise would end at 11.91,13.91h so shift to nearest hour
-                    # Fix water to go from g/kg = kg/kg
-                    new_data.group["profiles"]["qt_mean"][:] = new_data.group["profiles"]["qt_mean"][:] ./ 1000.0
-                    new_data.group["profiles"]["ql_mean"][:] = new_data.group["profiles"]["ql_mean"][:] ./ 1000.0
-                    new_data.group["profiles"]["qi_mean"][:] = new_data.group["profiles"]["qi_mean"][:] ./ 1000.0
-
-                    if "qs_mean" in keys(new_data.group["profiles"])
-                        new_data.group["profiles"]["qs_mean"][:] = new_data.group["profiles"]["qs_mean"][:] ./ 1000.0
-                    end
-                    if "qr_mean" in keys(new_data.group["profiles"])
-                        new_data.group["profiles"]["qr_mean"][:] = new_data.group["profiles"]["qr_mean"][:] ./ 1000.0
-                    end
-
-                    # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
-                    # -- --  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- #
-
-
 
                     # Add derived variables
                     for _vardef in keys(derived_data_vars)
                         _data_var, _group = _vardef
                         _new_data = derived_data_vars[_vardef](new_data)
-                        NC.defVar(new_data.group[_group], _data_var, _new_data["data"], _new_data["dimnames"] ) # drop attirbutes cause they'd be innacurate
+                        NC.defVar(new_data.group[_group], _data_var, _new_data["data"], _new_data["dimnames"] ) # drop attributes cause they'd be innacurate
                     end
 
                     # consider calculating θ_{li} here, so we don't have to use say, temperature_mean in calibration... (probably requires adding Thermodynamics.jl)
@@ -204,7 +265,7 @@ function process_SOCRATES_Flight_Observations_reference(;
     flight_numbers::Vector{Int} = flight_numbers,
     forcing_types::Vector{Symbol} = forcing_types,
     data_vars = keys(default_data_vars_obs), # the variables we need...
-    data_vars_rename::Dict{Tuple{String,String}, String} = default_data_vars_obs,
+    data_vars_rename::Dict{Tuple{String,String}, Union{String, Nothing}} = default_data_vars_obs,
     truth_file::String = joinpath(this_dir, "Reference", "Flight_Observations", "RF_all__leg_types_U_D_min_time_120__2_mb_binning__binned_profiles_z.nc"),  # If you wanna rebin yourself, then you'd have to tie into my python routines w/ pycall or something...
     fake_time_axis::Bool = true, # if true, we will create a time axis from the profiles and set the time coordinates to linear space between t_start and t_end of the reference period
     fake_time_bnds = "Atlas",

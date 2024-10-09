@@ -38,6 +38,7 @@ calibration_vars_str = join(sort(calibration_vars), "__")
 
 @info("supersat_type", supersat_type)
 @info("calibration_setup", calibration_setup)
+@info("dt_string", dt_string)
 @info("calibration_vars_str", calibration_vars_str)
 @info("calibrate_to", calibrate_to)
 @info("flight_numbers", flight_numbers)
@@ -53,13 +54,13 @@ default_user_args = (;
     sedimentation_integration_method = :upwinding,
     use_heterogeneous_ice_nucleation = false,
     sedimentation_ice_number_concentration = supersat_type, # idk if this is good or bad lol...
+    sedimentation_liq_number_concentration = supersat_type, # idk if this is good or bad lol...
     liq_velo_scheme = :Chen2022Vel,
     ice_velo_scheme = :Chen2022Vel,
     rain_velo_scheme = :Chen2022Vel,
     snow_velo_scheme = :Chen2022Vel,)
 
 added_user_args::Bool = false
-print(added_user_args)
 @info("added_user_args", added_user_args)
 for (i_i, item) in enumerate(local_namelist)
     if item[1] == "user_args"
@@ -94,6 +95,11 @@ elseif header_setup_choice == :simple
 else
     error("invalid header_setup_choice: ", header_setup_choice)
 end
+
+# ========================================================================================================================= #
+# scale ensemble size w/ # params to calibrate, now that we've defined calibration parameters (doesn't work bc N_ens is grepd for by ekp_par_calibration.sbatch so we can't just edit it after the fact)
+# try to update that later at some point
+# ========================================================================================================================= #
 
 # consider adding a flag to just get the paths without overwriting existing files
 reference_paths = Dict() # for regular atlas_les, keep empty, we'll just generate them later (switch to using the ones generated above?)
@@ -140,7 +146,7 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, calibration_vars_str, "calibrate", "output", calibrate_to, "RF"*flight_string*"_"*forcing_types_str) # store them in the experiment folder here by default, organized by calibration vars
+    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run", calibration_setup, dt_string, calibration_vars_str, "calibrate", "output", calibrate_to, "RF"*flight_string*"_"*forcing_types_str) # store them in the experiment folder here by default, organized by calibration vars
     config["use_outdir_root_as_outdir_path"] = true # use the outdir_root as the directory itself, otherwise it'll create a new directory inside the outdir_root with the calibration parameters
     return config
 end
@@ -157,10 +163,7 @@ function get_regularization_config()
     config["dim_scaling"] = true # Dimensional scaling of the loss
 
     if normalization_type == :pooled_nonzero_mean_to_value && !@isdefined(obs_var_scaling) # if we didn't set this before, use these defaults
-        obs_var_scaling = Dict(
-            "temperature_mean" => (1/273.0)^2, #  scale down bc we scaled T to 1, so ΔT is now ∼ 1/273, so scale that up, leave others the same. then ΔT will be O(1) just like Δq
-            "ql_mean" => 1.0,
-            "qi_mean" => (1.0/5)^2) # scale down so ice becomes more important (factor of 5 rn), maybe will help calibrations...
+        obs_var_scaling = default_obs_var_scaling
     end
 
     config["obs_var_scaling"] = @isdefined(obs_var_scaling) ? obs_var_scaling : nothing # Scale the observation variance by these values
@@ -205,7 +208,6 @@ function get_process_config()
     if @isdefined(alt_scheduler)
         if alt_scheduler == :default || isnothing(alt_scheduler)
             config["scheduler"] = nothing
-            @info("herererererere")
         else
             config["scheduler"] = alt_scheduler
         end
@@ -352,8 +354,9 @@ end
 function get_scm_config() # set all my namelist stuff here, these are global settings.
     config = Dict()
     config["namelist_args"] = [ # this could move out of body if necessary...
-        ("time_stepping", "dt_min", 0.5),
-        ("time_stepping", "dt_max", 2.0),
+        ("time_stepping", "dt_min", dt_min),
+        ("time_stepping", "dt_max", dt_max),
+        ("time_stepping", "adapt_dt", adapt_dt),
         ("time_stepping", "t_max", t_max), # shorter for testing
         ("stats_io", "frequency", 600.0), # long runs so try a lower output rate for smaller files... (seems to be seconds) -- changed to 10 minutes... 14 hours default runs are loooong...
     ]

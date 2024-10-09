@@ -390,12 +390,18 @@ function get_profile(
     prof_ind::Bool = false,
     penalized_value::FT = 1.0e5, # this was the default for training from Ignacio/Costa, but in other cases you may want other values, e.g. NaN
     verbose::Bool = true,
+    has_time_dims::Union{Bool, Vector{Bool}} = true, # if time is not a dimension, e.g. it's a reference profile w/ only z as a dim
 ) where {T, FT}
 
     t = nc_fetch(filename, "t")
     dt = length(t) > 1 ? mean(diff(t)) : 0.0
     y = zeros(0)
     is_profile = Bool[]
+
+
+    if isa(has_time_dims, Bool)
+        has_time_dims = repeat([has_time_dims], length(y_names))
+    end
 
     # Check that times are contained in simulation output
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
@@ -433,22 +439,32 @@ function get_profile(
     end
 
     # Return time average for non-degenerate cases
-    for var_name in y_names
+    for (i_v, var_name) in enumerate(y_names)
+
         var_ = fetch_interpolate_transform(var_name, filename, z_scm)
-        if ndims(var_) == 2
-            var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
-            append!(is_profile, true)
-        elseif ndims(var_) == 1
-            var_mean = !isnothing(tf) ? mean(var_[ti_index:tf_index]) : var_[ti_index]
-            append!(is_profile, false)
+        if has_time_dims[i_v]
+            if ndims(var_) == 2
+                var_mean = !isnothing(tf) ? mean(var_[:, ti_index:tf_index], dims = 2) : var_[:, ti_index]
+                append!(is_profile, true)
+            elseif ndims(var_) == 1
+                var_mean = !isnothing(tf) ? mean(var_[ti_index:tf_index]) : var_[ti_index]
+                append!(is_profile, false)
+            end
+        else
+            var_mean = var_
+            append!(is_profile, true) # it's just a z profile and we dont need to do anything else
         end
+        
         append!(y, var_mean)
     end
     return prof_ind ? (y, is_profile) : y
+
+
+
 end
 
-function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false, penalized_value::FT = 1.0e5, verbose::Bool = true) where {T, FT}
-    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose) 
+function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false, penalized_value::FT = 1.0e5, verbose::Bool = true, has_time_dims::Union{Bool, Vector{Bool}} = true) where {T, FT}
+    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose, has_time_dims = has_time_dims) 
 end
 
 function get_profile(
@@ -459,8 +475,9 @@ function get_profile(
     prof_ind::Bool = false,
     penalized_value::FT = 1.0e5, # this was the default for training from Ignacio/Costa, but in other cases you may want other values, e.g. NaN
     verbose::Bool = true,
+    has_time_dims::Union{Bool, Vector{Bool}} = true
 ) where {T, FT}
-    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose)
+    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose, has_time_dims = has_time_dims)
 end
 
 """

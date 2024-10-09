@@ -36,14 +36,14 @@ echo "last ekobj: ${last_ekobj}"
 echo "first new iteration: ${first_new_iter}"
 
 # Number of parallel processes for SCM evaluation, split evenly between train and validation
-n_proc_scm=10
+n_proc_scm=6
 echo "Restarting calibration with ${n} ensemble members and ${n_it} iterations (grand total)."
 
 # experiment_dir=${2?Error: Working directory not given}
 
 config_dir=$(dirname $(dirname $(dirname $output_dir_rel)))/configs # go up from the output dir (original input w/ symlinks, not the realpath) to the configs dir (have to use dirname bc it doesnt resolve symlinks, realpath and `..` do )
 echo $config_dir
-subexperiment_dir=$(realpath $config_dir/../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/calibrate/configs/ to the subexperiment directory
+subexperiment_dir=$(realpath $config_dir/../../../../../../) # go up from the config paths in Calibrate_and_Run/<calibration setup>/<dt string> <calibration vars>/calibrate/configs/ to the subexperiment directory
 echo $subexperiment_dir
 experiment_dir=$(realpath $subexperiment_dir/../../) # go up from the subexperiment directory to the experiment directory
 echo $experiment_dir

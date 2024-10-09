@@ -8,13 +8,43 @@
 #SBATCH --output=/dev/null
 
 experiment=${1?Error: no experiment given}
-calibration_setup=${2?Error: no calibration setup given} # the subname of the calibration setup within the experiment (these should almost just be different experiments tbh)
-calibration_vars_str=${3?Error: no calibration vars given}
+calibration_setup=${2?Error: no calibration setup given} # the subname of the calibration setup within the experiment (these should almost just be different experiments tbh, but you could still i guess toggle doing autoconv or no, or calibrate to LES or flight obs, or use ERA5 or flight_obs LES runs.
+dt_string=${3?Error: no dt string given}
+calibration_vars_str=${4?Error: no calibration vars given}
+
+if [ -z "$5" ]; then
+    # echo "max_preconditioner_counter not set, defaulting to 5"
+    max_preconditioner_counter=5
+else
+    max_preconditioner_counter=$5
+fi
+
+if [ -z "$6" ]; then
+    # echo "SLURM_RESTART_COUNT_limit not set, defaulting to 2"
+    SLURM_RESTART_COUNT_limit=2
+else
+    SLURM_RESTART_COUNT_limit=$6
+fi
+
+if [ -z "$7" ]; then
+    # echo "resource_scaling_factor not set, defaulting to 1"
+    resource_scaling_factor_time=1
+else
+    resource_scaling_factor_time=$7
+fi
+
+if [ -z "$8" ]; then
+    # echo "resource_scaling_factor not set, defaulting to 1"
+    resource_scaling_factor_mem=1
+else
+    resource_scaling_factor_mem=$8
+fi
+
 
 calibrate_script=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/global_parallel/restart_ekp_par_calibration.sbatch
 experiment_path=~/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/subexperiments/${experiment}/
 calibrate_and_run_dir=$experiment_path/Calibrate_and_Run/
-this_calibrate_and_run=$calibration_setup/$calibration_vars_str
+this_calibrate_and_run=$calibration_setup/$dt_string/$calibration_vars_str
 this_calibrate_and_run_dir=$calibrate_and_run_dir/$this_calibrate_and_run/
 this_calibrate_dir=$this_calibrate_and_run_dir/calibrate/
 this_config_dir=$this_calibrate_dir/configs/

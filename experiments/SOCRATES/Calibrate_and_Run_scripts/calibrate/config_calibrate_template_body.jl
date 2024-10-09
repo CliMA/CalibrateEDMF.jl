@@ -26,6 +26,26 @@ experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES", "subexperiments", 
 t_max = 7*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
 t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing
 t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing
+dt_min = 0.5
+dt_max = 2.0
+adapt_dt = true
+
+dt_string = adapt_dt ? "adapt_dt__dt_min_"*string(dt_min)*"__dt_max_"*string(dt_max) : "dt_"*string(dt_min)
+
+
+# large dt will violate CFL... so we need to be careful with this... 
+dz_min = 10.0 * (dt_min / 0.5) # this maintains the old limits...
+# CFL_limit = 0.5
+# dz_min = 5 * (dt_max / CFL_limit) # this would be a more proper and stricter limit... assuming u_max is fall speed of 5 m/s (who knows about updraft speed lol),.. assuming adapt_dt may not work
+# dz_min = 5 * (dt_min / CFL_limit) # this would be a more proper and stricter limit... assuming u_max is fall speed of 5 m/s (who knows about updraft speed lol)... assuming adapt_dt will work 
+
+# technically w/ CFL_limit = 0.5, we have Δx > u * (Δt/CFL_limit), and if u for rain falling maxes out around 5 m/s, then we have for dt_min = 0.5, dx > 5m, and for dt_min = 5m, dx > 20m... 10 is sort of in the middle lol so you might see some failures... but we'll see maybe we should pin in on dt_max instead of dt_min
+for (i,(key, name, val)) in enumerate(default_namelist_args)
+    if key == "grid" && name == "dz_min"
+        default_namelist_args[i] = (key, name, dz_min)
+    end
+end
+
 # ========================================================================================================================= #
 # constants we use here
 

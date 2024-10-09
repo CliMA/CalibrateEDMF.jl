@@ -475,9 +475,60 @@ function ek_update(
             # using identity n_param x n_param cov martrix times n_param x n_ens param matrix will add constant amount to each parameter (then times noise in EKP spreading all directions)
             # since we don't control the internals of EKP to just construct that matrix externally, we'll just rely on them... once it's merged in... for now we're stuck with just using use_prior_cov=true (false would use final iteration which is probably jacked up in our collapsed case, since we're not benignly using inflation...) 
 
+            # if u_cov is singular, this wont work....
+            
+            # should we use prior cov or final cov when applying inflation?
+            
+            #=
+            This code is copied from  EnsembleKalmanProcesses.jl </src/EnsembleKalmanProcess.jl> bc I don't want to separately manage my own version of another package again
+            =#
+            
+            Σ = get_u_cov_prior(ekobj)
+
+            # NOTE: in 1.1.6, we could just pass Σ = Σ + additive_inflation * I to update_ensemble!() as our additive_inflation_cov matrix, and then we'd just be done w/ the whole thing...  MvNormal() call would work, etc yada yada... but we're stuck in 1.1.5 for now... (can try to update later)
+
+            if (detΣ =  EnsembleKalmanProcesses.LinearAlgebra.det(Σ)) < 1e-100 # close to 0...
+                # this code is copied from  EnsembleKalmanProcesses.jl </src/EnsembleKalmanProcess.jl> bc I don't want to separately manage my own version of another package again
+                # In principle, calculating det(Σ) is slow... so repeating it isn't ideal...
+                @warn "Prior covariance matrix may be singular, has determinant $detΣ... Adding $additive_inflation to the covariance matrix diagonal. You likely need more ensemble members!"
+                
+
+                # == we can't guarantee that the new u will have a positive definite and non-singular cov matrix, so  we call update_ensemble!() but w/ inflation off... == #
+                update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=false, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+                
+                # == Now we'l do our own inflation == #
+
+                u = get_u_final(ekobj)
+                # EnsembleKalmanProcesses.calculate_timestep!(ekobj, g, Δt) # if is DataMisfitController, this will ignore Δt and calculate its own...
+                # Δt = pop!(ekobj.Δt) # remove the last one, since we're gonna call update_ensemble! for real soon
+
+                Δt = ekobj.Δt[end] # get the last one since we already called ekobj...
+                s = additive_inflation
+                scaled_Δt = s * Δt
+                if scaled_Δt >= 1.0
+                    error(string("Scaled time step: ", scaled_Δt, " is >= 1.0", "\nChange s or EK time step."))
+                end
+
+                Σ += additive_inflation * EnsembleKalmanProcesses.LinearAlgebra.I # this ensures that Σ is positive definite and non-singular
+                noise_multivariate =  EnsembleKalmanProcesses.Distributions.MvNormal((scaled_Δt / (1 - scaled_Δt)) .* Σ) # just a normal distribution with the additional to the diagnoal, but no other scaling... this also doesn't rely on Δt from the scheduler, idk if that's bad or not. We don't wanna call calculate_timestep! bc it mutates ekp.Δt (though you could just undo that...)
+                u_updated = u + rand(noise_multivariate, size(u, 2))
+
+                # we overwrite the update_ensemble no inflation u w/ our inflated u, just as if we were now calling EnsembleKalmanProcesses:additive_inflation!()
+                ekobj.u[end] = EnsembleKalmanProcesses.DataContainers.DataContainer(u_updated, data_are_columns = true) # update the u w/ something that is sure to have positive definite and non-singular cov matrix
+
+            else
+                update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+            end
+
+
+
             # update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = 1.0, additive_inflation_cov=additive_inflation_cov) # not merged yet
-            update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+            # update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
             @info("Δt 5", ekobj.Δt)
+
+
+
+
         else
             @info "No additive inflation applied to the ensemble."
             @info "Δt 4: $Δt"

@@ -37,6 +37,8 @@ CEDMF.so
 output
 # config[-_]*.jl
 
+*.png
+
 # Output directory
 **/Output/
 

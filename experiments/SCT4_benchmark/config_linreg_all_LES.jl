@@ -23,12 +23,13 @@ using EnsembleKalmanProcesses.ParameterDistributions
 using TurbulenceConvection
 const TC = TurbulenceConvection
 
-include("../../../tools/DiagnosticsTools.jl")
+include("../../tools/DiagnosticsTools.jl")
 # Cases defined as structs for quick access to default configs
 struct SCT3Train end
 struct SCT3Val end
 
-restart_ds_path = <PATH_TO_PRECALIBRATION_DIAGNOSTICS_FILE>
+# restart_ds_path = <PATH_TO_PRECALIBRATION_DIAGNOSTICS_FILE>
+restart_ds_path = "/groups/esm/cchristo/cedmf_results/james_v1_runs/results_Inversion_p22_e300_i15_mb_LES_2024-03-15_10-08_Vxo_longer_long_run/Diagnostics.nc" # costa sent to me
 optimal_u_names, optimal_u = optimal_parameters(restart_ds_path; method = "last_nn_particle_mean")
 
 

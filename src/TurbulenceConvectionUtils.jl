@@ -351,6 +351,7 @@ function run_SCM_handler(
     namelist::Dict,
     uuid::String = "01",
     les::Union{NamedTuple, String, Nothing} = nothing,
+    store_results::Bool = true,
 ) where {FT <: AbstractFloat}
     model_error = false
 
@@ -393,6 +394,30 @@ function run_SCM_handler(
         message = ["TurbulenceConvection.jl simulation $out_dir failed with parameters: \n"]
         append!(message, ["$param_name = $param_value \n" for (param_name, param_value) in zip(u_names, u)])
         @warn join(message)
+    end
+
+    # store results to a jld2 in out_dir
+    if store_results
+
+        out_data = Dict(
+            "param_names" => u_names,
+            "param_vals" => u,
+            # "param_map" => collect(param_map[:]), is a hard type and needs CEDMF to reconstruct
+            "namelist" => namelist,
+            "success" => (ret_code == :success),
+        )
+        #
+        # out_dir = "/home/jbenjami/Research_Schneider/CliMa/CalibrateEDMF.jl/experiments/SOCRATES/global_parallel/slurm/param_results"
+        # replace tmp w/ param_results
+        out_dir_param = replace(out_dir, "tmp" => "param_results")
+        out_file_param = joinpath(out_dir_param, "param_results.jld2")
+        if ret_code ≠ :success
+            @warn "Writing failed paramters to $out_file_param"
+        else
+            @warn "Writing successful parameters to $out_file_param"
+        end
+        isfile(out_file_param) ? rm(out_file_param) : mkpath(out_dir_param) # remove file if it exists, otherwise create directory just in case (mkpath won't error if directory already exists)
+        JLD2.jldsave(out_file_param; param_results = out_data)
     end
 
     return data_directory(out_dir, case_name, uuid), model_error
