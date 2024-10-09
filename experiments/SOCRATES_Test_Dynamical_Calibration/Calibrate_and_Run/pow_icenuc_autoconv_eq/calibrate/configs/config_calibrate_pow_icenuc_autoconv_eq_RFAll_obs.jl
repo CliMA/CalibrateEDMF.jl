@@ -27,7 +27,18 @@ struct SOCRATES_Val end
 this_dir = @__DIR__ # the location of this file
 pkg_dir = pkgdir(CalibrateEDMF)
 experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES_Test_Dynamical_Calibration")
-truth_dir = joinpath(experiment_dir, "Truth") # the folder where we store our truth (Atlas LES Data)
+
+calibrate_to = "Flight_Observations" # "Atlas_LES" or "Flight_Observations"
+if calibrate_to == "Atlas_LES"
+    truth_dir = joinpath(experiment_dir, "Reference","Atlas_LES") # the folder where we store our truth (Atlas LES Data)
+elseif calibrate_to == "Flight_Observations"
+    truth_dir = joinpath(experiment_dir, "Reference","Flight_Observations","Faked_Profiles_to_Time") # the folder where we store our truth (Atlas LES Data)
+    # based on calibration_vars we need to drop empty slices so the covariance matrix can be calculated without nans so it can still have eigenvalues (we actually need more than one value left over in each row , and in each pair of rows for cov to work)
+else
+    error("invalid calibrate_to: ", calibrate_to)
+end
+
+
 # SOCRATES setups
 flight_numbers = [1,9,10,11,12,13]
 forcing_types  = [:obs_data]
@@ -38,7 +49,8 @@ Train_forcing_types = [:obs_data,]
 Val_flight_numbers = flight_numbers
 Val_forcing_types = forcing_types
 
-t_max = 2*3600.0 # shorter for testing
+t_max = 14*3600.0 # 14 hours
+# t_max = 2*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing
 
 # use_ramp = true
 # if use_ramp
@@ -78,6 +90,12 @@ local_namelist = [
 calibration_vars = ["temperature_mean", "ql_mean","qi_mean"]
 # calibration_vars = ["temperature_mean", "qt_mean"] # qt instead of ql or qi because we don't care about phase just yet, temperature_mean to make sure other stuff doesn't get out of hand.
 
+# process_truth
+include(joinpath(experiment_dir, "process_SOCRATES_reference.jl")) # process the truth data into a format we can use for calibration
+
+_, trimmed_reference_paths = process_SOCRATES_Flight_Observations_Reference(out_vars=calibration_vars) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return :/)
+
+
 function get_config()
     config = Dict()
     # Flags for saving output data
@@ -99,7 +117,7 @@ end
 
 function get_output_config()
     config = Dict()
-    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run","pow_icenuc_autoconv_eq", "calibrate", "output", "RFAll_obs") # store them in the experiment folder here by default
+    config["outdir_root"] = joinpath(experiment_dir, "Calibrate_and_Run","pow_icenuc_autoconv_eq", "calibrate", "output", calibrate_to, "RFAll_obs") # store them in the experiment folder here by default
     config["use_outdir_root_as_outdir_path"] = true # use the outdir_root as the directory itself, otherwise it'll create a new directory inside the outdir_root with the calibration parameters
     return config
 end
@@ -159,16 +177,27 @@ function get_reference_config(::SOCRATES_Train)
     # add this here because it seems to be called?
     for setup in setups
        name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
-       datafile = joinpath(truth_dir, name, "stats", name*".nc")
-       if isfile(datafile)
+    #    datafile = joinpath(truth_dir, name, "stats", name*".nc")
+       datafile = trimmed_reference_paths[(setup["flight_number"], setup["forcing_type"])] # use the trimmed data for validation
+       if !isnothing(datafile) && isfile(datafile) # this might not work for obs since we do have truth there existing but can't run socrates...
            setup["datafile"] = datafile
            setup["case_name"] = "SOCRATES_"*name
        else
            @warn("File $datafile does not exist")
        end
     end
+    setups = [setup for setup in setups if !isnothing(trimmed_reference_paths[(setup["flight_number"], setup["forcing_type"])])] # remove anyting for which trimming nans for covariance resulted in no data
+    setups = filter(d->haskey(d,"datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
 
-    NC.Dataset(joinpath(truth_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+    # maybe add a filter based on if not truth_dir,  but atlasles dir has a forcing file there there since that's the real limitation, whether youre comparing to atlas les or obs you can't run TC w/o forcing data...
+    # @info(setups)
+    setups = [setup for setup in setups if  !(setup["flight_number"] == 11 && setup["forcing_type"] == :obs_data)] # remove 11 obs explicitly (testing)
+    # setups = [setups[1]] # testing
+    # @info(setups)
+
+    # filter out files where our trimming led to no data
+
+    NC.Dataset(joinpath(experiment_dir, "Reference", "SOCRATES_summary.nc"),"r") do SOCRATES_summary
         for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
             if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
                 setup["t_start"] = 10 * 3600.
@@ -198,15 +227,15 @@ function get_reference_config(::SOCRATES_Train)
     config["Σ_reference_type"] = LES()
     config["y_names"] = repeat([calibration_vars], n_repeat) # the variable we want to calibrate on
     config["y_dir"] = ref_dirs
-    # config["t_start"] = repeat([setup["t_start"]], n_repeat) # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
-    # config["t_end"] = repeat([setup["t_end"]], n_repeat) # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
-    config["t_start"] = repeat([1*3600], n_repeat) # shorter for test
-    config["t_end"] = repeat([2*3600], n_repeat) # shorter for testing
+    config["t_start"] = [setup["t_start"] for setup in setups] # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
+    config["t_end"] = [setup["t_end"] for setup in setups] # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
+    # config["t_start"] = repeat([1800], n_repeat) # shorter for test
+    # config["t_end"] = repeat([3600], n_repeat) # shorter for testing
     # Use full  timeseries for covariance (for us we just use what)? # for covariance
-    # config["Σ_t_start"] = repeat([11.0 * 3600], n_repeat) #  use hours 11-13 for comparison
-    # config["Σ_t_end"] = repeat([13.0 * 3600], n_repeat)  #  use hours 11-13 for comparison
-    config["Σ_t_start"] = repeat([.5*3600], n_repeat) #  shorter for testing
-    config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
+    config["Σ_t_start"] = [setup["t_start"] for setup in setups] #  use hours 11-13 for comparison
+    config["Σ_t_end"] = [setup["t_end"] for setup in setups]  #  use hours 11-13 for comparison
+    # config["Σ_t_start"] = repeat([2500], n_repeat) #  shorter for testing
+    # config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
     config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600. for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
     # config["time_shift"] = config["time_shift"][] # test to see if vector here was the problem
     # config["batch_size"] = n_repeat # has to be some divisor of n_repeat, default is n_repeat == length(ref_dirs) == number of setups
@@ -237,16 +266,21 @@ function get_reference_config(::SOCRATES_Val)
     for setup in setups
        name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
        datafile = joinpath(truth_dir, name, "stats", name*".nc")
-       if isfile(datafile)
+       if isfile(datafile) # I think we gotta be careful about this cause if we're using flight obs, 11 obs exists but then the simulation won't run...
            setup["datafile"] = datafile
            setup["case_name"] = "SOCRATES_"*name
        else
            @warn("File $datafile does not exist")
        end
     end
-    setup = filter(d->haskey(d,"datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
+    setups = filter(d->haskey(d,"datafile"), setups) # remove setups that didn't have a forcing datafile (namely 11 obs)
+    # maybe add a filter based on if not truth_dir,  but atlasles dir has a forcing file there there since that's the real limitation, whether youre comparing to atlas les or obs you can't run TC w/o forcing data...
+    # @info(setups)
+    setups = [setup for setup in setups if  !(setup["flight_number"] == 11 && setup["forcing_type"] == :obs_data)] # remove 11 obs explicitly (testing)
+    # setups = [setups[1]] # testing
+    # @info(setups)
 
-    NC.Dataset(joinpath(truth_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+    NC.Dataset(joinpath(experiment_dir, "Reference", "SOCRATES_summary.nc"),"r") do SOCRATES_summary
         for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
             if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
                 setup["t_start"] = 10 * 3600.
@@ -276,15 +310,15 @@ function get_reference_config(::SOCRATES_Val)
     config["Σ_reference_type"] = LES()
     config["y_names"] = repeat([calibration_vars], n_repeat) # the variable we want to calibrate on
     config["y_dir"] = ref_dirs
-    # config["t_start"] = repeat([setup["t_start"]], n_repeat) # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
-    # config["t_end"] = repeat([setup["t_end"]], n_repeat) # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
-    config["t_start"] = repeat([1800], n_repeat) # shorter for test
-    config["t_end"] = repeat([3600], n_repeat) # shorter for testing
+    config["t_start"] = [setup["t_start"] for setup in setups] # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
+    config["t_end"] = [setup["t_end"] for setup in setups] # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
+    # config["t_start"] = repeat([1800], n_repeat) # shorter for test
+    # config["t_end"] = repeat([3600], n_repeat) # shorter for testing
     # Use full  timeseries for covariance (for us we just use what)? # for covariance
-    # config["Σ_t_start"] = repeat([11.0 * 3600], n_repeat) #  use hours 11-13 for comparison
-    # config["Σ_t_end"] = repeat([13.0 * 3600], n_repeat)  #  use hours 11-13 for comparison
-    config["Σ_t_start"] = repeat([2500], n_repeat) #  shorter for testing
-    config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
+    config["Σ_t_start"] = [setup["t_start"] for setup in setups] #  use hours 11-13 for comparison
+    config["Σ_t_end"] = [setup["t_end"] for setup in setups]  #  use hours 11-13 for comparison
+    # config["Σ_t_start"] = repeat([2500], n_repeat) #  shorter for testing
+    # config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
     config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600. for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
     # config["time_shift"] = config["time_shift"][] # test to see if vector here was the problem
     # config["batch_size"] = n_repeat # has to be some divisor of n_repeat, default is n_repeat == length(ref_dirs) == number of setups
