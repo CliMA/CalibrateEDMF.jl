@@ -57,24 +57,25 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
         @warn("Cleaning up old files in output directory: $(out_config["outdir_root"])")
         outdir_root = out_config["outdir_root"]
         files = readdir(outdir_root; join=true)
-        print(files)
+        # print(files)
         # delete ekobj_iter_#.jld2 files
         map(file-> occursin(r"ekobj_iter_\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delete prior.jld2 files
         map(file-> occursin(r"prior.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delte scm_output_i#_e#.jld2 files
         map(file-> occursin(r"scm_output_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file-> occursin(r"scm_val_output_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delete versions_#.txt files
         map(file-> occursin(r"versions_\d+.txt", file) ?  rm(file; force=true) : nothing, files)
         # delete .txt files remaining (shold be hte random sequence.txt file left...)
         map(file-> occursin(r".txt", file) ?  rm(file; force=true) : nothing, files)
         # delete scm_initializer_i#_e#.jld2 files
         map(file-> occursin(r"scm_initializer_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        map(file-> occursin(r"scm_val_initializer_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delete config.jl file
         map(file-> occursin(r"config.jl", file) ?  rm(file; force=true) : nothing, files)
         # delete Diagnostics.nc file
         map(file-> occursin(r"Diagnostics.nc", file) ?  rm(file; force=true) : nothing, files)
-
         # clear out tmp subdirectory if it exists
         if isdir(joinpath(outdir_root, "tmp"))
             rm(joinpath(outdir_root, "tmp"); recursive=true, force=true)
@@ -92,10 +93,22 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
     Δt = get_Δt(Δt_scheduler, 1)
 
     scheduler = get_entry(proc_config, "scheduler", nothing)
+    
+
+    @info("Δt 2: $Δt_scheduler, $Δt")
+    @info("scheduler ", proc_config["scheduler"], scheduler)
 
     if !isnothing(scheduler)
         Δt = nothing
     end
+
+    # I believe this is correct ... otherwise you're just gonna pass scheduler = nothing with no Δt
+    if isnothing(scheduler)
+        scheduler = DefaultScheduler(Δt)
+    end
+
+    @info("scheduler ", proc_config["scheduler"], scheduler)
+    @info("Δt 3: $Δt")
 
     augmented = get_entry(proc_config, "augmented", false)
     failure_handler = get_entry(proc_config, "failure_handler", "high_loss")
@@ -416,11 +429,15 @@ function ek_update(
     Δt_scheduler = get_entry(proc_config, "Δt", 1.0)
     Δt = get_Δt(Δt_scheduler, iteration)
 
-    scheduler = ekobj.scheduler
+    scheduler = ekobj.scheduler # once this is set, your \Delta t won't be respected anymore....
 
     if !isnothing(scheduler)
         Δt = nothing
     end
+
+    @info("Δt up: $Δt_scheduler, $Δt")
+    @info("scheduler up ", proc_config["scheduler"], scheduler)
+    @info("config", config["process"])
 
     deterministic_forward_map = get_entry(proc_config, "noisy_obs", false)
     augmented = get_entry(proc_config, "augmented", false)
@@ -452,6 +469,7 @@ function ek_update(
         additive_inflation = get(reg_config, "additive_inflation", nothing)
         if !isnothing(additive_inflation)
             @info "Additive inflation applied to the ensemble, some scalar times an identity"
+            @info "Δt 4: $Δt"
             # u = get_u_final(ekobj) # something of the same size as this 
             # additive_inflation_cov = additive_inflation .* ones(size(u)) # how does this differ from just using the gaussian noise? # this at least isn't sensitive to the prior , but it's not allowed in 1.1.5 as is until that's merged...
             # using identity n_param x n_param cov martrix times n_param x n_ens param matrix will add constant amount to each parameter (then times noise in EKP spreading all directions)
@@ -459,12 +477,20 @@ function ek_update(
 
             # update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = 1.0, additive_inflation_cov=additive_inflation_cov) # not merged yet
             update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map, additive_inflation=true, s = additive_inflation, use_prior_cov=true) # version in 1.1.5
+            @info("Δt 5", ekobj.Δt)
         else
+            @info "No additive inflation applied to the ensemble."
+            @info "Δt 4: $Δt"
             update_ensemble!(ekobj, g, Δt_new = Δt, deterministic_forward_map = deterministic_forward_map,) #
+            @info("Δt 5", ekobj.Δt)
         end
     elseif isa(ekobj.process, Unscented)
+        @info "Unscented Kalman Inversion update"
+        @info "Δt 5: $Δt"
         update_ensemble!(ekobj, g, Δt_new = Δt)
     else
+        @info "Ensemble Kalman Sampler update"
+        @info "Δt 6: $Δt"
         Δt ≈ 1.0 ? nothing : @warn "Ensemble Kalman Sampler does not accept a custom Δt."
         update_ensemble!(ekobj, g)
     end

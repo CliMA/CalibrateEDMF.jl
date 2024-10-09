@@ -86,6 +86,8 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         RM::Vector{ReferenceModel};
         perform_PCA::Bool = true,
         normalize::Bool = true,
+        normalization_type::Symbol = :pooled_variance,
+        characteristic_values::Union{Dict, Nothing} = nothing,
         variance_loss::FT = 0.1,
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
@@ -93,7 +95,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         time_shift::Union{FT, Vector{FT}} = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
         model_errors::OptVec{T} = nothing,
         obs_var_scaling::Union{Dict, Nothing} = nothing,
-        obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
+        obs_var_additional_uncertainty_factor::Union{FT, Dict, Nothing} = nothing,
     ) where {FT <: Real, T}
         IT = Int64
         # Init arrays
@@ -121,7 +123,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
             z_scm = get_z_rectified_obs(model) # should be rectified
             y_, y_var_, pool_var = get_obs(
                 model,
-                normalize,
+                normalize;
+                normalization_type = normalization_type,
+                characteristic_values = characteristic_values,
                 z_scm = z_scm, # trying here to allow for changing z_scm from what the reference was run with...
                 model_error = model_error,
                 obs_var_scaling = obs_var_scaling,
@@ -245,10 +249,12 @@ function get_obs(
     y_names::Vector{String},
     Σ_names::Vector{String},
     normalize::Bool;
+    normalization_type::Symbol = :pooled_variance,
+    characteristic_values::Union{Dict, Nothing} = nothing,
     z_scm::OptVec{FT} = nothing,
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
-    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
+    obs_var_additional_uncertainty_factor::Union{FT, Dict, Nothing} = nothing,
 ) where {FT <: Real}
     # time covariance
     Σ, pool_var = get_time_covariance(
@@ -256,6 +262,8 @@ function get_obs(
         Σ_names,
         z_scm,
         normalize = normalize,
+        normalization_type = normalization_type,
+        characteristic_values = characteristic_values,
         model_error = model_error,
         obs_var_scaling = obs_var_scaling,
         obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor,
@@ -272,14 +280,16 @@ end
 function get_obs(
     m::ReferenceModel,
     normalize::Bool;
+    normalization_type::Symbol = :pooled_variance,
+    characteristic_values::Union{Dict, Nothing} = nothing,
     z_scm::OptVec{FT},
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
-    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing,
+    obs_var_additional_uncertainty_factor::Union{FT, Dict, Nothing} = nothing,
 ) where {FT <: Real}
     y_names = isa(m.y_type, LES) ? get_les_names(m, y_nc_file(m)) : m.y_names
     Σ_names = isa(m.Σ_type, LES) ? get_les_names(m, Σ_nc_file(m)) : m.y_names
-    get_obs(m, y_names, Σ_names, normalize, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling, obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor)
+    get_obs(m, y_names, Σ_names, normalize, normalization_type = normalization_type, characteristic_values = characteristic_values, z_scm = z_scm, model_error = model_error, obs_var_scaling = obs_var_scaling, obs_var_additional_uncertainty_factor = obs_var_additional_uncertainty_factor)
 end
 
 """
@@ -378,7 +388,9 @@ function get_profile(
     tf::OptReal = nothing,
     z_scm::OptVec{T} = nothing,
     prof_ind::Bool = false,
-) where {T}
+    penalized_value::FT = 1.0e5, # this was the default for training from Ignacio/Costa, but in other cases you may want other values, e.g. NaN
+    verbose::Bool = true,
+) where {T, FT}
 
     t = nc_fetch(filename, "t")
     dt = length(t) > 1 ? mean(diff(t)) : 0.0
@@ -389,28 +401,32 @@ function get_profile(
     Δt_start, ti_index = findmin(broadcast(abs, t .- ti))
     # If simulation does not contain values for ti or tf, return high value (penalization)
     if t[end] < ti
-        @warn string(
-            "Note: t_end < ti, which means that simulation stopped before reaching the requested t_start.",
-            "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
-            "Defaulting to penalized profiles...",
-        )
+        if verbose
+            @warn string(
+                "Note: t_end < ti, which means that simulation stopped before reaching the requested t_start.",
+                "Requested t_start = $ti s. However, the last time available is $(t[end]) s.",
+                "Defaulting to penalized profiles...",
+            )
+        end
         for i in 1:length(y_names)
             var_ = isnothing(z_scm) ? get_height(filename) : z_scm
-            append!(y, 1.0e5 * ones(length(var_[:])))
+            append!(y, penalized_value * ones(length(var_[:])))
         end
         return prof_ind ? (y, repeat([true], length(y_names))) : y
     end
     if !isnothing(tf)
         Δt_end, tf_index = findmin(broadcast(abs, t .- tf))
         if t[end] < tf - dt
-            @warn string(
-                "Note: t_end < tf - dt, which means that simulation stopped before reaching the requested t_end.",
-                "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
-                "Defaulting to penalized profiles...",
-            )
+            if verbose
+                @warn string(
+                    "Note: t_end < tf - dt, which means that simulation stopped before reaching the requested t_end.",
+                    "Requested t_end = $tf s. However, the last time available is $(t[end]) s.",
+                    "Defaulting to penalized profiles...",
+                )
+            end
             for i in 1:length(y_names)
                 var_ = isnothing(z_scm) ? get_height(filename) : z_scm
-                append!(y, 1.0e5 * ones(length(var_[:])))
+                append!(y, penalized_value * ones(length(var_[:])))
             end
             return prof_ind ? (y, repeat([true], length(y_names))) : y
         end
@@ -431,8 +447,8 @@ function get_profile(
     return prof_ind ? (y, is_profile) : y
 end
 
-function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false) where {T}
-    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind)
+function get_profile(m::ReferenceModel, filename::String; z_scm::OptVec{T} = nothing, prof_ind::Bool = false, penalized_value::FT = 1.0e5, verbose::Bool = true) where {T, FT}
+    get_profile(m, filename, m.y_names, z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose) 
 end
 
 function get_profile(
@@ -441,8 +457,10 @@ function get_profile(
     y_names::Vector{String};
     z_scm::OptVec{T} = nothing,
     prof_ind::Bool = false,
-) where {T}
-    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind)
+    penalized_value::FT = 1.0e5, # this was the default for training from Ignacio/Costa, but in other cases you may want other values, e.g. NaN
+    verbose::Bool = true,
+) where {T, FT}
+    get_profile(filename, y_names, ti = get_t_start(m), tf = get_t_end(m), z_scm = z_scm, prof_ind = prof_ind, penalized_value = penalized_value, verbose = verbose)
 end
 
 """
@@ -473,9 +491,11 @@ function get_time_covariance(
     y_names::Vector{String},
     z_scm::Vector{FT};
     normalize::Bool = true,
+    normalization_type::Symbol = :pooled_variance,
+    characteristic_values::Union{Dict, Nothing} = nothing,
     model_error::OptVec{FT} = nothing,
     obs_var_scaling::Union{Dict, Nothing} = nothing,
-    obs_var_additional_uncertainty_factor::Union{FT, Nothing} = nothing, # if we do it by all vars
+    obs_var_additional_uncertainty_factor::Union{FT, Dict, Nothing} = nothing, # if we do it by all vars
 ) where {FT <: Real}
     filename = Σ_nc_file(m)
     t = nc_fetch(filename, "t")
@@ -487,6 +507,8 @@ function get_time_covariance(
     num_outputs = length(y_names)
     pool_var = zeros(num_outputs)
     model_error_expanded = Vector{FT}[]
+
+    obs_var_additional_uncertainty_vectors = zeros(0, N_samples) # rows of data just like ts_vec
 
     for (i, var_name) in enumerate(y_names)
 
@@ -513,16 +535,63 @@ function get_time_covariance(
             var  = Statistics.var
         end
 
+        # @info characteristic_values
 
         if ndims(var_) == 2
             # Store pooled variance
-            pool_var[i] = var_factor * mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
+            if normalization_type == :pooled_variance
+                pool_var[i] = var_factor * mean(var(var_[:, ti_index:tf_index], dims = 2)) + eps(FT) # vertically averaged time-variance of variable
+            elseif normalization_type == :pooled_nonzero_mean_to_value # convert the mean of non-zero values to 1
+                # pool_var[i] = var_factor * mean_nonzero_elements(var_[:, ti_index:tf_index], dims=[1,2]) + eps(FT) # mean of nonzero elements of variable (should this be squared so the if block below isn't necessary?)
+                mean_nonzero_elements_output = mean_nonzero_elements(var_[:, ti_index:tf_index])
+                if iszero(mean_nonzero_elements_output) && !isnothing(characteristic_values) 
+                    mean_nonzero_elements_output = get(characteristic_values, var_name, FT(0.0))
+                    # @info "new mean_nonzero_elements_output: $mean_nonzero_elements_output"
+                end
+                pool_var[i] = var_factor * mean_nonzero_elements_output.^2 + eps(FT) # mean of nonzero elements of variable, squared bc they usually normalize by sqrt of this value...
+            else
+                throw(ArgumentError("Normalization type $normalization_type not recognized."))
+            end
             # Normalize timeseries
+            # if normalize
+            #     if normalization_type == :pooled_variance
+            #         ts_var_i = var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) 
+            #     elseif normalization_type = :pooled_nonzero_mean_to_value
+            #         ts_var_i = var_[:, ti_index:tf_index] ./ pool_var[i] # not sure if it should be sqrt or not...
+            #     else
+            #         throw(ArgumentError("Normalization type $normalization_type not recognized."))
+            #     end
+            # else
+            #     ts_var_i = var_[:, ti_index:tf_index] # dims: (Nz, Nt)
+            # end
             ts_var_i = normalize ? var_[:, ti_index:tf_index] ./ sqrt(pool_var[i]) : var_[:, ti_index:tf_index] # dims: (Nz, Nt)
         elseif ndims(var_) == 1
             # Store pooled variance
-            pool_var[i] = var_factor * var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
+            if normalization_type == :pooled_variance
+                pool_var[i] = var_factor * var(var_[ti_index:tf_index]) + eps(FT) # time-variance of variable
+            elseif normalization_type == :pooled_nonzero_mean_to_value # convert the mean of non-zero values to 1
+                # pool_var[i] = var_factor * mean_nonzero_elements(var_[ti_index:tf_index]) + eps(FT) # mean of nonzero elements of variable  (should this be squared so the if block below isn't necessary?)
+                mean_nonzero_elements_output = mean_nonzero_elements(var_[ti_index:tf_index])
+                if iszero(mean_nonzero_elements_output) && !isnothing(characteristic_values)
+                    mean_nonzero_elements_output = get(characteristic_values, var_name, FT(0.0))
+                end
+                pool_var[i] = var_factor * mean_nonzero_elements_output.^2 + eps(FT)  # time-variance of variable, squared bc they usually normalize by sqrt of this value...
+            else
+                throw(ArgumentError("Normalization type $normalization_type not recognized."))
+            end
             # Normalize timeseries
+            # if normalize
+            #     if normalization_type == :pooled_variance
+            #         ts_var_i = Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i])
+            #     elseif normalization_type = :pooled_nonzero_mean_to_value
+            #         ts_var_i = Array(var_[ti_index:tf_index]') ./ pool_var[i] # not sure if it should be sqrt or not...
+            #     else
+            #         throw(ArgumentError("Normalization type $normalization_type not recognized."))
+            #     end
+            # else
+            #     ts_var_i = Array(var_[ti_index:tf_index]') # dims: (1, Nt)
+            # end
+               
             ts_var_i =
                 normalize ? Array(var_[ti_index:tf_index]') ./ sqrt(pool_var[i]) : Array(var_[ti_index:tf_index]') # dims: (1, Nt)
         else
@@ -534,26 +603,52 @@ function get_time_covariance(
         if !isnothing(model_error)
             var_model_error = normalize ? model_error[i] : model_error[i] * pool_var[i]
             model_error_expanded = cat(model_error_expanded, repeat([var_model_error], size(ts_var_i, 1)), dims = 1)
+            # probably should add something here to support other normalization types? or maybe it's fine bc, just not sure if it should be pool_var or squared or what
         end
+
+        # add additional uncertainty
+        if !isnothing(obs_var_additional_uncertainty_factor)
+            if isa(obs_var_additional_uncertainty_factor, FT)
+                obs_var_additional_uncertainty_factor_i = FT(obs_var_additional_uncertainty_factor)
+            elseif isa(obs_var_additional_uncertainty_factor, Dict)
+                obs_var_additional_uncertainty_factor_i = FT(get(obs_var_additional_uncertainty_factor, var_name, FT(0.0)))
+            end
+        else
+            obs_var_additional_uncertainty_factor_i = FT(0.0) # default to not adding anything...
+        end
+        obs_var_additional_uncertainty_vectors = cat(obs_var_additional_uncertainty_vectors, ts_var_i .* obs_var_additional_uncertainty_factor_i, dims=1)
     end
+
+    # set cov to be safe for NaNs
     if any(isnan,ts_vec)
         @warn "NaNs in ts_vec, switching to NaNStatistics"
         cov = NaNStatistics.nancov
     else
         cov = Statistics.cov # it keeps crashing if i dont put this, idk
     end
+
     cov_mat = cov(ts_vec, dims = 2)  # covariance, w/ samples across time dimension (t_inds).
     cov_mat = !isnothing(model_error) ? cov_mat + Diagonal(FT.(model_error_expanded)) : cov_mat
 
     # test doing the variance addition here scaled by the vector value mean across time
-    if !isnothing(obs_var_additional_uncertainty_factor)
-        obs_var_additional_uncertainty_factor = FT(obs_var_additional_uncertainty_factor)
-    else
-        obs_var_additional_uncertainty_factor = FT(0.0) # default to not adding anything...
-    end
-    var_addition_vec = mean(ts_vec, dims = 2)[:] .* obs_var_additional_uncertainty_factor # mean across time, times the factor
+    # if !isnothing(obs_var_additional_uncertainty_factor)
+    #     if isa(obs_var_additional_uncertainty_factor, FT)
+    #         obs_var_additional_uncertainty_factor = FT(obs_var_additional_uncertainty_factor)
+    #     elseif isa(obs_var_additional_uncertainty_factor, Dict)
+    #         obs_var_additional_uncertainty_factor = FT(obs_var_additional_uncertainty_factor[var_name])
+    #     end
+    # else
+    #     obs_var_additional_uncertainty_factor = FT(0.0) # default to not adding anything...
+    # end
+
+    # var_addition_vec = mean(ts_vec, dims = 2)[:] .* obs_var_additional_uncertainty_factor # mean across time, times the factor
+
     # if we wanted to do this by variable we would I guess want to construct this vector in the loop above?
-    cov_mat += Diagonal(var_addition_vec)
+    # cov_mat += Diagonal(obs_var_additional_uncertainty_vectors)
+    cov_mat += Diagonal(mean(obs_var_additional_uncertainty_vectors, dims=2)[:]) # mean across time, make diagonal, add to cov matrix
+
+    # If we've added uncertainty due to low variance, it doesn't change the fact that our covariances are near 0... should we add an option to add covariances? that get's dicey bcause we don't know magnitude or sign...
+    # we could try to use the 3D data as an alternative, but if we're not let's consider at best theyre perfectly correlated and cov(aX, bY) = a*b*cov(X,Y) = a*b*var(X)
 
     # Although we may have trimmed our data, NaNs in the data could appear after interpolation, so we need to handle that.
     cov_mat = replace(cov_mat, NaN => 0.0) # just like off diagonal blocks are 0, if we get a NaN out even after trimming, we'll just set it to 0. (if you did not trim your data) | ps, i think we get the same output if we don't trim? trimming might be worse bc it could allow the interpolant to work in areas that otherwise might have given NaN => 0.0
@@ -566,6 +661,8 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     perform_PCA = get_entry(reg_config, "perform_PCA", true)
     variance_loss = get_entry(reg_config, "variance_loss", 1.0e-2)
     normalize = get_entry(reg_config, "normalize", true)
+    normalization_type = get_entry(reg_config, "normalization_type", :pooled_variance)
+    characteristic_values = get_entry(ref_config, "characteristic_values", nothing)
     tikhonov_mode = get_entry(reg_config, "tikhonov_mode", "relative")
     tikhonov_noise = get_entry(reg_config, "tikhonov_noise", 1.0e-6)
     dim_scaling = get_entry(reg_config, "dim_scaling", true)
@@ -574,6 +671,8 @@ function get_ref_stats_kwargs(ref_config::Dict{Any, Any}, reg_config::Dict{Any, 
     return Dict(
         :perform_PCA => perform_PCA,
         :normalize => normalize,
+        :normalization_type => normalization_type,
+        :characteristic_values => characteristic_values,
         :variance_loss => variance_loss,
         :tikhonov_noise => tikhonov_noise,
         :tikhonov_mode => tikhonov_mode,

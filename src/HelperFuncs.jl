@@ -35,7 +35,8 @@ export vertical_interpolation,
     ParameterMap,
     do_nothing_param_map,
     expand_params,
-    namelist_subdict_by_key
+    namelist_subdict_by_key,
+    mean_nonzero_elements
 
 using NCDatasets
 using Statistics
@@ -540,6 +541,7 @@ function is_face_variable(filename::String, var_name::String)
                 end
             end
         end
+        error("Variable $var_name not found in the output netCDF file $filename in group profiles or reference.")
     end
 end
 
@@ -630,7 +632,7 @@ function compute_mse(g_mat::Matrix{FT}, y::Vector{FT})::Vector{FT} where {FT <: 
             # x = x[.!isnan.(x)]
             x = x[.!isnan.(y)] # filter out NaNs from y/truth as those are what force MSE to always be NaN, still allow for NaNs in g_mat
             if length(x) > 0
-                return dot(x, x) / length(x)
+                return dot(x, x) / length(x) # should this be current x or the original x length (is this outdated withour new interpolation methods for reference aanyway?)
             else
                 return 0.0 # add no error if there's no data to compare to
             end
@@ -861,6 +863,49 @@ function realpath_resolve_symlinks(
         tail = realpath_resolve_symlinks(tail, starting_point=head, use_shell=use_shell)
         return abspath(joinpath(head, tail))
     end
+end
+
+
+function mean_nonzero_elements(
+    arr::AbstractArray{FT, N};
+    dims::Union{Int, Vector{Int}, Nothing} = nothing,
+    all_zero::Union{Symbol, FT} = 0.0,
+    ) where {FT, N}
+    """
+    Compute the mean of the nonzero elements of an array along a given axis.
+    If all elements are zero, return 0. or throw an error.
+
+    We are using this for an alternate variance form that doesn't rely on pooled variance but allows normalizing the mean of all-nonzero elements to be 1.
+    
+    """
+
+    return_scalar = false
+    if isa(dims, Int)
+        dims = [dims]
+    elseif isa(dims, Nothing)
+        dims = 1:ndims(arr)
+        return_scalar = true # here we just return a scalar and assume mean meant to work over all variables
+    end
+
+    n_nonzero = count(!iszero, arr, dims=dims) # has same size as output should
+
+    out =  sum(arr, dims=dims) ./ count(!iszero, arr, dims=dims)
+
+    # replace indices with all zero with all_zero value
+    if any(iszero, n_nonzero)
+        if all_zero == :error
+            throw(ArgumentError("All elements are zero and you requested an error in that case."))
+        else
+            out[iszero.(n_nonzero)] .= all_zero
+        end
+    end
+
+    if return_scalar
+        return out[1]
+    else
+        return out
+    end
+    
 end
 
 end # module
