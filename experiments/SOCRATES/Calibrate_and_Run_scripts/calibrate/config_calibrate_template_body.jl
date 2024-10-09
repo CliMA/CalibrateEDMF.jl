@@ -29,12 +29,16 @@ Val_forcing_types = forcing_types
 flight_string  = flight_numbers == [1,9,10,11,12,13] ? "All" : join(string.(flight_numbers, pad=2), "_")
 forcing_types_str = join((x->split(string(x),"_")[1]).(forcing_types), "_")
 
+# join our defaults to the rest of the namelist
+local_namelist = [default_namelist_args; local_namelist] # add the default namelist args to the local namelist
 @info("local_namelist:", local_namelist)
 
+# join calibration_parameter dictionaries
+calibration_parameters = merge(default_calibration_parameters, calibration_parameters) # merge the default calibration parameters with the ones we've defined here (overwrite defaults if necessary)
 
 # consider adding a flag to just get the paths without overwriting existing files
 include(joinpath(main_experiment_dir, "process_SOCRATES_reference.jl")) # process the truth data into a format we can use for calibration
-if calibrate_to == "Flight_Observations"
+if calibrate_to == "Flight_Observations" 
     if !ismissing(t_bnds.obs_data)
         @info("Creating trimmed observational obs_data-forced data for calibration")
         _, obs_paths = process_SOCRATES_Flight_Observations_reference(out_vars=calibration_vars, fake_time_bnds = t_bnds.obs_data, out_dir=joinpath(experiment_dir, "Reference", "Flight_Observations"), truth_dir=truth_dir, overwrite=false) # create trimmed data for calibration so the covarainces aren't NaN (failed anyway cause i think after interpolation NaNs can return because the non-NaN data don't form a contiguous rectangle :/ )
@@ -114,7 +118,7 @@ function get_process_config()
     config["Δt"] = 1.0 # EKI learning rate
     config["scheduler"] = DataMisfitController(on_terminate = "continue") # costa said this should work better, see , ollie said 'try terminate_at' = some largish number...
     # Whether to augment the outputs with the parameters for regularization
-    config["augmented"] = true
+    config["augmented"] = true # costa set this to false?
     config["failure_handler"] = "sample_succ_gauss" #"high_loss" #"sample_succ_gauss"
     return config
 end
