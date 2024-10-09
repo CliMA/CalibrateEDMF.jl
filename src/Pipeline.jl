@@ -52,15 +52,33 @@ function init_calibration(config::Dict{Any, Any}; mode::String = "hpc", job_id::
 
     # clear out old files if we are restarting in an existing lcoation (but not if we didn't specify output to acciddentally delete whatever is in pwd())
     # we match file types just in case we accidentally speicied an output directory somewhere we shouldn't have...
-    if haskey(out_config, "outdir_root")
-        # outdir_root = out_config["outdir_root"]
+    # check if key exists in dictionary and if the directory exists
+    if haskey(out_config, "outdir_root") && isdir(out_config["outdir_root"])
+        @warn("Cleaning up old files in output directory: $(out_config["outdir_root"])")
+        outdir_root = out_config["outdir_root"]
+        files = readdir(outdir_root; join=true)
+        print(files)
         # delete ekobj_iter_#.jld2 files
+        map(file-> occursin(r"ekobj_iter_\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delete prior.jld2 files
-        # delete .txt files
-        # delete scm_initializer files
-        # delte scm_output_files
+        map(file-> occursin(r"prior.jld2", file) ?  rm(file; force=true) : nothing, files)
+        # delte scm_output_i#_e#.jld2 files
+        map(file-> occursin(r"scm_output_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
         # delete versions_#.txt files
-        @warn("Have not implemented cleaning up old files, but will do -- will make restarts in the same folder much easier...")
+        map(file-> occursin(r"versions_\d+.txt", file) ?  rm(file; force=true) : nothing, files)
+        # delete .txt files remaining (shold be hte random sequence.txt file left...)
+        map(file-> occursin(r".txt", file) ?  rm(file; force=true) : nothing, files)
+        # delete scm_initializer_i#_e#.jld2 files
+        map(file-> occursin(r"scm_initializer_i\d+_e\d+.jld2", file) ?  rm(file; force=true) : nothing, files)
+        # delete config.jl file
+        map(file-> occursin(r"config.jl", file) ?  rm(file; force=true) : nothing, files)
+        # delete Diagnostics.nc file
+        map(file-> occursin(r"Diagnostics.nc", file) ?  rm(file; force=true) : nothing, files)
+
+        # clear out tmp subdirectory if it exists
+        if isdir(joinpath(outdir_root, "tmp"))
+            rm(joinpath(outdir_root, "tmp"); recursive=true, force=true)
+        end
     end
 
     outdir_root = get_entry(out_config, "outdir_root", pwd())
@@ -266,6 +284,7 @@ function create_output_dir(
     end
 
     @info "Name of outdir path for this EKP is: $outdir_path"
+    outdir_path = HelperFuncs.realpath_resolve_symlinks(outdir_path, use_shell=false) # resolve symlinked paths (if the outdir_path leads to a symlink to a directory that doesn't exist yet, mkpath will fail)
     mkpath(outdir_path)
     if !isnothing(config_path)
         cp(config_path, joinpath(outdir_path, "config.jl"); force=true) # force to allow overwrites say to keep a consistent output directory
