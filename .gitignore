@@ -43,3 +43,6 @@ output
 
 # slurm logs not in output directory (I had some in global_parallel/slurm)
 **/slurm/*
+
+# deprecated stuff
+**/*deprecated*/*
