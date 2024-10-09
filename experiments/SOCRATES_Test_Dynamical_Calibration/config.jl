@@ -36,7 +36,7 @@ function get_config()
     # Define reference used in the inverse problem 
     config["reference"] = get_reference_config(SOCRATES_Train())
     # Define reference used for validation
-    config["validation"] = get_reference_config(SOCRATES_Val())
+    # config["validation"] = get_reference_config(SOCRATES_Val()) # No validation for now, until we maybe try calibrating everything together and then validating on a different flight
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -76,7 +76,7 @@ function get_regularization_config()
     # in UKI. Feel free to set treat these as hyperparameters.
     config["l2_reg"] = Dict(
         # entrainment parameters
-        "nn_ent_params" => repeat([0.0], 58),
+        # "nn_ent_params" => repeat([0.0], 58),
         "turbulent_entrainment_factor" => [5.0 / 60.0],
 
         # diffusion parameters
@@ -99,8 +99,8 @@ end
 
 function get_process_config()
     config = Dict()
-    config["N_iter"] = 50
-    config["N_ens"] = 50 # Must be 2p+1 when algorithm is "Unscented"
+    config["N_iter"] = 10 # reduced temporarily for testing
+    config["N_ens"] = 10 # Must be 2p+1 when algorithm is "Unscented"
     config["algorithm"] = "Inversion" # "Sampler", "Unscented", "Inversion"
     config["noisy_obs"] = false # Choice of covariance in evaluation of y_{j+1} in EKI. True -> Γy, False -> 0
     # Artificial time stepper of the EKI.
@@ -115,24 +115,67 @@ function get_reference_config(::SOCRATES_Train)
     config = Dict()
 
     # Setup SOCRATES run arguments I guess
-    flight_numbers = (9,)
-    aux_kwargs     = (,) # fill in later
-    # append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    flight_numbers = [13,]
+    forcing_types = [:obs_data,]
+    aux_kwargs = () # fill in later
+
+    setups = collect(Iterators.product(flight_numbers, forcing_types))[:]
+    setups = map(x -> Dict("flight_number" => x[1], "forcing_type" => x[2]), setups) # convert to list of dictionaries
+    # add this here because it seems to be called?
+    for setup in setups
+       name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
+       datafile = joinpath(this_dir, "Truth", name, "stats", name*".nc")
+       if isfile(datafile)
+           setup["datafile"] = datafile
+           setup["case_name"] = "SOCRATES_"*name
+       else
+           @warn("File $datafile does not exist")
+       end
+    end
+
+    NC.Dataset(joinpath(data_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+        for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
+            if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
+                setup["t_start"] = 10 * 3600.
+                setup["t_end"]   = 12 * 3600.
+            elseif setup["forcing_type"] == :ERA5_data # Use the start and end times from Table 2 in atlas, stored in SOCRATES_summary.nc that we created w/ a Python Jupyter notebook
+            _sum = NC.@select(SOCRATES_summary, flight_number == $flight_number)
+                t_start, t_end =  _sum["time_bnds"]
+                t_ref =  _sum["reference_time"][1] # we know this is hour 12
+                t_start, t_end =  map( x-> x.value, Dates.Second.([t_start,t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
+                setup["t_start"] = t_start
+                setup["t_end"] = t_end
+            else
+                error("invalid forcing_type: ", setup["forcing_type"])
+            end
+        end
+    end # SOCRATES_summary is closed
+
+    setups = filter(d -> haskey(d,"datafile"), setups) # filter out if datafile doesn't exist (11 :obsdata for example)
+    n_repeat = length(setups)
+    ref_dirs = [dirname(setup["datafile"]) for setup in setups]
     
     # need reference dirs from wherever i put my truth, maybe add a SOCRATESUtils to match les_utils etc.
     n_repeat = length(ref_dirs)
-    config["case_name"] = repeat(["SOCRATES"], n_repeat)
+    config["case_name"] = [setup["case_name"] for setup in setups]
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = SOCRATES()
-    config["Σ_reference_type"] = SOCRATES()
-    config["y_names"] =
+    config["y_reference_type"] = LES() # our reference is atlas LES
+    config["Σ_reference_type"] = LES()
+    calibrate_vars =  unique(map(x->x[1], collect(keys(default_data_vars)))) # unique to remove duplicate from different netcdf groups
+    config["y_names"] = repeat([calibrate_vars], n_repeat) # the variable we want to calibrate on
     config["y_dir"] = ref_dirs
-    config["t_start"] = repeat([0], n_repeat)
-    config["t_end"] = repeat([14.0 * 3600], n_repeat)
-    # Use full  timeseries for covariance (for us we just use what)?
-    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat) # might need to discard beginning for spinup etc..
-    config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
-    config["batch_size"] = 5 # 
+    # config["t_start"] = repeat([setup["t_start"]], n_repeat) # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
+    # config["t_end"] = repeat([setup["t_end"]], n_repeat) # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
+    config["t_start"] = repeat([1800], n_repeat) # shorter for test
+    config["t_end"] = repeat([3600], n_repeat) # shorter for testing
+    # Use full  timeseries for covariance (for us we just use what)? # for covariance
+    # config["Σ_t_start"] = repeat([11.0 * 3600], n_repeat) #  use hours 11-13 for comparison
+    # config["Σ_t_end"] = repeat([13.0 * 3600], n_repeat)  #  use hours 11-13 for comparison
+    config["Σ_t_start"] = repeat([2500], n_repeat) #  shorter for testing
+    config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
+    config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600. for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
+    # config["time_shift"] = config["time_shift"][] # test to see if vector here was the problem
+    # config["batch_size"] = n_repeat # has to be some divisor of n_repeat, default is n_repeat == length(ref_dirs) == number of setups
     config["write_full_stats"] = false
     return config
 end
@@ -140,25 +183,69 @@ end
 function get_reference_config(::SOCRATES_Val)
     config = Dict()
 
-    # Train on same thing? or waht do we do here        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # are these what we want to validate on? so theta_li, qt, for our dynamical calibration?
+    # Train on same thing? or waht do we do here      
 
-    flight_numbers = (9,) # just validate on same flight
-    aux_kwargs     = (,) # fill in later
-    # ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    flight_numbers = [13,] # just validate on same flight
+    forcing_types = [:obs_data,]
+    aux_kwargs     = () # fill in later
 
+    setups = collect(Iterators.product(flight_numbers, forcing_types))[:]
+    setups = map(x -> Dict("flight_number" => x[1], "forcing_type" => x[2]), setups) # convert to list of dictionaries
+    # add this here because it seems to be called?
+    for setup in setups
+       name = "RF"*string(setup["flight_number"],pad=2)*"_"*string(setup["forcing_type"])
+       datafile = joinpath(this_dir, "Truth", name, "stats", name*".nc")
+       if isfile(datafile)
+           setup["datafile"] = datafile
+           setup["case_name"] = "SOCRATES_"*name
+       else
+           @warn("File $datafile does not exist")
+       end
+    end
+
+    NC.Dataset(joinpath(data_dir, "SOCRATES_summary.nc"),"r") do SOCRATES_summary
+        for setup in setups # set up the periods we take our means over to match atlas (no idea what to do about the covariances, maybe just take the same values?)
+            if setup["forcing_type"] == :obs_data # From Atlas paper, hour 10-12 are used for comparing obs
+                setup["t_start"] = 10 * 3600.
+                setup["t_end"]   = 12 * 3600.
+            elseif setup["forcing_type"] == :ERA5_data # Use the start and end times from Table 2 in atlas, stored in SOCRATES_summary.nc that we created w/ a Python Jupyter notebook
+            _sum = NC.@select(SOCRATES_summary, flight_number == $flight_number)
+                t_start, t_end =  _sum["time_bnds"]
+                t_ref =  _sum["reference_time"][1] # we know this is hour 12
+                t_start, t_end =  map( x-> x.value, Dates.Second.([t_start,t_end] .- t_ref)) .+ (12 * 3600) # get the difference in seconds between t_start,t_end and t_ref = 12 hours, and add to the 12 hours to get the final values in seconds
+                setup["t_start"] = t_start
+                setup["t_end"] = t_end
+            else
+                error("invalid forcing_type: ", setup["forcing_type"])
+            end
+        end
+    end # SOCRATES_summary is closed
+
+    setups = filter(d -> haskey(d,"datafile"), setups) # filter out if datafile doesn't exist (11 :obsdata for example)
+    n_repeat = length(setups)
+    ref_dirs = [dirname(setup["datafile"]) for setup in setups]
+
+    # need reference dirs from wherever i put my truth, maybe add a SOCRATESUtils to match les_utils etc.
     n_repeat = length(ref_dirs)
-    config["case_name"] = repeat(["SOCRATES"], n_repeat)
+    config["case_name"] = [setup["case_name"] for setup in setups]
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = SOCRATES()
-    config["Σ_reference_type"] = SOCRATES()
-    config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # change here to qt, theta_li? (remove s for now or use theta_l for now since we have that)
+    config["y_reference_type"] = LES() # our reference is atlas LES
+    config["Σ_reference_type"] = LES()
+    calibrate_vars =  unique(map(x->x[1], collect(keys(default_data_vars)))) # unique to remove duplicate from different netcdf groups
+    config["y_names"] = repeat([calibrate_vars], n_repeat) # the variable we want to calibrate on
     config["y_dir"] = ref_dirs
-    config["t_start"] = repeat([0.0 * 3600], n_repeat)
-    config["t_end"] = repeat([14.0 * 3600], n_repeat)
-    # Use full LES timeseries for covariance (we will change to use what here, a timeseries from the les data? or what)
-    # config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
-    # config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
+    # config["t_start"] = repeat([setup["t_start"]], n_repeat) # I think should be 10 hr for Obs, and from Table 2 Atlas for ERA5
+    # config["t_end"] = repeat([setup["t_end"]], n_repeat) # I think should be 12 hr for Obs, and from Table 2 Atlas for ERA5
+    config["t_start"] = repeat([1800], n_repeat) # shorter for test
+    config["t_end"] = repeat([3600], n_repeat) # shorter for testing
+    # Use full  timeseries for covariance (for us we just use what)? # for covariance
+    # config["Σ_t_start"] = repeat([11.0 * 3600], n_repeat) #  use hours 11-13 for comparison
+    # config["Σ_t_end"] = repeat([13.0 * 3600], n_repeat)  #  use hours 11-13 for comparison
+    config["Σ_t_start"] = repeat([2500], n_repeat) #  shorter for testing
+    config["Σ_t_end"] = repeat([2*3600], n_repeat)  #  shorter for testing (spanning at least 600, our output frequency)
+    config["time_shift"] = [setup["forcing_type"] == :obs_data ? 12 * 3600. : 14 * 3600. for setup in setups] # The shift is essentially how far back from the end in LES data does the TC data start. Here they start at the same place so it's the full length of the ATLAS LES model (12 for obs, 14 for era), must also be float type
+    # config["time_shift"] = config["time_shift"][] # test to see if vector here was the problem
+    # config["batch_size"] = n_repeat # has to be some divisor of n_repeat, default is n_repeat == length(ref_dirs) == number of setups
     config["write_full_stats"] = false
     return config
 end
@@ -190,7 +277,7 @@ function get_prior_config()
     # TC.jl prior mean
     config["prior_mean"] = Dict(
         # entrainment parameters
-        "nn_ent_params" => 0.1 .* (rand(58) .- 0.5),
+        # "nn_ent_params" => 0.1 .* (rand(58) .- 0.5),
         "turbulent_entrainment_factor" => [0.075],
 
         # diffusion parameters
@@ -209,7 +296,7 @@ function get_prior_config()
         "surface_area" => [0.1],
     )
 
-    config["unconstrained_σ"] = 1.0
+    config["unconstrained_σ"] = 1.0 # just leave everyting variance 
     # Tight initial prior for Unscented
     # config["unconstrained_σ"] = 0.25
     return config
@@ -218,9 +305,9 @@ end
 function get_scm_config() # set all my namelist stuff here
     config = Dict()
     config["namelist_args"] = [
-        ("time_stepping", "dt_min", 1.0),
+        ("time_stepping", "dt_min", 0.5),
         ("time_stepping", "dt_max", 2.0),
-        ("stats_io", "frequency", 60.0),
+        ("time_stepping", "t_max", 14*3600.0),
         ("turbulence", "EDMF_PrognosticTKE", "entrainment", "None"),
         ("turbulence", "EDMF_PrognosticTKE", "ml_entrainment", "NN"),
         ("turbulence", "EDMF_PrognosticTKE", "area_limiter_power", 0.0),
