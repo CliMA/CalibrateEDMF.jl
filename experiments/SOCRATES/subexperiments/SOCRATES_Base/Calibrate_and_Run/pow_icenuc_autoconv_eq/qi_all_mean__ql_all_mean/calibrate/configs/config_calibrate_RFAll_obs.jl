@@ -12,11 +12,11 @@ supersat_type = :Base
 # calibration_setup (should match the directory names)
 calibration_setup = "pow_icenuc_autoconv_eq"
 # calibrate_to
-calibrate_to = "Atlas_LES" # "Atlas_LES" or "Flight_Observations"
+calibrate_to = "Atlas_LES"
 # SOCRATES setups
-flight_numbers = [1,9,10,11,12,13]
+flight_numbers = Vector{Int}([1, 9, 10, 11, 12, 13])
 # pad flight number to two digit string if is 1 digit
-forcing_types  = [:obs_data]
+forcing_types = Vector{Symbol}([:obs_data])
 
 experiment_dir = joinpath(pkg_dir, "experiments", "SOCRATES", "subexperiments", "SOCRATES_"*string(supersat_type))
 # ========================================================================================================================= #
@@ -31,53 +31,35 @@ t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.    
 
 # ========================================================================================================================= #
 # setup stuff (needs to be here for ekp_par_calibration.sbatch to read), can read fine as long as is after "=" sign
-N_ens  = 50 # number of ensemble members (neede)
-N_iter = 15 # number of iterations
+N_ens = 100
+N_iter = 20
 # ========================================================================================================================= #
-bounded_edge_σ = FT(1.0) # pow_icenuc really shouldn't vary that far...
-calibration_parameters_default = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
-    #
-    "pow_icenuc"      => Dict("prior_mean" => FT(default_params["pow_icenuc"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "pow_icenuc", "unconstrained_σ" => bounded_edge_σ), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    #
-    # "τ_acnv_rai"      => Dict("prior_mean" => FT(default_params["τ_acnv_rai"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "rain_autoconversion_timescale"), # bounded_below(0) = bounded(0,Inf) from EnsembleKalmanProcesses.jl
-    # "τ_acnv_sno"      => Dict("prior_mean" => FT(default_params["τ_acnv_sno"]["value"])      , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "snow_autoconversion_timescale"), 
-    # "q_liq_threshold" => Dict("prior_mean" => FT(default_params["q_liq_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_liquid_water_specific_humidity_autoconversion_threshold"),
-    # "q_ice_threshold" => Dict("prior_mean" => FT(default_params["q_ice_threshold"]["value"]) , "constraints" => bounded_below(0) , "l2_reg" => nothing, "CLIMAParameters_longname" => "cloud_ice_specific_humidity_autoconversion_threshold"),
-    ) # these aren't in the default_namelist so where should I put them?
-calibration_parameters = deepcopy(calibration_parameters_default) # copy the default parameters and edit them below should we ever wish to change this
 
-# global local_namelist = [] # i think if you use something like local_namelist = ... below inside the function it will just create a new local variable and not change this one, so we need to use global (i think we didnt need after switching to local_namelist_here but idk...)
+calibration_parameters = Dict( # The variables we wish to calibrate , these aren't in the namelist so we gotta add them to the local namelist...
+    ) # these aren't in the default_namelist so where should I put them?
+
+moisture_model = Dict("pow_icenuc_autoconv_eq" => "equilibrium", "tau_autoconv_noneq" => "nonequilibrium")
 local_namelist = [ # things in namelist that otherwise wouldn't be... (both random parameters and parameters we want to calibrate that we added ourselves that generate_namelist doesn't insert...)
     #
-    ("microphysics", "pow_icenuc"  , calibration_parameters["pow_icenuc"]["prior_mean"] ), # You'd think it was thermodynamics, but I think Parameters.jl TCP.thermodynamics_params sources from microphsyics... 
+    ("thermodynamics", "moisture_model", moisture_model[calibration_setup]), # choosing noneq for training...
     #
-    ("thermodynamics", "moisture_model", "equilibrium"), # choosing noneq for training...
-    ("microphysics", "precipitation_model", "None"), # testing no precipitation for now...
-    ("thermodynamics", "sgs", "mean"), # sgs has to be mean in noneq
-    # ("user_args", (;use_supersat=supersat_type) ) # we need supersat for non_eq results and the ramp for eq
-    #
-    # ("user_args", (;use_supersat=supersat_type, τ_use=:morrison_milbrandt_2015_style_exponential_part_only) ), # we need supersat for non_eq results and the ramp for eq, testing
-    #
-    ("turbulence", "EDMF_PrognosticTKE", "max_area", FT(.3)), # stability limiting...
+    # for user_args use the defaults in footer by default
 ]
 
+include(joinpath(main_experiment_dir, "subexperiments", "SOCRATES_"*string(supersat_type), "Calibrate_and_Run", calibration_setup, "calibration_parameters_and_namelist.jl")) # Load the files
+calibration_parameters = merge(calibration_parameters, calibration_parameters__experiment_setup)
+local_namelist = vcat(local_namelist, local_namelist__experiment_setup) # add the experiment setup to the local namelist
+
+# ========================================================================================================================= #
 calibration_vars = ["ql_all_mean", "qi_all_mean"]
-
 # ========================================================================================================================= #
 # ========================================================================================================================= #
 
-obs_var_additional_uncertainty_factor = 0.1  # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
-obs_var_additional_uncertainty_factor = Dict( # I hope this is in scaled space lmao... (so we'd be adding a variance of 1.0*obs_var value to the observation error variance), hope the mean is order 1 so the variance is reasonable...
-    "temperature_mean" => obs_var_additional_uncertainty_factor / 273, # scale down bc it's already so big for temperature, so divide by characteristic value to get ΔT ∼ obs_var_additional_uncertainty_factor instead... more like additive lol
-    "ql_mean"          => obs_var_additional_uncertainty_factor,
-    "qi_mean"          => obs_var_additional_uncertainty_factor,
-)
 # header_setup_choice = :simple # switch from :default to :simple calibration
 header_setup_choice = :default # switch from :default to :simple calibration
 
 # alt_scheduler = :default # missing for use default, nothing for default eki timestepper w/ learning rate
 alt_scheduler = DataMisfitController(on_terminate = "continue") # or just don't define it...
-
 
 variance_loss = 1.0e-5
 normalization_type = :pooled_nonzero_mean_to_value # let all variables have nonzero values mean 1, since we don't have a well defined variance or something to look at, and this way we can change our additional uncertainty factor freely
@@ -86,7 +68,7 @@ normalization_type = :pooled_nonzero_mean_to_value # let all variables have nonz
 # ========================================================================================================================= #
 
 
-include(joinpath(main_experiment_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_body.jl")) # load the template config file for the rest of operations#= Custom calibration configuration file. =#
+include(joinpath(main_experiment_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_footer.jl")) # load the template config file for the rest of operations#= Custom calibration configuration file. =#
 
 
 
