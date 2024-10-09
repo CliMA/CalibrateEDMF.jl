@@ -173,14 +173,14 @@ if add_new_calibration_vars
                             if occursin(r"#^t_max =", line) || occursin(r"#^t_max=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
                                 new_line = "t_max = 7*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing" # CHANGE TO 14 LATER
                                 @info "Replacing with: $new_line"
-                                run(`sed -i 's/#^t_max =.*'/$new_line/ $config_file_fullpath`)
+                                run(`sed -i 's/#^t_max *=.*'/$new_line/ $config_file_fullpath`)
                                 run(`sed -i 's/#^t_max=.*'/$new_line/ $config_file_fullpath`)
                             end
 
                             if occursin(r"#^t_bnds =", line) || occursin(r"#^t_bnds=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
                                 new_line = "t_bnds =  (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing" # remove this line later (to use reference period from paper)
                                 @info "Replacing with: $new_line"
-                                run(`sed -i 's/#^t_bnds =.*'/$new_line/ $config_file_fullpath`)
+                                run(`sed -i 's/#^t_bnds *=.*'/$new_line/ $config_file_fullpath`)
                                 run(`sed -i 's/#^t_bnds=.*'/$new_line/ $config_file_fullpath`)
                             end
                             
@@ -219,7 +219,7 @@ end
 
 
 
-edit_config_files = true
+edit_config_files = false
 if edit_config_files
     for experiment in experiments
         for setup in setups
@@ -259,7 +259,7 @@ if edit_config_files
                                 # new_line = "t_max = 12*3600.0 # gametime" #
 
                                 @info "Replacing with: $new_line"
-                                run(`sed -i 's/^t_max =.*'/$new_line/ $config_file_fullpath`)
+                                run(`sed -i 's/^t_max *=.*'/$new_line/ $config_file_fullpath`)
                                 run(`sed -i 's/^t_max=.*'/$new_line/ $config_file_fullpath`)
                             end
 
@@ -269,7 +269,7 @@ if edit_config_files
                                 # new_line = "t_bnds = (;obs_data = missing, ERA5_data = missing) # shorter for testing" # gametime
 
                                 @info "Replacing with: $new_line"
-                                run(`sed -i 's/^t_bnds =.*'/$new_line/ $config_file_fullpath`)
+                                run(`sed -i 's/^t_bnds *=.*'/$new_line/ $config_file_fullpath`)
                                 run(`sed -i 's/^t_bnds=.*'/$new_line/ $config_file_fullpath`)
                             end
                             
@@ -284,7 +284,137 @@ end
 
 
 
+setup_new_scripts = true
+if setup_new_scripts
+    template_file = joinpath(SOCRATES_dir, "Calibrate_and_Run_scripts", "calibrate", "config_calibrate_template_body.jl")
+    calibrate_to = "Atlas_LES" # "Atlas_LES" or "Flight_Observations"
+    flight_numbers = [1,9,10,11,12,13]
+    forcing_types  = [:obs_data]
+    N_ens  = 100 # number of ensemble members (needed)
+    N_iter = 20 # number of iterations
 
+    for experiment in experiments
+        supersat_type = split(experiment, "_"; limit = 2)[2]
+        for setup in setups
+            if (experiment, setup) in keys(last_calibration_vars) # the valid ones
+
+                for new_calibratation_vars in new_calibration_vars_list
+                    new_calibration_vars_str = join(sort(new_calibratation_vars), "__")
+                    @info "New calibration vars: $new_calibratation_vars"
+
+                    new_path = joinpath(SOCRATES_dir, "subexperiments", experiment, "Calibrate_and_Run", setup, new_calibration_vars_str)
+
+                    config_path = joinpath(new_path, "calibrate", "configs")
+                    new_config_file = joinpath(config_path, "config_calibrate_RFAll_obs.jl")
+                    old_config_file = joinpath(config_path, "config_calibrate_RFAll_obs_old.jl")
+
+                    test_file = joinpath(config_path, "config_calibrate_RFAll_obs_test.jl")
+
+                    run(`rm -rf $test_file`)
+
+                    # copy template file to new config file
+                    run(`rm -rf $old_config_file`)
+                    # run(`cp $new_config_file $old_config_file`)
+                    run(`cp $template_file $new_config_file`)
+
+                    # fix up the new config file
+                    for line in eachline(new_config_file)
+                        
+
+                        # ========================================================================================================================= #
+
+                        if occursin(r"^supersat_type *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "supersat_type = :$supersat_type"
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^supersat_type *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^calibration_setup *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "calibration_setup = \"$setup\"" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^calibration_setup *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^calibrate_to *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "calibrate_to = \"$calibrate_to\"" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^calibrate_to *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^flight_numbers *=", line)  # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "flight_numbers = Vector{Int}($flight_numbers)" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^flight_numbers *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^forcing_types *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "forcing_types = Vector{Symbol}($forcing_types)" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^forcing_types *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^calibration_vars *=", line) # ^ is start of line
+                            @info "Found line: $line"
+                            new_line = "calibration_vars = $new_calibratation_vars"
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/calibration_vars *=.*'/$new_line/ $new_config_file`) # replace calibration var sline
+                        end
+
+                        # ========================================================================================================================= #
+
+                        if occursin(r"^t_max *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "t_max = 7*3600.0 # shorter for testing (remember to change t_start, t_end, Σ_t_start, Σ_t_end in get_reference_config()# shorter for testing" # CHANGE TO 14 LATER
+                            # new_line = "t_max = 12*3600.0 # gametime" #
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^t_max *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^t_bnds *=", line)# delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "t_bnds = (;obs_data = (t_max-2*3600.    , t_max), ERA5_data = (t_max-2*3600.     , t_max)) # shorter for testing" # remove this line later (to use reference period from paper)
+                            # new_line = "t_bnds = (;obs_data = missing, ERA5_data = missing) # shorter for testing" # gametime
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^t_bnds *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^N_ens *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "N_ens = $N_ens" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^N_ens *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        if occursin(r"^N_iter *=", line) # delete these now that each variable pair gets its own folder (we did this mostly so we can run them simultaneously programatically (without needing to edit files))
+                            @info "Found commented line: $line"
+                            new_line = "N_iter = $N_iter" # remove this line later (to use reference period from paper)
+
+                            @info "Replacing with: $new_line"
+                            run(`sed -i 's/^N_iter *=.*'/$new_line/ $new_config_file`)
+                        end
+
+                        # ========================================================================================================================= #
+
+
+                    end
+                end
+            end
+        end
+    end
+end
 
 
 
