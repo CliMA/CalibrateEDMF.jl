@@ -19,8 +19,8 @@ using EnsembleKalmanProcesses
 using EnsembleKalmanProcesses.ParameterDistributions
 
 # Cases defined as structs for quick access to default configs
-struct SCT2Train end
-struct SCT2Val end
+struct SOCRATES_Train end
+struct SOCRATES_Val end
 
 function get_config()
     config = Dict()
@@ -29,9 +29,9 @@ function get_config()
     # Define regularization of inverse problem
     config["regularization"] = get_regularization_config()
     # Define reference used in the inverse problem 
-    config["reference"] = get_reference_config(SCT2Train())
+    config["reference"] = get_reference_config(SOCRATES_Train())
     # Define reference used for validation
-    config["validation"] = get_reference_config(SCT2Val())
+    config["validation"] = get_reference_config(SOCRATES_Val())
     # Define the parameter priors
     config["prior"] = get_prior_config()
     # Define the kalman process
@@ -106,65 +106,54 @@ function get_process_config()
     return config
 end
 
-function get_reference_config(::SCT2Train)
+function get_reference_config(::SOCRATES_Train)
     config = Dict()
 
-    # AMIP data: July
-    cfsite_numbers = (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip")
-    ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
-    # AMIP data: October
-    cfsite_numbers = (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 10, experiment = "amip")
-    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-    # AMIP data: January
-    cfsite_numbers = (2, 3, 5, 7, 9, 11, 13, 21, 22, 23)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 1, experiment = "amip")
-    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-    # AMIP data: April
-    cfsite_numbers = (2, 3, 5, 7, 9, 11, 13, 19, 21, 23)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 4, experiment = "amip")
-    append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
-
+    # Setup SOCRATES run arguments I guess
+    flight_numbers = (9,)
+    aux_kwargs     = (,) # fill in later
+    # append!(ref_dirs, [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers])
+    
+    # need reference dirs from wherever i put my truth, maybe add a SOCRATESUtils to match les_utils etc.
     n_repeat = length(ref_dirs)
-    config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
+    config["case_name"] = repeat(["SOCRATES"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = SOCRATES()
+    config["Σ_reference_type"] = SOCRATES()
     config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # are these what we want to validate on? so theta_li, qt, for our dynamical calibration?
     config["y_dir"] = ref_dirs
-    config["t_start"] = repeat([3.0 * 3600], n_repeat)
-    config["t_end"] = repeat([6.0 * 3600], n_repeat)
-    # Use full LES timeseries for covariance
-    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
+    config["t_start"] = repeat([0], n_repeat)
+    config["t_end"] = repeat([14.0 * 3600], n_repeat)
+    # Use full  timeseries for covariance (for us we just use what)?
+    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat) # might need to discard beginning for spinup etc..
     config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
-    config["batch_size"] = 5
+    config["batch_size"] = 5 # 
     config["write_full_stats"] = false
     return config
 end
 
-function get_reference_config(::SCT2Val)
+function get_reference_config(::SOCRATES_Val)
     config = Dict()
 
-    # AMIP4K data: July
-    cfsite_numbers = (3, 5, 8, 11, 14)
-    les_kwargs = (forcing_model = "HadGEM2-A", month = 7, experiment = "amip4K")
-    ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
+    # Train on same thing? or waht do we do here
+    flight_numbers = (9,) # just validate on same flight
+    aux_kwargs     = (,) # fill in later
+    # ref_dirs = [get_cfsite_les_dir(cfsite_number; les_kwargs...) for cfsite_number in cfsite_numbers]
 
     n_repeat = length(ref_dirs)
-    config["case_name"] = repeat(["LES_driven_SCM"], n_repeat)
+    config["case_name"] = repeat(["SOCRATES"], n_repeat)
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    config["y_reference_type"] = LES()
-    config["Σ_reference_type"] = LES()
+    config["y_reference_type"] = SOCRATES()
+    config["Σ_reference_type"] = SOCRATES()
     config["y_names"] =
-        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat)
+        repeat([["s_mean", "ql_mean", "qt_mean", "total_flux_qt", "total_flux_s", "u_mean", "v_mean"]], n_repeat) # change here to qt, theta_li?
     config["y_dir"] = ref_dirs
-    config["t_start"] = repeat([3.0 * 3600], n_repeat)
-    config["t_end"] = repeat([6.0 * 3600], n_repeat)
-    # Use full LES timeseries for covariance
-    config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
-    config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
+    config["t_start"] = repeat([0.0 * 3600], n_repeat)
+    config["t_end"] = repeat([14.0 * 3600], n_repeat)
+    # Use full LES timeseries for covariance (we will change to use what here, a timeseries from the les data? or what)
+    # config["Σ_t_start"] = repeat([-5.75 * 24 * 3600], n_repeat)
+    # config["Σ_t_end"] = repeat([6.0 * 3600], n_repeat)
     config["write_full_stats"] = false
     return config
 end
@@ -173,7 +162,8 @@ function get_prior_config()
     config = Dict()
     config["constraints"] = Dict(
         # entrainment parameters
-        "nn_ent_params" => [repeat([no_constraint()], 58)...],
+        # "nn_ent_params" => [repeat([no_constraint()], 58)...], # remove
+        # need to add entrainment parameters for moisture deficit clousure
         "turbulent_entrainment_factor" => [bounded(0.0, 10.0)],
 
         # diffusion parameters
@@ -220,7 +210,7 @@ function get_prior_config()
     return config
 end
 
-function get_scm_config()
+function get_scm_config() # set all my namelist stuff here
     config = Dict()
     config["namelist_args"] = [
         ("time_stepping", "dt_min", 1.0),
@@ -234,3 +224,4 @@ function get_scm_config()
     ]
     return config
 end
+

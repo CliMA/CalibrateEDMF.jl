@@ -89,7 +89,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real, IT <: Integer}
         tikhonov_noise::FT = 0.0,
         tikhonov_mode::String = "absolute",
         dim_scaling::Bool = false,
-        time_shift::FT = 6 * 3600.0,
+        time_shift::FT = 6 * 3600.0, # should be the reference time in the file, maybe this is 12*3600 for ours since that's the reference time? 
         model_errors::OptVec{T} = nothing,
         obs_var_scaling::Union{Dict, Nothing} = nothing,
     ) where {FT <: Real, T}
